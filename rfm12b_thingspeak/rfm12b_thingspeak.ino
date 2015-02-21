@@ -34,9 +34,12 @@ typedef struct message_t {
 // Variable Setup
 unsigned long lastConnectionTime = 0; 
 boolean lastConnectionStatus = false;
-unsigned int lastChannel = 0;
+unsigned int lastChannel = 1;
 unsigned int resetCounter = 0;
-String postString1, postString2, postString3;
+
+// the receiving rmf12b module itself is number 1, which is why it is not listed here 
+message_t message2, message3, message4, message5, message6, message7;
+byte update2 = 0, update3 = 0, update4 = 0, update5 = 0, update6 = 0, update7 = 0;
 
 /*******************************************************************************************************************/
 
@@ -82,7 +85,6 @@ void loop() {
   if (!client.connected() && lastConnectionStatus)
   {
     Serial.println();
-
     client.stop();
   }
 
@@ -110,33 +112,32 @@ void loop() {
       Serial.print(",\t");
       Serial.println(message->crc);
 
-      // Update ThingSpeak
+      // remember the received message
       if (!client.connected()) {
         switch (message->id) {
         case 2:
-          // LM35: V, T
-          postString1 += "&field1="+String(message->value1)+"&field2="+String(message->value2);
+          memcpy(&message2, message, sizeof(message_t));
+          update2 = 1;
           break;
         case 3:
-          // AM2301: V, T, H
-          postString1 += "&field3="+String(message->value1)+"&field4="+String(message->value2)+"&field5="+String(message->value3);
+          memcpy(&message3, message, sizeof(message_t));
+          update3 = 1;
           break;
         case 4:
-          // BMP085: V, T, P
-          // FIXME field 7 and 8 are swapped in the ThingSpeak channel
-          postString1 += "&field6="+String(message->value1)+"&field8="+String(message->value2)+"&field7="+String(message->value3);
+          memcpy(&message4, message, sizeof(message_t));
+          update4 = 1;
           break;
         case 5:
-          // 2x CNY50: V, KWh, M3
-          postString2 += "&field1="+String(message->value1)+"&field2="+String(message->value2)+"&field3="+String(message->value3);
+          memcpy(&message5, message, sizeof(message_t));
+          update5 = 1;
           break;
         case 6:
-          // 2x DS18B20: V, T, T
-          postString2 += "&field4="+String(message->value1)+"&field5="+String(message->value2)+"&field6="+String(message->value3);
+          memcpy(&message6, message, sizeof(message_t));
+          update6 = 1;
           break;
         case 7:
-          // BMP180 with ESP8266: V, T, P
-          postString3 += "&field1="+String(message->value1)+"&field2="+String(message->value2)+"&field3="+String(message->value3);
+          memcpy(&message7, message, sizeof(message_t));
+          update7 = 1;
           break;
         } // switch
 
@@ -148,77 +149,84 @@ void loop() {
     }
   }
 
-  // Update ThingSpeak
+  // update ThingSpeak
   if (!client.connected() && (millis() - lastConnectionTime > updateInterval)) {
 
-    if (lastChannel==1) {
-      if (postString2.length()>0) {
-        updateThingSpeak(postString2, writeAPIKey2);
-        postString2 = "";
-        lastChannel = 2;
-      }
-      else if (postString3.length()>0) {
-        updateThingSpeak(postString3, writeAPIKey3);
-        postString3 = "";
-        lastChannel = 3;
-      }
-      else if (postString1.length()>0) {
-        updateThingSpeak(postString1, writeAPIKey1);
-        postString1 = "";
-        lastChannel = 1;    
-      }
+    unsigned int thisChannel = 0;
+
+    // decide which channel should be updated
+    // this uses a round-robin scheme, starting from the next channel in line
+
+    switch (lastChannel) {
+    case 1:
+      if (update5 || update6)
+        thisChannel = 2;
+      else if (update7)
+        thisChannel = 3;
+      else if (update2 || update3 || update4)
+        thisChannel = 1;
+      break;
+
+    case 2:
+      if (update7)
+        thisChannel = 3;
+      else if (update2 || update3 || update4)
+        thisChannel = 1;
+      else if (update5 || update6)
+        thisChannel = 2;
+      break;
+
+    case 3:
+      if (update2 || update3 || update4)
+        thisChannel = 1;
+      else if (update5 || update6)
+        thisChannel = 2;
+      else if (update7)
+        thisChannel = 3;
+      break;
+    } //switch    
+
+    String postString;
+
+    if (thisChannel==1 && update2) {
+      // LM35: V, T
+      postString += "&field1="+String(message2.value1)+"&field2="+String(message2.value2);
+      update2 = 0;
     }
-    else if (lastChannel==2) {
-      if (postString3.length()>0) {
-        updateThingSpeak(postString3, writeAPIKey3);
-        postString3 = "";
-        lastChannel = 3;
-      }
-      else if (postString1.length()>0) {
-        updateThingSpeak(postString1, writeAPIKey1);
-        postString1 = "";
-        lastChannel = 1;    
-      }
-      else if (postString2.length()>0) {
-        updateThingSpeak(postString2, writeAPIKey2);
-        postString2 = "";
-        lastChannel = 2;
-      }
+    if (thisChannel==1 && update3) {
+      // AM2301: V, T, H
+      postString += "&field3="+String(message3.value1)+"&field4="+String(message3.value2)+"&field5="+String(message3.value3);
+      update3 = 0;
     }
-    else if (lastChannel==3) {
-      if (postString1.length()>0) {
-        updateThingSpeak(postString1, writeAPIKey1);
-        postString1 = "";
-        lastChannel = 1;    
-      }
-      else if (postString2.length()>0) {
-        updateThingSpeak(postString2, writeAPIKey2);
-        postString2 = "";
-        lastChannel = 2;
-      }
-      else if (postString3.length()>0) {
-        updateThingSpeak(postString3, writeAPIKey3);
-        postString3 = "";
-        lastChannel = 3;
-      }
+    if (thisChannel==1 && update4) {
+      // BMP085: V, T, P, NOTE field 7 and 8 are swapped in the ThingSpeak channel
+      postString += "&field6="+String(message4.value1)+"&field8="+String(message4.value2)+"&field7="+String(message4.value3);
+      update4 = 0;
     }
-    else {
-      if (postString1.length()>0) {
-        updateThingSpeak(postString1, writeAPIKey1);
-        postString1 = "";
-        lastChannel = 1;    
-      }
-      else if (postString2.length()>0) {
-        updateThingSpeak(postString2, writeAPIKey2);
-        postString2 = "";
-        lastChannel = 2;
-      }
-      else if (postString3.length()>0) {
-        updateThingSpeak(postString3, writeAPIKey3);
-        postString3 = "";
-        lastChannel = 3;
-      }
+    if (thisChannel==2 && update5) {
+      // 2x CNY50: V, KWh, M3
+      postString += "&field1="+String(message5.value1)+"&field2="+String(message5.value2)+"&field3="+String(message5.value3);
+      update5 = 0;
     }
+    if (thisChannel==2 && update6) {
+      // 2x DS18B20: V, T, T
+      postString += "&field4="+String(message6.value1)+"&field5="+String(message6.value2)+"&field6="+String(message6.value3);
+      update6 = 0;
+    }
+    if (thisChannel==3 && update7) {
+      // BMP180 with ESP8266: V, T, P
+      postString += "&field1="+String(message7.value1)+"&field2="+String(message7.value2)+"&field3="+String(message7.value3);
+      update7 = 0;
+    }
+
+    if (thisChannel==1)
+      updateThingSpeak(postString, writeAPIKey1);
+    if (thisChannel==2) 
+      updateThingSpeak(postString, writeAPIKey2);
+    if (thisChannel==3) 
+      updateThingSpeak(postString, writeAPIKey3);
+
+    lastChannel = thisChannel;
     lastConnectionTime = millis();
   }
 
@@ -233,7 +241,7 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
   { 
     Serial.println(F("Connected to ThingSpeak..."));
     Serial.println();
-    
+
     client.print(F("POST /update HTTP/1.1\n"));
     client.print(F("Host: api.thingspeak.com\n"));
     client.print(F("Connection: close\n"));
@@ -277,7 +285,7 @@ void resetEthernetShield()
 
 void receiveEvent(int howMany) {
   while (howMany-->0) {
-    int x = Wire.read();    // receive byte as an integer
+    int x = Wire.read(); // receive byte as an integer
     if (!bufblk)
       buf[bufptr++] = x; // insert into buffer
 
@@ -325,5 +333,6 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
+
 
 
