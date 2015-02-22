@@ -1,9 +1,10 @@
-// ethernet starts off from the DhcpAddressPrinter example   
+// ethernet starts off from http://arduino.cc/en/Tutorial/DhcpAddressPrinter
 // thingspeak starts off from http://community.thingspeak.com/arduino/ThingSpeakClient.pde
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <Wire.h>
+#include <MemoryFree.h>
 
 byte mac[] = {  
   0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
@@ -14,11 +15,11 @@ unsigned int bufblk = 0; // boolean to block buffer updates
 
 // ThingSpeak Settings
 IPAddress server(184, 106, 153, 149 );          // IP Address for the ThingSpeak API
-const String writeAPIKey1 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const String writeAPIKey2 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const String writeAPIKey3 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const int updateInterval = 30000;               // Time interval in milliseconds to update ThingSpeak, see https://thingspeak.com/docs/channels#rate_limits
 EthernetClient client;
+#define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+#define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+#define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+const unsigned long updateInterval = 30000;  // Time interval in milliseconds to update ThingSpeak, see https://thingspeak.com/docs/channels#rate_limits
 
 typedef struct message_t {
   unsigned long id;
@@ -34,12 +35,12 @@ typedef struct message_t {
 // Variable Setup
 unsigned long lastConnectionTime = 0; 
 boolean lastConnectionStatus = false;
-unsigned int lastChannel = 1;
+unsigned int lastChannel = 1; // this should start at 1, 2 or 3
 unsigned int resetCounter = 0;
 
 // the receiving rmf12b module itself is number 1, which is why it is not listed here 
 message_t message2, message3, message4, message5, message6, message7;
-byte update2 = 0, update3 = 0, update4 = 0, update5 = 0, update6 = 0, update7 = 0;
+boolean update2 = false, update3 = false, update4 = false, update5 = false, update6 = false, update7 = false;
 
 /*******************************************************************************************************************/
 
@@ -88,9 +89,15 @@ void loop() {
     client.stop();
   }
 
+
   if (bufblk) {
-    // the buffer is full and needs to be processed
+    // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
+
+    // Serial.print("freeMemory = ");
+    // Serial.println(freeMemory());
+    // Serial.print("interval = ");
+    // Serial.println(millis() - lastConnectionTime);
 
     unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
@@ -112,32 +119,32 @@ void loop() {
       Serial.print(",\t");
       Serial.println(message->crc);
 
-      // remember the received message
+      // store the received message
       if (!client.connected()) {
         switch (message->id) {
         case 2:
           memcpy(&message2, message, sizeof(message_t));
-          update2 = 1;
+          update2 = true;
           break;
         case 3:
           memcpy(&message3, message, sizeof(message_t));
-          update3 = 1;
+          update3 = true;
           break;
         case 4:
           memcpy(&message4, message, sizeof(message_t));
-          update4 = 1;
+          update4 = true;
           break;
         case 5:
           memcpy(&message5, message, sizeof(message_t));
-          update5 = 1;
+          update5 = true;
           break;
         case 6:
           memcpy(&message6, message, sizeof(message_t));
-          update6 = 1;
+          update6 = true;
           break;
         case 7:
           memcpy(&message7, message, sizeof(message_t));
-          update7 = 1;
+          update7 = true;
           break;
         } // switch
 
@@ -196,28 +203,31 @@ void loop() {
     if (thisChannel==1 && update3) {
       // AM2301: V, T, H
       postString += "&field3="+String(message3.value1)+"&field4="+String(message3.value2)+"&field5="+String(message3.value3);
-      update3 = 0;
+      update3 = false;
     }
     if (thisChannel==1 && update4) {
       // BMP085: V, T, P, NOTE field 7 and 8 are swapped in the ThingSpeak channel
       postString += "&field6="+String(message4.value1)+"&field8="+String(message4.value2)+"&field7="+String(message4.value3);
-      update4 = 0;
+      update4 = false;
     }
     if (thisChannel==2 && update5) {
       // 2x CNY50: V, KWh, M3
       postString += "&field1="+String(message5.value1)+"&field2="+String(message5.value2)+"&field3="+String(message5.value3);
-      update5 = 0;
+      update5 = false;
     }
     if (thisChannel==2 && update6) {
       // 2x DS18B20: V, T, T
       postString += "&field4="+String(message6.value1)+"&field5="+String(message6.value2)+"&field6="+String(message6.value3);
-      update6 = 0;
+      update6 = false;
     }
     if (thisChannel==3 && update7) {
       // BMP180 with ESP8266: V, T, P
       postString += "&field1="+String(message7.value1)+"&field2="+String(message7.value2)+"&field3="+String(message7.value3);
-      update7 = 0;
+      update7 = false;
     }
+
+    Serial.print("Updating channel = ");
+    Serial.println(thisChannel);
 
     if (thisChannel==1)
       updateThingSpeak(postString, writeAPIKey1);
@@ -333,6 +343,5 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
-
 
 
