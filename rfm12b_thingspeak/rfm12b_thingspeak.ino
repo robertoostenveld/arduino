@@ -6,6 +6,16 @@
 #include <Wire.h>
 #include <MemoryFree.h>
 
+#ifdef DEBUG
+ #define DEBUG_PRINT(x)     Serial.print (x)
+ #define DEBUG_PRINT(x, y)  Serial.print (x, y)
+ #define DEBUG_PRINTLN(x)   Serial.println (x)
+#else
+ #define DEBUG_PRINT(x)
+ #define DEBUG_PRINT2(x, y)
+ #define DEBUG_PRINTLN(x) 
+#endif
+
 byte mac[] = {  
   0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
 
@@ -79,13 +89,13 @@ void loop() {
   if (client.available())
   {
     char c = client.read();
-    Serial.print(c);
+    DEBUG_PRINT(c);
   }
 
   // Disconnect from ThingSpeak
   if (!client.connected() && lastConnectionStatus)
   {
-    Serial.println();
+    DEBUG_PRINTLN();
     client.stop();
   }
 
@@ -94,30 +104,30 @@ void loop() {
     // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
 
-    // Serial.print("freeMemory = ");
-    // Serial.println(freeMemory());
-    // Serial.print("interval = ");
-    // Serial.println(millis() - lastConnectionTime);
+    // DEBUG_PRINT("freeMemory = ");
+    // DEBUG_PRINTLN(freeMemory());
+    // DEBUG_PRINT("interval = ");
+    // DEBUG_PRINTLN(millis() - lastConnectionTime);
 
     unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
     if (message->crc==check) {
 
-      Serial.print(message->id);
-      Serial.print(",\t");
-      Serial.print(message->counter);
-      Serial.print(",\t");
-      Serial.print(message->value1, 2);
-      Serial.print(",\t");
-      Serial.print(message->value2, 2);
-      Serial.print(",\t");
-      Serial.print(message->value3, 2);
-      Serial.print(",\t");
-      Serial.print(message->value4, 2);
-      Serial.print(",\t");
-      Serial.print(message->value5, 2);
-      Serial.print(",\t");
-      Serial.println(message->crc);
+      DEBUG_PRINT(message->id);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT(message->counter);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT2(message->value1, 2);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT2(message->value2, 2);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT2(message->value3, 2);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT2(message->value4, 2);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINT2(message->value5, 2);
+      DEBUG_PRINT(",\t");
+      DEBUG_PRINTLN(message->crc);
 
       // store the received message
       if (!client.connected()) {
@@ -152,7 +162,7 @@ void loop() {
       bufblk = 0; // release buffer
     }
     else {
-      Serial.println(F("CRC mismatch"));
+      DEBUG_PRINTLN(F("CRC mismatch"));
     }
   }
 
@@ -195,6 +205,15 @@ void loop() {
 
     String postString;
 
+    DEBUG_PRINT("update2 = "); DEBUG_PRINTLN(update2);
+    DEBUG_PRINT("update3 = "); DEBUG_PRINTLN(update3);
+    DEBUG_PRINT("update4 = "); DEBUG_PRINTLN(update4);
+    DEBUG_PRINT("update5 = "); DEBUG_PRINTLN(update5);
+    DEBUG_PRINT("update6 = "); DEBUG_PRINTLN(update6);
+    DEBUG_PRINT("update7 = "); DEBUG_PRINTLN(update7);
+    DEBUG_PRINT("lastChannel = "); DEBUG_PRINTLN(lastChannel);
+    DEBUG_PRINT("thisChannel = "); DEBUG_PRINTLN(thisChannel);
+
     if (thisChannel==1 && update2) {
       // LM35: V, T
       postString += "&field1="+String(message2.value1)+"&field2="+String(message2.value2);
@@ -226,9 +245,6 @@ void loop() {
       update7 = false;
     }
 
-    Serial.print("Updating channel = ");
-    Serial.println(thisChannel);
-
     if (thisChannel==1)
       updateThingSpeak(postString, writeAPIKey1);
     if (thisChannel==2) 
@@ -249,8 +265,8 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
 {
   if (client.connect(server, 80))
   { 
-    Serial.println(F("Connected to ThingSpeak..."));
-    Serial.println();
+    DEBUG_PRINTLN(F("Connected to ThingSpeak..."));
+    DEBUG_PRINTLN();
 
     client.print(F("POST /update HTTP/1.1\n"));
     client.print(F("Host: api.thingspeak.com\n"));
@@ -268,8 +284,8 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
   }
   else
   {
-    Serial.println(F("Connection Failed."));   
-    Serial.println();
+    DEBUG_PRINTLN(F("Connection Failed."));   
+    DEBUG_PRINTLN();
 
     resetCounter++;
 
