@@ -20,8 +20,8 @@
 
 void setup() {
   // initialize the serial communication:
-  Serial.begin(57600);
-  Serial.print("\n[eegsynt_cvgate / ");
+  Serial.begin(115200);
+  Serial.print("\n[eegsynth_cvgate / ");
   Serial.print(__DATE__);
   Serial.print(" / ");
   Serial.print(__TIME__);
