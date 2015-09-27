@@ -1,3 +1,21 @@
+/*
+ * EEGSynth Arduino based CV/Gate controller. This sketch allows
+ * one to use control voltages and gates to interface a computer
+ * through an Arduino with an analog synthesizer. The hardware 
+ * comprises an Arduino Nano v3.0 with a MCP4725 12-bit DAC.
+ * Optionally it can be extended with a number of sample-and-hold
+ * ICs, a step-up voltage converter and some opamps.
+ *
+ * Some example sequences of characters are
+ *   *c1v1024#  control 1 voltage 5*1024/4095 = 1.25 V
+ *   *g1v1#     gate 1 value ON
+ *
+ * This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.
+ * See http://creativecommons.org/licenses/by-sa/4.0/ 
+ *
+ * Copyright (C) 2015, Robert Oostenveld, http://www.eegsynth.org/
+ */
+
 #include <Wire.h>//Include the Wire library to talk I2C
 
 #define voltage1pin    2      // the pin controlling the voltage output
@@ -74,10 +92,7 @@ void loop() {
 
   if (Serial.available()) {
 
-    // possible sequences of characters are
-    // *c1v1024#  control 1 voltage 5*1024/4095 = 1.25 V
-    // *g1v1#     gate 1 value ON
-
+    // parse the input over the serial connection
     b = Serial.read();
     if (b == '*') {
       Serial.readBytes(&b, 1);
