@@ -1,20 +1,20 @@
 /*
- * EEGSynth Arduino based CV/Gate controller. This sketch allows
- * one to use control voltages and gates to interface a computer
- * through an Arduino with an analog synthesizer. The hardware 
- * comprises an Arduino Nano v3.0 with a MCP4725 12-bit DAC.
- * Optionally it can be extended with a number of sample-and-hold
- * ICs, a step-up voltage converter and some opamps.
- *
- * Some example sequences of characters are
- *   *c1v1024#  control 1 voltage 5*1024/4095 = 1.25 V
- *   *g1v1#     gate 1 value ON
- *
- * This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.
- * See http://creativecommons.org/licenses/by-sa/4.0/ 
- *
- * Copyright (C) 2015, Robert Oostenveld, http://www.eegsynth.org/
- */
+* EEGSynth Arduino based CV/Gate controller. This sketch allows
+* one to use control voltages and gates to interface a computer
+* through an Arduino with an analog synthesizer. The hardware
+* comprises an Arduino Nano v3.0 with a MCP4725 12-bit DAC.
+* Optionally it can be extended with a number of sample-and-hold
+* ICs, a step-up voltage converter and some opamps.
+*
+* Some example sequences of characters are
+*   *c1v1024#  control 1 voltage 5*1024/4095 = 1.25 V
+*   *g1v1#     gate 1 value ON
+*
+* This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.
+* See http://creativecommons.org/licenses/by-sa/4.0/
+*
+* Copyright (C) 2015, Robert Oostenveld, http://www.eegsynth.org/
+*/
 
 #include <Wire.h>//Include the Wire library to talk I2C
 
@@ -45,6 +45,7 @@
 // these remember the state of all CV and gate outputs
 int voltage1 = 0, voltage2 = 0, voltage3 = 0, voltage4 = 0;
 int gate1 = 0, gate2 = 0, gate3 = 0, gate4 = 0;
+int enable1 = 1, enable2 = 0, enable3 = 0, enable4 = 0;
 
 void sampleAndHold(int pin, uint16_t value) {
   uint8_t msb, lsb;
@@ -127,19 +128,19 @@ void loop() {
       switch (channel) {
         case 1:
           voltage1 = value;
-          status = OK;
+          status = (enable1 ? OK : ERROR);
           break;
         case 2:
           voltage2 = value;
-          status = OK;
+          status = (enable2 ? OK : ERROR);
           break;
         case 3:
           voltage3 = value;
-          status = OK;
+          status = (enable3 ? OK : ERROR);
           break;
         case 4:
           voltage4 = value;
-          status = OK;
+          status = (enable4 ? OK : ERROR);
           break;
         default:
           status = ERROR;
@@ -177,15 +178,23 @@ void loop() {
       Serial.println("error");
   }
   else {
-    // refresh all output channels
-    sampleAndHold(voltage1pin, voltage1);
-    sampleAndHold(voltage2pin, voltage2);
-    sampleAndHold(voltage3pin, voltage3);
-    sampleAndHold(voltage4pin, voltage4);
-    digitalWrite(gate1pin, gate1);
-    digitalWrite(gate2pin, gate2);
-    digitalWrite(gate3pin, gate3);
-    digitalWrite(gate4pin, gate4);
+    // refresh all enabled output channels
+    if (enable1) {
+      sampleAndHold(voltage1pin, voltage1);
+      digitalWrite(gate1pin, gate1);
+    }
+    if (enable2) {
+      sampleAndHold(voltage2pin, voltage2);
+      digitalWrite(gate2pin, gate2);
+    }
+    if (enable3) {
+      sampleAndHold(voltage3pin, voltage3);
+      digitalWrite(gate3pin, gate3);
+    }
+    if (enable4) {
+      sampleAndHold(voltage4pin, voltage4);
+      digitalWrite(gate4pin, gate4);
+    }
   }
 } //main
 
