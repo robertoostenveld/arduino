@@ -5,15 +5,16 @@
 #include <Ethernet.h>
 #include <Wire.h>
 #include <MemoryFree.h>
+#include "secret.h"
 
 #ifdef DEBUG
- #define DEBUG_PRINT(x)     Serial.print (x)
- #define DEBUG_PRINT(x, y)  Serial.print (x, y)
- #define DEBUG_PRINTLN(x)   Serial.println (x)
+#define DEBUG_PRINT(x)     Serial.print (x)
+#define DEBUG_PRINT(x, y)  Serial.print (x, y)
+#define DEBUG_PRINTLN(x)   Serial.println (x)
 #else
- #define DEBUG_PRINT(x)
- #define DEBUG_PRINT2(x, y)
- #define DEBUG_PRINTLN(x) 
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT2(x, y)
+#define DEBUG_PRINTLN(x) 
 #endif
 
 byte mac[] = {  
@@ -26,9 +27,13 @@ unsigned int bufblk = 0; // boolean to block buffer updates
 // ThingSpeak Settings
 IPAddress server(184, 106, 153, 149 );          // IP Address for the ThingSpeak API
 EthernetClient client;
-#define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
-#define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
-#define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+/*
+ * these are included from the secret.h file
+ #define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ #define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ #define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ */
+
 const unsigned long updateInterval = 30000;  // Time interval in milliseconds to update ThingSpeak, see https://thingspeak.com/docs/channels#rate_limits
 
 typedef struct message_t {
@@ -205,14 +210,22 @@ void loop() {
 
     String postString;
 
-    DEBUG_PRINT("update2 = "); DEBUG_PRINTLN(update2);
-    DEBUG_PRINT("update3 = "); DEBUG_PRINTLN(update3);
-    DEBUG_PRINT("update4 = "); DEBUG_PRINTLN(update4);
-    DEBUG_PRINT("update5 = "); DEBUG_PRINTLN(update5);
-    DEBUG_PRINT("update6 = "); DEBUG_PRINTLN(update6);
-    DEBUG_PRINT("update7 = "); DEBUG_PRINTLN(update7);
-    DEBUG_PRINT("lastChannel = "); DEBUG_PRINTLN(lastChannel);
-    DEBUG_PRINT("thisChannel = "); DEBUG_PRINTLN(thisChannel);
+    DEBUG_PRINT("update2 = "); 
+    DEBUG_PRINTLN(update2);
+    DEBUG_PRINT("update3 = "); 
+    DEBUG_PRINTLN(update3);
+    DEBUG_PRINT("update4 = "); 
+    DEBUG_PRINTLN(update4);
+    DEBUG_PRINT("update5 = "); 
+    DEBUG_PRINTLN(update5);
+    DEBUG_PRINT("update6 = "); 
+    DEBUG_PRINTLN(update6);
+    DEBUG_PRINT("update7 = "); 
+    DEBUG_PRINTLN(update7);
+    DEBUG_PRINT("lastChannel = "); 
+    DEBUG_PRINTLN(lastChannel);
+    DEBUG_PRINT("thisChannel = "); 
+    DEBUG_PRINTLN(thisChannel);
 
     if (thisChannel==1 && update2) {
       // LM35: V, T
@@ -245,14 +258,19 @@ void loop() {
       update7 = false;
     }
 
-    if (thisChannel==1)
+    if (thisChannel==1) {
       updateThingSpeak(postString, writeAPIKey1);
-    if (thisChannel==2) 
+      lastChannel = thisChannel;
+    }
+    if (thisChannel==2) {
       updateThingSpeak(postString, writeAPIKey2);
-    if (thisChannel==3) 
+      lastChannel = thisChannel;
+    }
+    if (thisChannel==3) {
       updateThingSpeak(postString, writeAPIKey3);
+      lastChannel = thisChannel;
+    }
 
-    lastChannel = thisChannel;
     lastConnectionTime = millis();
   }
 
@@ -359,5 +377,6 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
+
 
 
