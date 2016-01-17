@@ -27,8 +27,10 @@ unsigned int bufblk = 0; // boolean to block buffer updates
 // ThingSpeak Settings
 IPAddress server(184, 106, 153, 149 );          // IP Address for the ThingSpeak API
 EthernetClient client;
+
 /*
- * these are included from the secret.h file
+ * The following are defined in secret.h
+ *
  #define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
  #define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
  #define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel

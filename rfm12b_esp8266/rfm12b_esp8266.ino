@@ -1,11 +1,9 @@
 #include <stdlib.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BMP085_U.h>   // https://learn.adafruit.com/bmp085/using-the-bmp085-api-v2
 #include <RF12.h>                // https://github.com/jcw/jeelib
+#include "secret.h"
 
-#define BLIP_DEBUG
 #define BLIP_NODE 1  // set this to a unique ID to disambiguate multiple nodes
 #define BLIP_GRP  17 // wireless net group to use for sending blips
 
@@ -14,23 +12,28 @@
 #define SOFTWARE_TX 6
 #define SOFTWARE_RX 7
 
-#define SSID "E900"
-#define PASS "XXXXXX"
 #define IP   "184.106.153.149" // thingspeak.com
 
-const String writeAPIKey1 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const String writeAPIKey2 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const String writeAPIKey3 = "XXXXXXXXXXXXXXXX"; // Write API Key for a ThingSpeak Channel
-const unsigned long updateInterval = 30000;     // interval in milliseconds between updates, see https://thingspeak.com/docs/channels#rate_limits
+/*
+ * The following are defined in secret.h
+ * 
+ #define SSID "XXXXX"
+ #define PASS "XXXXX"
+ #define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ #define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ #define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
+ */
 
-boolean lastConnectionStatus;
+void(* resetArduino) (void) = 0; //declare reset function at address 0
+
+const unsigned long updateInterval = 30000; // interval in milliseconds between updates, see https://thingspeak.com/docs/channels#rate_limits
+
+// Variable Setup
 unsigned long lastConnectionTime = 0; 
-unsigned int lastChannel = 0;
-String postString1, postString2;
+boolean lastConnectionStatus = false;
+unsigned int lastChannel = 1; // this should start at 1, 2 or 3
 
 SoftwareSerial wifi(SOFTWARE_RX, SOFTWARE_TX);
-
-Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
 
 typedef struct message_t {
   unsigned long id;
@@ -43,45 +46,36 @@ typedef struct message_t {
   unsigned long crc;
 };
 
-message_t message;
+// the receiving rmf12b module itself is number 1, which is why it is not listed here 
+message_t message2, message3, message4, message5, message6, message7;
+boolean update2 = false, update3 = false, update4 = false, update5 = false, update6 = false, update7 = false;
 
 /*****************************************************************************/
 
 void setup () {
-#ifdef BLIP_DEBUG
   Serial.begin(57600);
   Serial.print("\n[rfm12b_esp2866 / ");
   Serial.print(__DATE__);
   Serial.print(" / ");
   Serial.print(__TIME__);
   Serial.println("]");
-#endif
-
-  wifi.begin(9600);
 
   pinMode(RF_CHIPSELECT, OUTPUT);
   rf12_set_cs(RF_CHIPSELECT);
   rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
 
-  /* Initialise the BMP180 sensor */
-  if(!bmp.begin()) {
-    Serial.println("Ooops, no BMP180 detected ... Check your wiring or I2C ADDR!");
-    //while(1);
-  }
-  else {
-    Serial.println("BMP180 detected.");
-    displaySensorDetails();
-  }
+  wifi.begin(9600);
 
   sendDebug("AT");
   delay(5000);
+
   if(wifi.find("OK")){
     Serial.println("RECEIVED: OK");
     lastConnectionStatus = connectWiFi();
   }
   else{
     Serial.println("Ooops, no ESP2866 detected ... Check your wiring!");
-    //while(1);
+    resetArduino();
   }
 }
 
@@ -113,92 +107,161 @@ void loop () {
       // volatile byte rf12_data - A pointer to the received data.
       // volatile byte rf12_crc  - CRC of the received packet, zero indicates correct reception. If != 0 then rf12_hdr, rf12_len, and rf12_data should not be relied upon.
 
-      memcpy(&message, (void *)rf12_data, sizeof(message_t));
+      message_t *message = (message_t *)rf12_data;
 
-      unsigned long check = crc_buf((char *)&message, sizeof(message_t) - sizeof(unsigned long));
-      if (message.crc==check) {
+      unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
-        switch (message.id) {
+      if (message->crc==check) {
+
+        switch (message->id) {
         case 2:
-          // LM35: V, T
-          postString1 += "&field1="+String(message.value1)+"&field2="+String(message.value2);
+          memcpy(&message2, message, sizeof(message_t));
+          update2 = true;
           break;
         case 3:
-          // AM2301: V, T, H
-          postString1 += "&field3="+String(message.value1)+"&field4="+String(message.value2)+"&field5="+String(message.value3);
+          memcpy(&message3, message, sizeof(message_t));
+          update3 = true;
           break;
         case 4:
-          // BMP085: V, T, P
-          // FIXME field 7 and 8 are swapped in the ThingSpeak channel
-          postString1 += "&field6="+String(message.value1)+"&field8="+String(message.value2)+"&field7="+String(message.value3);
+          memcpy(&message4, message, sizeof(message_t));
+          update4 = true;
           break;
         case 5:
-          // 2x CNY50: V, KWh, M3
-          postString2 += "&field1="+String(message.value1)+"&field2="+String(message.value2)+"&field3="+String(message.value3);
+          memcpy(&message5, message, sizeof(message_t));
+          update5 = true;
           break;
         case 6:
-          // 2x DS18B20: V, T, T
-          postString2 += "&field4="+String(message.value1)+"&field5="+String(message.value2)+"&field6="+String(message.value3);
+          memcpy(&message6, message, sizeof(message_t));
+          update6 = true;
+          break;
+        case 7:
+          memcpy(&message7, message, sizeof(message_t));
+          update7 = true;
           break;
         } // switch
       }
       else {
         Serial.print("checksum mismatch ");
-        Serial.print(message.crc);
+        Serial.print(message->crc);
         Serial.print(" != ");
         Serial.println(check);
       }
 
       // DISPLAY DATA
-      Serial.print(message.id);
+      Serial.print(message->id);
       Serial.print(",\t");
-      Serial.print(message.counter);
+      Serial.print(message->counter);
       Serial.print(",\t");
-      Serial.print(message.value1, 2);
+      Serial.print(message->value1, 2);
       Serial.print(",\t");
-      Serial.print(message.value2, 2);
+      Serial.print(message->value2, 2);
       Serial.print(",\t");
-      Serial.print(message.value3, 2);
+      Serial.print(message->value3, 2);
       Serial.print(",\t");
-      Serial.print(message.value4, 2);
+      Serial.print(message->value4, 2);
       Serial.print(",\t");
-      Serial.print(message.value5, 2);
+      Serial.print(message->value5, 2);
       Serial.print(",\t");
-      Serial.println(message.crc);
+      Serial.println(message->crc);
     }
   }
 
-  // Send the most recent data to ThingSpeak
-  if ((millis() - lastConnectionTime) > updateInterval) {
+  // update ThingSpeak
+  if (millis() - lastConnectionTime > updateInterval) {
 
-    // we can only connect once every 15 seconds 
-    // only a single channel can be updated per connection
+    unsigned int thisChannel = 0;
 
-    if (lastChannel==2 && postString1.length()>0) {
-      Serial.println("Updating channel 1");
-      lastConnectionStatus = updateThingSpeak(postString1, writeAPIKey1);
-      postString1 = "";
-      lastChannel = 1;    
+    // decide which channel should be updated
+    // this uses a round-robin scheme, starting from the next channel in line
+
+    switch (lastChannel) {
+    case 1:
+      if (update5 || update6)
+        thisChannel = 2;
+      else if (update7)
+        thisChannel = 3;
+      else if (update2 || update3 || update4)
+        thisChannel = 1;
+      break;
+
+    case 2:
+      if (update7)
+        thisChannel = 3;
+      else if (update2 || update3 || update4)
+        thisChannel = 1;
+      else if (update5 || update6)
+        thisChannel = 2;
+      break;
+
+    case 3:
+      if (update2 || update3 || update4)
+        thisChannel = 1;
+      else if (update5 || update6)
+        thisChannel = 2;
+      else if (update7)
+        thisChannel = 3;
+      break;
+    } //switch    
+
+
+    if (thisChannel) {
+      // one of the channels should be updated
+
+      Serial.print(update2);
+      Serial.print(update3);
+      Serial.print(update4);
+      Serial.print(update5);
+      Serial.print(update6);
+      Serial.println(update7);
+
+      Serial.print("lastChannel = ");
+      Serial.println(lastChannel);
+      Serial.print("thisChannel = ");
+      Serial.println(thisChannel);
+
+      String postString;
+
+      if (thisChannel==1 && update2) {
+        // LM35: V, T
+        postString += "&field1="+String(message2.value1)+"&field2="+String(message2.value2);
+        update2 = 0;
+      }
+      if (thisChannel==1 && update3) {
+        // AM2301: V, T, H
+        postString += "&field3="+String(message3.value1)+"&field4="+String(message3.value2)+"&field5="+String(message3.value3);
+        update3 = false;
+      }
+      if (thisChannel==1 && update4) {
+        // BMP085: V, T, P, NOTE field 7 and 8 are swapped in the ThingSpeak channel
+        postString += "&field6="+String(message4.value1)+"&field8="+String(message4.value2)+"&field7="+String(message4.value3);
+        update4 = false;
+      }
+      if (thisChannel==2 && update5) {
+        // 2x CNY50: V, KWh, M3
+        postString += "&field1="+String(message5.value1)+"&field2="+String(message5.value2)+"&field3="+String(message5.value3);
+        update5 = false;
+      }
+      if (thisChannel==2 && update6) {
+        // 2x DS18B20: V, T, T
+        postString += "&field4="+String(message6.value1)+"&field5="+String(message6.value2)+"&field6="+String(message6.value3);
+        update6 = false;
+      }
+      if (thisChannel==3 && update7) {
+        // BMP180 with ESP8266: V, T, P
+        postString += "&field1="+String(message7.value1)+"&field2="+String(message7.value2)+"&field3="+String(message7.value3);
+        update7 = false;
+      }
+
+      if (thisChannel==1)
+        updateThingSpeak(postString, writeAPIKey1);
+      if (thisChannel==2) 
+        updateThingSpeak(postString, writeAPIKey2);
+      if (thisChannel==3) 
+        updateThingSpeak(postString, writeAPIKey3);
+
+      lastChannel = thisChannel;
+      lastConnectionTime = millis();
     }
-    else if (lastChannel==1 && postString2.length()>0) {
-      Serial.println("Updating channel 2");
-      lastConnectionStatus = updateThingSpeak(postString2, writeAPIKey2);
-      postString2 = "";
-      lastChannel = 2;
-    }
-    else if (postString1.length()>0) {
-      Serial.println("Updating channel 1");
-      lastConnectionStatus = updateThingSpeak(postString1, writeAPIKey1);
-      postString1 = "";
-      lastChannel = 1;
-    }
-    else if (postString2.length()>0) {
-      Serial.println("Updating channel 2");
-      lastConnectionStatus = updateThingSpeak(postString2, writeAPIKey2);
-      postString2 = "";
-      lastChannel = 2;
-    }
-    lastConnectionTime = millis();
   }
 
 } // loop
@@ -270,79 +333,20 @@ unsigned long crc_string(char *s)
 
 /*****************************************************************************/
 
-void displaySensorDetails(void)
-{
-  sensor_t sensor;
-  bmp.getSensor(&sensor);
-  Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); 
-  Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); 
-  Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    "); 
-  Serial.println(sensor.sensor_id);
-  Serial.print  ("Max Value:    "); 
-  Serial.print(sensor.max_value); 
-  Serial.println(" hPa");
-  Serial.print  ("Min Value:    "); 
-  Serial.print(sensor.min_value); 
-  Serial.println(" hPa");
-  Serial.print  ("Resolution:   "); 
-  Serial.print(sensor.resolution); 
-  Serial.println(" hPa");  
-  Serial.println("------------------------------------");
-  Serial.println("");
-  delay(500);
-}
-
-/*****************************************************************************/
-
-void getSensorMeasurement(void) 
-{
-  boolean stable = false;
-  float pressure, temperature;
-
-  bmp.getTemperature(&temperature);
-  bmp.getPressure(&pressure);
-
-  message.value1      = 0.001*readVcc(); // this is in mV, we want V
-  message.value2      = temperature;     // this is in Celcius
-  message.value3      = 0.01*pressure;   // this is in Pa, we want hPa, i.e. mbar
-  message.counter    += 1;
-  message.crc         = crc_buf((char *)&message, sizeof(message_t) - sizeof(unsigned long));
-
-  // DISPLAY DATA
-#ifdef BLIP_DEBUG
-  Serial.print("BMP180,\t");
-  Serial.print(message.id);
-  Serial.print(",\t");
-  Serial.print(message.counter);
-  Serial.print(",\t");
-  Serial.print(message.value1, 2);
-  Serial.print(",\t");
-  Serial.print(message.value2, 2);
-  Serial.print(",\t");
-  Serial.print(message.value3, 2);
-  Serial.print(",\t");
-  Serial.print(message.value4, 2);
-  Serial.print(",\t");
-  Serial.print(message.value5, 2);
-  Serial.print(",\t");
-  Serial.println(message.crc);
-#endif
-}
-
-/*****************************************************************************/
-
 void sendDebug(String cmd){
   Serial.print("SEND: ");
   Serial.println(cmd);
   Serial.flush();
   wifi.println(cmd);
+  wifi.flush();
 } // sendDebug
 
 boolean resetWiFi(){
-  String cmd = "AT+RST";
+  String cmd;
+  cmd = "AT+RST";
+  sendDebug(cmd);
+  delay(2000);
+  cmd = "AT+CWMODE=1";
   sendDebug(cmd);
   delay(2000);
   if(wifi.find("OK")){
@@ -356,18 +360,7 @@ boolean resetWiFi(){
 } // resetWiFi
 
 boolean connectWiFi(){
-  String cmd = "AT+CWMODE=1";
-  sendDebug(cmd);
-  delay(2000);
-  if(wifi.find("OK")){
-    Serial.println("RECEIVED: OK");
-    return true;
-  }
-  else{
-    Serial.println("RECEIVED: Error");
-    return false;
-  }
-  cmd  = "AT+CWJAP=\"";
+  String cmd = "AT+CWJAP=\"";
   cmd += SSID;
   cmd += "\",\"";
   cmd += PASS;
@@ -386,9 +379,9 @@ boolean connectWiFi(){
 
 boolean updateThingSpeak(String tsData, String WriteAPIKey) {
   String cmd;
-  cmd = String("AT+CIPSTART=\"TCP\",\"") + String(IP) + String("\",80");
-  Serial.println(cmd);
-  delay(2000);
+  cmd = "AT+CIPSTART=\"TCP\",\"";
+  cmd += IP;
+  cmd +="\",80";
   sendDebug(cmd);
   delay(2000);
   if(wifi.find("Error")){
@@ -399,24 +392,26 @@ boolean updateThingSpeak(String tsData, String WriteAPIKey) {
   cmd += WriteAPIKey;
   cmd += tsData;
   cmd += "\r\n";
-  wifi.print("AT+CIPSEND=");
-  wifi.println(cmd.length());
+  sendDebug(String("AT+CIPSEND=") + String(cmd.length()));
+  delay(2000);
   if(wifi.find(">")){
-    Serial.print(">");
-    Serial.println(cmd);
-    wifi.print(cmd);
-    Serial.println("DATA: OK");
+    sendDebug(cmd);
     delay(2000);
     sendDebug("AT+CIPCLOSE");
+    Serial.println("DATA: OK");
     return true;
   }
   else {
-    Serial.println("DATA: Error");
-    delay(2000);
     sendDebug("AT+CIPCLOSE");
+    Serial.println("DATA: Error");
     return false;
   }
 } // updateThingSpeak
+
+
+
+
+
 
 
 
