@@ -7,7 +7,7 @@
 #define greenLed    3     // the number of the LED pin
 
 //uncomment this line for debugging through the serial interface
-#define BLENDER_DEBUG
+// #define BLENDER_DEBUG
 
 #define KAKU_GROUP 1
 #define KAKU_ADDR  1
@@ -58,11 +58,9 @@ void setup() {
   pinMode(pirPin, INPUT);
   pinMode(redLed, OUTPUT);
   pinMode(greenLed, OUTPUT);
-  pinMode(13, OUTPUT);
 
   // start with the switch off
   kakuSwitch(0);
-
 
   // set initial LED state
   ledStatus();
@@ -78,7 +76,7 @@ void ledStatus() {
   Serial.print(armed);
   Serial.print("\tengaged = ");
   Serial.println(engaged);
-  delay(100);
+  delay(10);
 #endif
 
   if (engaged==HIGH) {
@@ -97,10 +95,7 @@ void ledStatus() {
     digitalWrite(redLed,   HIGH);
     digitalWrite(greenLed, LOW);
   }
-
-  // this emulates the blender
-  digitalWrite(13, engaged);
-}
+} // ledStatus
 
 /****************************************************************************************/
 
@@ -152,7 +147,7 @@ void loop() {
   ledStatus();
 
   if (active && armed && !engaged && (millis() - lastSwitchTime) > 60000) {
-    // switch the blender off every minute to safe-guard that it remains off 
+    // switch the blender off every minute to safe-guard that it remains off most of the time
     lastSwitchTime = millis();
     kakuSwitch(0); 
   }
@@ -170,7 +165,7 @@ void loop() {
 
   // spend some time in sleep mode to save energy
   Sleepy::loseSomeTime(20);
-}
+} // loop
 
 /****************************************************************************************/
 
