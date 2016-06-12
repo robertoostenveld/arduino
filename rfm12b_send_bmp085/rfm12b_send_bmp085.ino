@@ -6,7 +6,7 @@
 #include <avr/pgmspace.h>  // http://excamera.com/sphinx/article-crc.html
 #include <avr/sleep.h>
 
-// #define BLIP_DEBUG
+//#define BLIP_DEBUG
 #define BLIP_NODE 4   // set this to a unique ID to disambiguate multiple nodes
 #define BLIP_GRP  17  // wireless net group to use for sending blips
 
@@ -14,8 +14,8 @@
 #define RF_CHIPSELECT 10
 
 // this must be defined since we're using the watchdog for low-power waiting
-ISR(WDT_vect) { 
-  Sleepy::watchdogEvent(); 
+ISR(WDT_vect) {
+  Sleepy::watchdogEvent();
 }
 
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
@@ -40,28 +40,28 @@ void displaySensorDetails(void)
   sensor_t sensor;
   bmp.getSensor(&sensor);
   Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); 
+  Serial.print  ("Sensor:       ");
   Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); 
+  Serial.print  ("Driver Ver:   ");
   Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    "); 
+  Serial.print  ("Unique ID:    ");
   Serial.println(sensor.sensor_id);
-  Serial.print  ("Max Value:    "); 
-  Serial.print(sensor.max_value); 
+  Serial.print  ("Max Value:    ");
+  Serial.print(sensor.max_value);
   Serial.println(" hPa");
-  Serial.print  ("Min Value:    "); 
-  Serial.print(sensor.min_value); 
+  Serial.print  ("Min Value:    ");
+  Serial.print(sensor.min_value);
   Serial.println(" hPa");
-  Serial.print  ("Resolution:   "); 
-  Serial.print(sensor.resolution); 
-  Serial.println(" hPa");  
+  Serial.print  ("Resolution:   ");
+  Serial.print(sensor.resolution);
+  Serial.println(" hPa");
   Serial.println("------------------------------------");
   Serial.println("");
   delay(500);
 }
 
 /**************************************************************************/
-void setup(void) 
+void setup(void)
 {
 #ifdef BLIP_DEBUG
   Serial.begin(57600);
@@ -80,10 +80,10 @@ void setup(void)
   delay(100); // give it some time to send before falling asleep
 
   /* Initialise the sensor */
-  if(!bmp.begin()) {
+  if (!bmp.begin()) {
     /* There was a problem detecting the BMP085 ... check your connections */
     Serial.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
-    while(1);
+    while (1);
   }
   else {
     Serial.print("BMP085 detected.");
@@ -102,7 +102,7 @@ void setup(void)
 }
 
 /**************************************************************************/
-void loop(void) 
+void loop(void)
 {
   boolean stable = false;
   float pressure, temperature;
@@ -111,9 +111,9 @@ void loop(void)
     bmp.getTemperature(&temperature);
     bmp.getPressure(&pressure);
 
-    payload.value1      = 0.001*readVcc(); // this is in mV, we want V
+    payload.value1      = 0.001 * readVcc(); // this is in mV, we want V
     payload.value2      = temperature;     // this is in Celcius
-    payload.value3      = 0.01*pressure;   // this is in Pa, we want hPa, i.e. mbar
+    payload.value3      = 0.01 * pressure; // this is in Pa, we want hPa, i.e. mbar
 
     // compute the difference with the previous values
     previous1 -= payload.value1;
@@ -124,42 +124,51 @@ void loop(void)
     previous3 = abs(previous3);
 
     // the voltage should be stable within 0.1, the temperature withing 1, the pressure within 1
-    stable = (previous1<0.1) && (previous2<1) && (previous3<1);
+    stable = (previous1 < 0.1) && (previous2 < 1) && (previous3 < 1);
 
+#ifdef BLIP_DEBUG
+    // DISPLAY DATA
+    Serial.print("BMP085,\t");
+    Serial.print(payload.id);
+    Serial.print(",\t");
+    Serial.print(payload.counter);
+    Serial.print(",\t");
+    Serial.print(payload.value1, 2);
+    Serial.print(",\t");
+    Serial.print(payload.value2, 2);
+    Serial.print(",\t");
+    Serial.print(payload.value3, 2);
+    Serial.print(",\t");
+    Serial.print(payload.value4, 2);
+    Serial.print(",\t");
+    Serial.print(payload.value5, 2);
+    Serial.print(",\t");
+    Serial.println(payload.crc);
+    if (!stable)
+      Serial.println("Not stable");
+    else
+      Serial.println("Stable");
+#endif
     // update the previous values
     previous1 = payload.value1;
     previous2 = payload.value2;
     previous3 = payload.value3;
 
+    delay(100);
   } // if stable
 
   payload.counter    += 1;
   payload.crc         = crc_buf((char *)&payload, sizeof(payload_t) - sizeof(unsigned long));
 
+#ifdef BLIP_DEBUG
+  Serial.println("Sending...");
+  delay(100);
+#endif
+
   rf12_sleep(RF12_WAKEUP);
   rf12_sendNow(0, &payload, sizeof payload);
   rf12_sendWait(SEND_MODE);
   rf12_sleep(RF12_SLEEP);
-
-  // DISPLAY DATA
-#ifdef BLIP_DEBUG
-  Serial.print("BMP085,\t");
-  Serial.print(payload.id);
-  Serial.print(",\t");
-  Serial.print(payload.counter);
-  Serial.print(",\t");
-  Serial.print(payload.value1, 2);
-  Serial.print(",\t");
-  Serial.print(payload.value2, 2);
-  Serial.print(",\t");
-  Serial.print(payload.value3, 2);
-  Serial.print(",\t");
-  Serial.print(payload.value4, 2);
-  Serial.print(",\t");
-  Serial.print(payload.value5, 2);
-  Serial.print(",\t");
-  Serial.println(payload.crc);
-#endif
 
   delay(100); // give it some time to send before falling asleep
 
@@ -179,16 +188,16 @@ long readVcc() {
   ADMUX = _BV(MUX3) | _BV(MUX2);
 #else
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-#endif  
+#endif
 
   delay(2); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Start conversion
-  while (bit_is_set(ADCSRA,ADSC)); // measuring
+  while (bit_is_set(ADCSRA, ADSC)); // measuring
 
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
+  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
   uint8_t high = ADCH; // unlocks both
 
-  long result = (high<<8) | low;
+  long result = (high << 8) | low;
 
   result = 1155700L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   return result; // Vcc in millivolts
@@ -196,7 +205,7 @@ long readVcc() {
 
 /*****************************************************************************/
 
-static PROGMEM prog_uint32_t crc_table[16] = {
+PROGMEM const uint32_t crc_table[16] = {
   0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
   0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
   0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
@@ -216,7 +225,7 @@ unsigned long crc_update(unsigned long crc, byte data)
 unsigned long crc_buf(char *b, long l)
 {
   unsigned long crc = ~0L;
-  for (unsigned long i=0; i<l; i++)
+  for (unsigned long i = 0; i < l; i++)
     crc = crc_update(crc, ((char *)b)[i]);
   crc = ~crc;
   return crc;
