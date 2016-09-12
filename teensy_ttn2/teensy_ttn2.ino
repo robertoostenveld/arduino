@@ -6,10 +6,10 @@
 #include <String.h>
 
 // the LoRa keys and IDs are secret and shoudl not be disclosed
+#include "secret.h"
 //static const PROGMEM u1_t NWKSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 //static const u1_t PROGMEM APPSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 //static const u4_t DEVADDR = 0x00000000;
-#include "secret.h"
 
 #define BUTTON_PIN 20
 int button = 0;
@@ -24,26 +24,26 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature dallasTemperature(&oneWire);
 float temp = 0.0;
 
-// These callbacks are only used in over-the-air activation, so they are
-// left empty here (we cannot leave them out completely unless
-// DISABLE_JOIN is set in config.h, otherwise the linker will complain).
+// These callbacks are only used in over-the-air activation, so they are left empty here (we cannot
+// leave them out completely unless DISABLE_JOIN is set in config.h, otherwise the linker will complain).
 void os_getArtEui (u1_t* buf) { }
 void os_getDevEui (u1_t* buf) { }
 void os_getDevKey (u1_t* buf) { }
 
 #define DATALEN 32
 // static uint8_t datatx[] = "Hello, world!";
-unsigned char datatx[DATALEN]; // transmit
-unsigned char datarx[DATALEN]; // receive
+static uint8_t datatx[DATALEN]; // transmit
+static uint8_t datarx[DATALEN]; // receive
 static osjob_t sendjob;
 static osjob_t recvjob;
 static osjob_t tempjob;
 static osjob_t ledjob;
 
-// Schedule TX every this many seconds (might become longer due to duty cycle limitations).
-const unsigned TX_INTERVAL = 10;
+// schedule some functions to execute every this many seconds (might become longer due to duty cycle limitations)
+const unsigned TX_INTERVAL   = 10;
 const unsigned TEMP_INTERVAL = 2;
-const unsigned LED_INTERVAL = 150;  // in miliseconds
+const unsigned RECV_INTERVAL = 2;
+const unsigned LED_INTERVAL  = 150;  // in miliseconds
 
 // Pin mapping
 const lmic_pinmap lmic_pins = {
@@ -91,11 +91,11 @@ void onEvent (ev_t ev) {
         Serial.print(F("Data Received: "));
         Serial.write(LMIC.frame + LMIC.dataBeg, LMIC.dataLen);
         Serial.println();
-        // deal with the received data
+        // another scheduled function will deal with the received data
         bzero(datarx, DATALEN);
         memcpy(datarx, LMIC.frame + LMIC.dataBeg, min(LMIC.dataLen, DATALEN - 1));
       }
-      // Schedule next transmission
+      // schedule next transmission
       os_setTimedCallback(&sendjob, os_getTime() + ms2osticks(TX_INTERVAL), send_message);
       break;
     case EV_LOST_TSYNC:
@@ -123,7 +123,6 @@ void onEvent (ev_t ev) {
 void switch_led() {
   // Serial.print("color = ");
   // Serial.println(color);
-
   digitalWrite(LED_R, LOW);    // turn the LED off by making the voltage LOW
   digitalWrite(LED_G, LOW);    // turn the LED off by making the voltage LOW
   digitalWrite(LED_B, LOW);    // turn the LED off by making the voltage LOW
@@ -175,7 +174,7 @@ void receive_message(osjob_t* j) {
     color = LED_B;
     switch_led();
   }
-  os_setTimedCallback(j, os_getTime() + sec2osticks(TEMP_INTERVAL), receive_message);
+  os_setTimedCallback(j, os_getTime() + sec2osticks(RECV_INTERVAL), receive_message);
 }
 
 void update_temp(osjob_t* j) {
@@ -191,10 +190,10 @@ void update_temp(osjob_t* j) {
 }
 
 void send_message(osjob_t* j) {
-
   color = LED_R;
   blink_led(&ledjob);
 
+  // determine whether to send the temperature or the button press
   if (button) {
     String str = String("Button pressed");
     str.toCharArray((char *)datatx, DATALEN);
@@ -205,13 +204,12 @@ void send_message(osjob_t* j) {
     str.toCharArray((char *)datatx, DATALEN);
   }
 
-  // reset the button status
-  button = 0;
-
   // Check if there is not a current TX/RX job running
   if (LMIC.opmode & OP_TXRXPEND) {
     Serial.println(F("OP_TXRXPEND, not sending"));
   } else {
+    // reset the button status
+    button = 0;
     // Prepare upstream data transmission at the next possible time.
     LMIC_setTxData2(1, datatx, sizeof(datatx) - 1, 0);
     Serial.println(F("Packet queued"));
@@ -220,6 +218,13 @@ void send_message(osjob_t* j) {
 }
 
 void setup() {
+  // setup the serial port for debugging
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB
+  }
+  Serial.println(F("Starting"));
+
   // setup the button
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), update_button, RISING);
@@ -235,12 +240,6 @@ void setup() {
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
   pinMode(LED_B, OUTPUT);
-
-  Serial.begin(115200);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB
-  }
-  Serial.println(F("Starting"));
 
 #ifdef VCC_ENABLE
   // For Pinoccio Scout boards
@@ -307,5 +306,6 @@ void setup() {
 }
 
 void loop() {
+  // all functionality is implemented in scheduled function calls
   os_runloop();
 }
