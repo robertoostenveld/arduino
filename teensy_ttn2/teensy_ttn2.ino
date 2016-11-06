@@ -42,6 +42,7 @@ static osjob_t ledjob;
 
 // Schedule TX every this many seconds (might become longer due to duty cycle limitations).
 const unsigned TX_INTERVAL = 10;
+const unsigned RX_INTERVAL = 2;
 const unsigned TEMP_INTERVAL = 2;
 const unsigned LED_INTERVAL = 150;  // in miliseconds
 
@@ -175,7 +176,7 @@ void receive_message(osjob_t* j) {
     color = LED_B;
     switch_led();
   }
-  os_setTimedCallback(j, os_getTime() + sec2osticks(TEMP_INTERVAL), receive_message);
+  os_setTimedCallback(j, os_getTime() + sec2osticks(RX_INTERVAL), receive_message);
 }
 
 void update_temp(osjob_t* j) {
