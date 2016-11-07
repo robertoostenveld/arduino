@@ -2,7 +2,7 @@
 #include <dht.h>           // http://arduino.cc/playground/Main/DHTLib
 
 #define BLIP_DEBUG
-#define BLIP_NODE 3   // set this to a unique ID to disambiguate multiple nodes
+#define BLIP_NODE x   // set this to a unique ID to disambiguate multiple nodes
 #define BLIP_GRP  17  // wireless net group to use for sending blips
 
 #define DHT21_PIN     3
@@ -12,8 +12,8 @@
 #define RF_CHIPSELECT   10
 
 // this must be defined since we're using the watchdog for low-power waiting
-ISR(WDT_vect) { 
-  Sleepy::watchdogEvent(); 
+ISR(WDT_vect) {
+  Sleepy::watchdogEvent();
 }
 
 dht DHT;
@@ -73,17 +73,17 @@ void loop () {
     Serial.print("DHT21, \t");
     switch (chk)
     {
-    case DHTLIB_OK:  
-      Serial.println("OK\t"); 
+    case DHTLIB_OK:
+      Serial.println("OK\t");
       break;
-    case DHTLIB_ERROR_CHECKSUM: 
-      Serial.println("Checksum error\t"); 
+    case DHTLIB_ERROR_CHECKSUM:
+      Serial.println("Checksum error\t");
       break;
-    case DHTLIB_ERROR_TIMEOUT: 
-      Serial.println("Time out error\t"); 
+    case DHTLIB_ERROR_TIMEOUT:
+      Serial.println("Time out error\t");
       break;
-    default: 
-      Serial.println("Unknown error\t"); 
+    default:
+      Serial.println("Unknown error\t");
       break;
     }
 #endif
@@ -114,7 +114,7 @@ void loop () {
       delay(3000);
     }
 
-  } // if stable 
+  } // if stable
 
   message.counter    += 1;
   message.crc         = crc_buf((char *)&message, sizeof(message_t) - sizeof(unsigned long));
@@ -141,11 +141,11 @@ void loop () {
   Serial.print(message.value5, 2);
   Serial.print(",\t");
   Serial.println(message.crc);
-#endif  
+#endif
 
   delay(100); // give it some time to send before falling asleep
 
-  Sleepy::loseSomeTime(63000);  
+  Sleepy::loseSomeTime(63000);
 }
 
 /*****************************************************************************/
@@ -161,13 +161,13 @@ long readVcc() {
   ADMUX = _BV(MUX3) | _BV(MUX2);
 #else
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-#endif  
+#endif
 
   delay(2); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
 
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
+  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
   uint8_t high = ADCH; // unlocks both
 
   long result = (high<<8) | low;
@@ -212,11 +212,3 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
-
-
-
-
-
-
-
-
