@@ -7,18 +7,19 @@
 #include <MemoryFree.h>
 #include "secret.h"
 
-#ifdef DEBUG
 #define DEBUG_PRINT(x)     Serial.print (x)
-#define DEBUG_PRINT(x, y)  Serial.print (x, y)
+#define DEBUG_PRINT2(x, y) Serial.print (x, y)
 #define DEBUG_PRINTLN(x)   Serial.println (x)
-#else
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINT2(x, y)
-#define DEBUG_PRINTLN(x) 
-#endif
 
-byte mac[] = {  
-  0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
+/*
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINT2(x, y)
+  #define DEBUG_PRINTLN(x)
+*/
+
+byte mac[] = {
+  0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A
+};
 
 byte buf[32]; // ring buffer
 unsigned int bufptr = 0; // pointer into ring buffer
@@ -29,14 +30,15 @@ IPAddress server(184, 106, 153, 149 );          // IP Address for the ThingSpeak
 EthernetClient client;
 
 /*
- * The following are defined in secret.h
- *
- #define writeAPIKey1 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
- #define writeAPIKey2 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
- #define writeAPIKey3 "XXXXXXXXXXXXXXXX" // Write API Key for a ThingSpeak Channel
- */
+    The write API keys for ThingSpeak are defined in secret.h like this
 
-const unsigned long updateInterval = 30000;  // Time interval in milliseconds to update ThingSpeak, see https://thingspeak.com/docs/channels#rate_limits
+   #define APIKeyChannel2 "XXXXXXXXXXXXXXXX"
+   #define APIKeyChannel3 "XXXXXXXXXXXXXXXX"
+   #define APIKeyChannel4 "XXXXXXXXXXXXXXXX"
+   #define APIKeyChannel5 "XXXXXXXXXXXXXXXX"
+   #define APIKeyChannel6 "XXXXXXXXXXXXXXXX"
+
+*/
 
 typedef struct message_t {
   unsigned long id;
@@ -50,14 +52,9 @@ typedef struct message_t {
 };
 
 // Variable Setup
-unsigned long lastConnectionTime = 0; 
+unsigned long lastConnectionTime = 0;
 boolean lastConnectionStatus = false;
-unsigned int lastChannel = 1; // this should start at 1, 2 or 3
 unsigned int resetCounter = 0;
-
-// the receiving rmf12b module itself is number 1, which is why it is not listed here 
-message_t message2, message3, message4, message5, message6, message7;
-boolean update2 = false, update3 = false, update4 = false, update5 = false, update6 = false, update7 = false;
 
 /*******************************************************************************************************************/
 
@@ -75,11 +72,11 @@ void setup() {
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
     // print the value of each byte of the IP address:
     Serial.print(Ethernet.localIP()[thisByte], DEC);
-    Serial.print("."); 
+    Serial.print(".");
   }
   Serial.println();
 
-  for (int i; i<32; i++) {
+  for (int i; i < 32; i++) {
     buf[i] = 0;
   }
 
@@ -106,19 +103,15 @@ void loop() {
     client.stop();
   }
 
-
   if (bufblk) {
     // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
 
-    // DEBUG_PRINT("freeMemory = ");
-    // DEBUG_PRINTLN(freeMemory());
-    // DEBUG_PRINT("interval = ");
-    // DEBUG_PRINTLN(millis() - lastConnectionTime);
+    DEBUG_PRINTLN("packet received");
 
     unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
-    if (message->crc==check) {
+    if (message->crc == check) {
 
       DEBUG_PRINT(message->id);
       DEBUG_PRINT(",\t");
@@ -138,142 +131,36 @@ void loop() {
 
       // store the received message
       if (!client.connected()) {
+        String postString;
+        postString += "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
+        lastConnectionTime = millis();
         switch (message->id) {
-        case 2:
-          memcpy(&message2, message, sizeof(message_t));
-          update2 = true;
-          break;
-        case 3:
-          memcpy(&message3, message, sizeof(message_t));
-          update3 = true;
-          break;
-        case 4:
-          memcpy(&message4, message, sizeof(message_t));
-          update4 = true;
-          break;
-        case 5:
-          memcpy(&message5, message, sizeof(message_t));
-          update5 = true;
-          break;
-        case 6:
-          memcpy(&message6, message, sizeof(message_t));
-          update6 = true;
-          break;
-        case 7:
-          memcpy(&message7, message, sizeof(message_t));
-          update7 = true;
-          break;
+          case 2:
+            updateThingSpeak(postString, APIKeyChannel2);
+            break;
+          case 3:
+            updateThingSpeak(postString, APIKeyChannel3);
+            break;
+          case 4:
+            updateThingSpeak(postString, APIKeyChannel4);
+            break;
+          case 5:
+            updateThingSpeak(postString, APIKeyChannel5);
+            break;
+          case 6:
+            updateThingSpeak(postString, APIKeyChannel6);
+            break;
         } // switch
 
+      }
+      else {
+        DEBUG_PRINTLN(F("not connected"));
       }
       bufblk = 0; // release buffer
     }
     else {
       DEBUG_PRINTLN(F("CRC mismatch"));
     }
-  }
-
-  // update ThingSpeak
-  if (!client.connected() && (millis() - lastConnectionTime > updateInterval)) {
-
-    unsigned int thisChannel = 0;
-
-    // decide which channel should be updated
-    // this uses a round-robin scheme, starting from the next channel in line
-
-    switch (lastChannel) {
-    case 1:
-      if (update5 || update6)
-        thisChannel = 2;
-      else if (update7)
-        thisChannel = 3;
-      else if (update2 || update3 || update4)
-        thisChannel = 1;
-      break;
-
-    case 2:
-      if (update7)
-        thisChannel = 3;
-      else if (update2 || update3 || update4)
-        thisChannel = 1;
-      else if (update5 || update6)
-        thisChannel = 2;
-      break;
-
-    case 3:
-      if (update2 || update3 || update4)
-        thisChannel = 1;
-      else if (update5 || update6)
-        thisChannel = 2;
-      else if (update7)
-        thisChannel = 3;
-      break;
-    } //switch    
-
-    String postString;
-
-    DEBUG_PRINT("update2 = "); 
-    DEBUG_PRINTLN(update2);
-    DEBUG_PRINT("update3 = "); 
-    DEBUG_PRINTLN(update3);
-    DEBUG_PRINT("update4 = "); 
-    DEBUG_PRINTLN(update4);
-    DEBUG_PRINT("update5 = "); 
-    DEBUG_PRINTLN(update5);
-    DEBUG_PRINT("update6 = "); 
-    DEBUG_PRINTLN(update6);
-    DEBUG_PRINT("update7 = "); 
-    DEBUG_PRINTLN(update7);
-    DEBUG_PRINT("lastChannel = "); 
-    DEBUG_PRINTLN(lastChannel);
-    DEBUG_PRINT("thisChannel = "); 
-    DEBUG_PRINTLN(thisChannel);
-
-    if (thisChannel==1 && update2) {
-      // LM35: V, T
-      postString += "&field1="+String(message2.value1)+"&field2="+String(message2.value2);
-      update2 = 0;
-    }
-    if (thisChannel==1 && update3) {
-      // AM2301: V, T, H
-      postString += "&field3="+String(message3.value1)+"&field4="+String(message3.value2)+"&field5="+String(message3.value3);
-      update3 = false;
-    }
-    if (thisChannel==1 && update4) {
-      // BMP085: V, T, P, NOTE field 7 and 8 are swapped in the ThingSpeak channel
-      postString += "&field6="+String(message4.value1)+"&field8="+String(message4.value2)+"&field7="+String(message4.value3);
-      update4 = false;
-    }
-    if (thisChannel==2 && update5) {
-      // 2x CNY50: V, KWh, M3
-      postString += "&field1="+String(message5.value1)+"&field2="+String(message5.value2)+"&field3="+String(message5.value3);
-      update5 = false;
-    }
-    if (thisChannel==2 && update6) {
-      // 2x DS18B20: V, T, T
-      postString += "&field4="+String(message6.value1)+"&field5="+String(message6.value2)+"&field6="+String(message6.value3);
-      update6 = false;
-    }
-    if (thisChannel==3 && update7) {
-      // BMP180 with ESP8266: V, T, P
-      postString += "&field1="+String(message7.value1)+"&field2="+String(message7.value2)+"&field3="+String(message7.value3);
-      update7 = false;
-    }
-
-    if (thisChannel==1) {
-      updateThingSpeak(postString, writeAPIKey1);
-      lastChannel = thisChannel;
-    }
-    if (thisChannel==2) {
-      updateThingSpeak(postString, writeAPIKey2);
-      lastChannel = thisChannel;
-    }
-    if (thisChannel==3) {
-      updateThingSpeak(postString, writeAPIKey3);
-      lastChannel = thisChannel;
-    }
-
-    lastConnectionTime = millis();
   }
 
   lastConnectionStatus = client.connected();
@@ -284,7 +171,7 @@ void loop() {
 void updateThingSpeak(const String tsData, const String writeAPIKey)
 {
   if (client.connect(server, 80))
-  { 
+  {
     DEBUG_PRINTLN(F("Connected to ThingSpeak..."));
     DEBUG_PRINTLN();
 
@@ -304,12 +191,12 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
   }
   else
   {
-    DEBUG_PRINTLN(F("Connection Failed."));   
+    DEBUG_PRINTLN(F("Connection Failed."));
     DEBUG_PRINTLN();
 
     resetCounter++;
 
-    if (resetCounter >=5 ) {
+    if (resetCounter >= 5 ) {
       resetEthernetShield();
     }
   }
@@ -317,7 +204,7 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
 
 void resetEthernetShield()
 {
-  Serial.println(F("Resetting Ethernet Shield."));   
+  Serial.println(F("Resetting Ethernet Shield."));
   Serial.println();
 
   client.stop();
@@ -330,12 +217,12 @@ void resetEthernetShield()
 }
 
 void receiveEvent(int howMany) {
-  while (howMany-->0) {
+  while (howMany-- > 0) {
     int x = Wire.read(); // receive byte as an integer
     if (!bufblk)
       buf[bufptr++] = x; // insert into buffer
 
-    if ((bufptr % 32)==0) {
+    if ((bufptr % 32) == 0) {
       bufptr = 0; // point to the first element
       bufblk = 1; // block buffer
     }
@@ -344,8 +231,7 @@ void receiveEvent(int howMany) {
 } // receiveEvent
 
 /*******************************************************************************************************************/
-
-static PROGMEM prog_uint32_t crc_table[16] = {
+static const uint32_t PROGMEM crc_table[16] = {
   0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
   0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
   0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
@@ -365,7 +251,7 @@ unsigned long crc_update(unsigned long crc, byte data)
 unsigned long crc_buf(char *b, long l)
 {
   unsigned long crc = ~0L;
-  for (unsigned long i=0; i<l; i++)
+  for (unsigned long i = 0; i < l; i++)
     crc = crc_update(crc, ((char *)b)[i]);
   crc = ~crc;
   return crc;
@@ -379,6 +265,4 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
-
-
 
