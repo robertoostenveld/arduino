@@ -11,8 +11,8 @@
 #define RF_CHIPSELECT 10
 
 // this must be defined since we're using the watchdog for low-power waiting
-ISR(WDT_vect) { 
-  Sleepy::watchdogEvent(); 
+ISR(WDT_vect) {
+  Sleepy::watchdogEvent();
 }
 
 typedef struct message_t {
@@ -112,13 +112,13 @@ long readVcc() {
   ADMUX = _BV(MUX3) | _BV(MUX2);
 #else
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-#endif  
+#endif
 
   delay(2); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
 
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH  
+  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
   uint8_t high = ADCH; // unlocks both
 
   long result = (high<<8) | low;
@@ -163,11 +163,3 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
-
-
-
-
-
-
-
-
