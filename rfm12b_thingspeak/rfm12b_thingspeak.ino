@@ -40,7 +40,7 @@ EthernetClient client;
 
 */
 
-void(* resetFunc) (void) = 0; // declare reset function at address 0
+void(* resetArduino) (void) = 0; // declare reset function at address 0
 
 typedef struct message_t {
   unsigned long id;
@@ -107,8 +107,7 @@ void loop() {
 
   // Clock rollover, reset after 49 days
   if (millis() < lastConnectionTime)
-    resetFunc();  //call reset
-
+    resetArduino();  //call reset
 
   if (bufblk) {
     // the I2C buffer is full and needs to be processed
@@ -116,27 +115,27 @@ void loop() {
 
     DEBUG_PRINTLN("packet received");
 
+    DEBUG_PRINT(message->id);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT(message->counter);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value1, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value2, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value3, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value4, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value5, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINTLN(message->crc);
+
     unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
     if (message->crc == check) {
 
-      DEBUG_PRINT(message->id);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT(message->counter);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT2(message->value1, 2);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT2(message->value2, 2);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT2(message->value3, 2);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT2(message->value4, 2);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINT2(message->value5, 2);
-      DEBUG_PRINT(",\t");
-      DEBUG_PRINTLN(message->crc);
-
-      // store the received message
+      // forward the received message
       if (!client.connected()) {
         String postString;
         postString += "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
