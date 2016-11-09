@@ -4,6 +4,8 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <Wire.h>
+#include <String.h>
+#include <Syslog.h>
 #include <MemoryFree.h>
 #include "secret.h"
 
@@ -11,15 +13,15 @@
 #define DEBUG_PRINT2(x, y) Serial.print (x, y)
 #define DEBUG_PRINTLN(x)   Serial.println (x)
 
+
 /*
   #define DEBUG_PRINT(x)
   #define DEBUG_PRINT2(x, y)
   #define DEBUG_PRINTLN(x)
 */
 
-byte mac[] = {
-  0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A
-};
+byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
+byte loghost[] = { 192, 168, 1, 2 };
 
 byte buf[32]; // ring buffer
 unsigned int bufptr = 0; // pointer into ring buffer
@@ -40,8 +42,6 @@ EthernetClient client;
 
 */
 
-void(* resetArduino) (void) = 0; // declare reset function at address 0
-
 typedef struct message_t {
   unsigned long id;
   unsigned long counter;
@@ -57,6 +57,10 @@ typedef struct message_t {
 unsigned long lastConnectionTime = 0;
 boolean lastConnectionStatus = false;
 unsigned int resetCounter = 0;
+
+/*******************************************************************************************************************/
+
+void(* resetArduino) (void) = 0; // declare reset function at address 0
 
 /*******************************************************************************************************************/
 
@@ -85,12 +89,17 @@ void setup() {
   Wire.begin(9);                // Start I2C Bus as a Slave (Device Number 9)
   Wire.onReceive(receiveEvent); // register event
 
+  Syslog.setLoghost(loghost);
+  Syslog.logger(1, 5, "", "rfm12b_thingspeak:", "setup finished");
+
 } // setup
 
 /*******************************************************************************************************************/
 
 void loop() {
 
+  char stringbuf[256];
+  
   // Print Update Response to Serial Monitor
   if (client.available())
   {
@@ -114,7 +123,6 @@ void loop() {
     message_t *message = (message_t *)buf;
 
     DEBUG_PRINTLN("packet received");
-
     DEBUG_PRINT(message->id);
     DEBUG_PRINT(",\t");
     DEBUG_PRINT(message->counter);
@@ -130,6 +138,10 @@ void loop() {
     DEBUG_PRINT2(message->value5, 2);
     DEBUG_PRINT(",\t");
     DEBUG_PRINTLN(message->crc);
+
+    String msg = String(message->id) + String(", ") + String(message->counter) + String(", ") + String(message->value1) + String(", ") + String(message->value2) + String(", ") + String(message->value3) + String(", ") + String(message->value4) + String(", ") + String(message->value5) + String(", ") + (message->crc);
+    msg.toCharArray(stringbuf, 255);
+    Syslog.logger(1, 6, "", "rfm12b_thingspeak:", stringbuf);
 
     unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
 
@@ -224,8 +236,15 @@ void resetEthernetShield()
 }
 
 void receiveEvent(int howMany) {
+  DEBUG_PRINT("receiveEvent ");
+  DEBUG_PRINT(howMany);
+  DEBUG_PRINT(" : ");
+
   while (howMany-- > 0) {
     int x = Wire.read(); // receive byte as an integer
+    DEBUG_PRINT(x);
+    DEBUG_PRINT(" ");
+
     if (!bufblk)
       buf[bufptr++] = x; // insert into buffer
 
@@ -234,6 +253,7 @@ void receiveEvent(int howMany) {
       bufblk = 1; // block buffer
     }
   }
+  DEBUG_PRINTLN("");
 
 } // receiveEvent
 
