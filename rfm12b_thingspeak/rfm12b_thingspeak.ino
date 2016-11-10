@@ -9,16 +9,15 @@
 #include <MemoryFree.h>
 #include "secret.h"
 
+/*
 #define DEBUG_PRINT(x)     Serial.print (x)
 #define DEBUG_PRINT2(x, y) Serial.print (x, y)
 #define DEBUG_PRINTLN(x)   Serial.println (x)
+*/
 
-
-/*
   #define DEBUG_PRINT(x)
   #define DEBUG_PRINT2(x, y)
   #define DEBUG_PRINTLN(x)
-*/
 
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
 byte loghost[] = { 192, 168, 1, 2 };
@@ -149,8 +148,7 @@ void loop() {
 
       // forward the received message
       if (!client.connected()) {
-        String postString;
-        postString += "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
+        String postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
         lastConnectionTime = millis();
         switch (message->id) {
           case 2:
