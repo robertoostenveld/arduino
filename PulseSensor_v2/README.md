@@ -1,4 +1,4 @@
-Arduino sketch for PulseSensor, see http://pulsesensor.com
+# Arduino sketch for PulseSensor, see http://pulsesensor.com
 
 This code is derived from the [original code](https://github.com/WorldFamousElectronics/PulseSensor_Amped_Arduino). It uses the same interrupt driven sampling and processing of the data, but the more fancy features have been removed (ASCII art serial output, fading led). It outputs the data at 250Hz over the serial connection in OpenEEG format with the following channels.
 
