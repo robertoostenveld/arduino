@@ -51,48 +51,24 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(0, dataPin, NEO_GRBW + NEO_KHZ800);
 ArtnetWifi artnet;
 unsigned int msgCounter = 0;
 
+// use an array of function pointers to jump to the desired mode
+// the actual functions are defined further down
+void (*update[]) (uint16_t, uint16_t, uint8_t, uint8_t *) {
+  mode0, mode1, mode2, mode3
+};
+
 //this will be called for each packet received
 void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
   Serial.print("msgCounter = ");
   Serial.println(msgCounter++);
-  /*
-    Serial.print("universe = ");
-    Serial.println(universe);
-    Serial.print("length = ");
-    Serial.println(length);
-    Serial.print("sequence = ");
-    Serial.println(sequence);
 
-    Serial.print("length   = ");
-    Serial.println(config.length);
-    Serial.print("leds     = ");
-    Serial.println(config.leds);
-    Serial.print("universe = ");
-    Serial.println(config.universe);
-    Serial.print("offset   = ");
-    Serial.println(config.offset);
-    Serial.print("mode     = ");
-    Serial.println(config.mode);
-
-    Serial.print("strip.numPixels  = ");
-    Serial.println(strip.numPixels());
-  */
-
-  for (int i = 0; i < length / config.leds; i++) {
-    int pixel   = i + (universe - config.universe) * 512;
-    int channel = i * config.leds + config.offset;
-
-    if (pixel >= 0 && pixel < strip.numPixels())
-      if (channel >= 0 && (channel + config.leds) < length) {
-        if (config.leds == 3)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2]);
-        else if (config.leds == 4)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2], data[channel + 3]);
-      }
-  }
-
-  strip.show();
-}
+  if (config.mode >= 0 && config.mode < (sizeof(update) / 4))
+    // call the function corresponding to the current mode
+    (*update[config.mode]) (universe, length, sequence, data);
+  else
+    // the current mode does not map onto a function
+    Serial.println("invalid mode");
+} // onDmxFrame
 
 void setup() {
   Serial.begin(115200);
@@ -150,14 +126,36 @@ void setup() {
 
   artnet.begin();
   artnet.setArtDmxCallback(onDmxFrame);
-}
+} // setup
 
 void loop() {
   configManager.loop();
   artnet.read();
-}
+} // loop
 
 /************************************************************************************/
+/************************************************************************************/
+
+void mode0(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  for (int i = 0; i < length / config.leds; i++) {
+    int pixel   = i + (universe - config.universe) * 512;
+    int channel = i * config.leds + config.offset;
+
+    if (pixel >= 0 && pixel < strip.numPixels())
+      if (channel >= 0 && (channel + config.leds) < length) {
+        if (config.leds == 3)
+          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2]);
+        else if (config.leds == 4)
+          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2], data[channel + 3]);
+      }
+  }
+  strip.show();
+} // mode0
+
+void mode1(uint16_t, uint16_t, uint8_t, uint8_t *) {}
+void mode2(uint16_t, uint16_t, uint8_t, uint8_t *) {}
+void mode3(uint16_t, uint16_t, uint8_t, uint8_t *) {}
+
 /************************************************************************************/
 /************************************************************************************/
 
