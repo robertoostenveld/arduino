@@ -88,14 +88,36 @@
     <body>
         <div class="container">
             <form method="post" action="/">
-            <h1 style="text-align: center;">WiFi configuration</h1>
+            <h1 style="text-align: center;">Art-Net and Neopixel configuration</h1>
                 <div class="field-group">
-                    <label>SSID</label>
-                    <input name="ssid" type="text" length=32>
+                    <label>Length</label>
+                    <input name="length" type="text" length=16>
                 </div>
                 <div class="field-group">
-                    <label>Password</label>
-                    <input name="password" type="text" length=64>
+                    <label>Leds</label>
+                    <input name="leds" type="text" length=16>
+                </div>
+                <div class="field-group">
+                    <label>Universe</label>
+                    <input name="universe" type="text" length=16>
+                </div>
+                <div class="field-group">
+                    <label>Offset</label>
+                    <input name="offset" type="text" length=16>
+                </div>
+                <div class="field-group">
+                    <label>Mode</label>
+                    <select name="mode">
+                        <option value="1">1. Individual</option>
+                        <option value="2">2. Single Color</option>
+                        <option value="3">3. Dual Color</option>
+                        <option value="4">4. Single Color Blinking</option>
+                        <option value="5">5. Dual Color Blinking</option>
+                        <option value="6">5. Segment</option>
+                        <option value="7">7. Blinking Segment</option>
+                        <option value="8">8. Moving Segment</option>
+                        <option value="9">9. Blinking and Moving Segment</option>
+                    </select>
                 </div>
                 <div class="button-container">
                     <button type="submit">Save</button>

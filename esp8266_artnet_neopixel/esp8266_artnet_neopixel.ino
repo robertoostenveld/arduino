@@ -7,121 +7,152 @@
 */
 
 #include <ESP8266WiFi.h>
-#include <ConfigManager.h>
 #include <WiFiUdp.h>
 #include <ArtnetWifi.h>
+#include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
 
 int gamma_l[] = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
-    1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
-    2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
-    5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10,
-   10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
-   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
-   25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
-   37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
-   51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
-   69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
-   90, 92, 93, 95, 96, 98, 99,101,102,104,105,107,109,110,112,114,
-  115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
-  144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
-  177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
-  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
+  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
+  1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
+  2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
+  5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10,
+  10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
+  17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
+  25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
+  37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
+  51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
+  69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
+  90, 92, 93, 95, 96, 98, 99, 101, 102, 104, 105, 107, 109, 110, 112, 114,
+  115, 117, 119, 120, 122, 124, 126, 127, 129, 131, 133, 135, 137, 138, 140, 142,
+  144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 167, 169, 171, 173, 175,
+  177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
+  215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
+};
 
-// WiFi settings
+// Configurable settings
 struct Config {
-  char name[20];
-  int8 universe;
-  int8 mode;
+  int length;
+  int leds;
+  int universe;
+  int offset;
+  int mode;
 } config;
 ConfigManager configManager;
 
 // Neopixel settings
 const byte dataPin = D2;
-const int numPixels = 24; // change for your setup
-const byte numLeds = 4; // per neopixel:3 for NEO_GRB, 4 for NEO_GRBW
-const int numberOfChannels = numPixels * numLeds; // total number of channels you want to receive
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(numPixels, dataPin, NEO_GRBW + NEO_KHZ800);
 byte brightness = 100;
+int numberOfChannels;     // total number of channels you want to receive
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(0, dataPin, NEO_GRBW + NEO_KHZ800);
 
 // Artnet settings
 ArtnetWifi artnet;
-const int startUniverse = 1; // CHANGE FOR YOUR SETUP most software this is 1, some software send out artnet first universe as 0.
 unsigned int msgCounter = 0;
 
-// check if we got all universes
-const int maxUniverses = numberOfChannels / 512 + ((numberOfChannels % 512) ? 1 : 0);
-bool universesReceived[maxUniverses];
-bool sendFrame = 1;
-int previousDataLength = 0;
-
-  //this will be called for each packet received
+//this will be called for each packet received
 void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  Serial.print("msgCounter = ");
   Serial.println(msgCounter++);
-  sendFrame = 1;
+  /*
+    Serial.print("universe = ");
+    Serial.println(universe);
+    Serial.print("length = ");
+    Serial.println(length);
+    Serial.print("sequence = ");
+    Serial.println(sequence);
 
-  // set brightness of the whole strip
-  if (universe == 15) {
-    strip.setBrightness(data[0]);
-    strip.show();
+    Serial.print("length   = ");
+    Serial.println(config.length);
+    Serial.print("leds     = ");
+    Serial.println(config.leds);
+    Serial.print("universe = ");
+    Serial.println(config.universe);
+    Serial.print("offset   = ");
+    Serial.println(config.offset);
+    Serial.print("mode     = ");
+    Serial.println(config.mode);
+
+    Serial.print("strip.numPixels  = ");
+    Serial.println(strip.numPixels());
+  */
+
+  for (int i = 0; i < length / config.leds; i++) {
+    int pixel   = i + (universe - config.universe) * 512;
+    int channel = i * config.leds + config.offset;
+
+    if (pixel >= 0 && pixel < strip.numPixels())
+      if (channel >= 0 && (channel + config.leds) < length) {
+        if (config.leds == 3)
+          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2]);
+        else if (config.leds == 4)
+          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2], data[channel + 3]);
+      }
   }
 
-  // Store which universe has got in
-  if ((universe - startUniverse) < maxUniverses)
-    universesReceived[universe - startUniverse] = 1;
-
-  for (int i = 0; i < maxUniverses; i++) {
-    if (universesReceived[i] == 0) {
-      //Serial.println("Broke");
-      sendFrame = 0;
-      break;
-    }
-  }
-
-  // put each universe into the right part of the display buffer
-  for (int i = 0; i < length / numLeds; i++) {
-    int pixel = i + (universe - startUniverse) * (previousDataLength / numLeds);
-    if (pixel < numPixels)
-      strip.setPixelColor(pixel, data[i * numLeds + 0], data[i * numLeds + 1], data[i * numLeds + 2], data[i * numLeds + 3]);
-  }
-  previousDataLength = length;
-
-  if (sendFrame) {
-    strip.show();
-    // Reset universeReceived to 0
-    memset(universesReceived, 0, maxUniverses);
-  }
+  strip.show();
 }
 
 void setup() {
   Serial.begin(115200);
   Serial.println("setup");
 
+  delay(500);
+  singleYellow();
+  delay(500);
+
+  configManager.setAPName("ARTNET");
+  configManager.setAPFilename("/index.html");
+  configManager.addParameter("length",   &config.length); // number of pixels
+  configManager.addParameter("leds",     &config.leds);   // number of leds per pixel: 3 for NEO_GRB, 4 for NEO_GRBW
+  configManager.addParameter("universe", &config.universe);
+  configManager.addParameter("offset",   &config.offset);
+  configManager.addParameter("mode",     &config.mode);
+  configManager.begin(config);
+
+  Serial.print("length   = ");
+  Serial.println(config.length);
+  Serial.print("leds     = ");
+  Serial.println(config.leds);
+  Serial.print("universe = ");
+  Serial.println(config.universe);
+  Serial.print("offset   = ");
+  Serial.println(config.offset);
+  Serial.print("mode     = ");
+  Serial.println(config.mode);
+
+  // update the neopixel strip configuration
+  numberOfChannels = config.length * config.leds;
+  strip.updateLength(config.length);
+  if (config.leds == 3)
+    strip.updateType(NEO_GRB + NEO_KHZ800);
+  else if (config.leds == 4)
+    strip.updateType(NEO_GRBW + NEO_KHZ800);
+
   strip.setBrightness(brightness);
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
-  colorWipe(20, strip.Color(255, 0, 0));    // Red
-  colorWipe(20, strip.Color(0, 255, 0));    // Green
-  colorWipe(20, strip.Color(0, 0, 255));    // Blue
-  colorWipe(20, strip.Color(0, 0, 0, 255)); // White
-  colorWipe(20, strip.Color(0, 0, 0, 0));   // Black
+  /*
+    colorWipe(20, strip.Color(255, 0, 0));    // Red
+    colorWipe(20, strip.Color(0, 255, 0));    // Green
+    colorWipe(20, strip.Color(0, 0, 255));    // Blue
+    colorWipe(20, strip.Color(0, 0, 0, 255)); // White
+    colorWipe(20, strip.Color(0, 0, 0, 0));   // Black
+  */
 
-  configManager.setAPName("ART-NET");
-  configManager.setAPFilename("/index.html");
-  configManager.addParameter("name",      config.name, 20);
-  configManager.addParameter("universe", &config.universe);
-  configManager.addParameter("mode",     &config.mode);
-  configManager.begin(config);
+  // give the WiFi status, only until the first Artnet package arrives
+  if (WiFi.status() != WL_CONNECTED)
+    singleRed();
+  else
+    singleGreen();
 
   artnet.begin();
   artnet.setArtDmxCallback(onDmxFrame);
 }
 
 void loop() {
-  // check the wifi connection, start AP if needed
   configManager.loop();
   artnet.read();
 }
@@ -129,6 +160,31 @@ void loop() {
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
+
+void singleLed(byte r, byte g, byte b, byte w) {
+  fullBlack();
+  strip.setPixelColor(0, strip.Color(r, g, b, w ) );
+  strip.show();
+}
+
+void singleRed() {
+  singleLed(128, 0, 0, 0);
+}
+void singleGreen() {
+  singleLed(0, 128, 0, 0);
+}
+void singleBlue() {
+  singleLed(128, 0, 0, 0);
+}
+void singleYellow() {
+  singleLed(128, 128, 0, 0);
+}
+void singleCyan() {
+  singleLed(0, 128, 128, 0);
+}
+void singleMagenta() {
+  singleLed(128, 0, 128, 0);
+}
 
 // helper functions to convert an integer into individual RGBW values
 uint8_t red(uint32_t c) {
