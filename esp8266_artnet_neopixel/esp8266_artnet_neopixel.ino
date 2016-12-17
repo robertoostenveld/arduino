@@ -12,6 +12,9 @@
 #include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
 
+#include "config.h"
+#include "mode.h"
+
 int gamma_l[] = {
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
@@ -31,14 +34,8 @@ int gamma_l[] = {
   215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
 };
 
-// Configurable settings
-struct Config {
-  int length;
-  int leds;
-  int universe;
-  int offset;
-  int mode;
-} config;
+// Configuration settings
+Config config;
 ConfigManager configManager;
 
 // Neopixel settings
@@ -52,7 +49,6 @@ ArtnetWifi artnet;
 unsigned int msgCounter = 0;
 
 // use an array of function pointers to jump to the desired mode
-// the actual functions are defined further down
 void (*update[]) (uint16_t, uint16_t, uint8_t, uint8_t *) {
   mode0, mode1, mode2, mode3
 };
@@ -135,27 +131,6 @@ void loop() {
 
 /************************************************************************************/
 /************************************************************************************/
-
-void mode0(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  for (int i = 0; i < length / config.leds; i++) {
-    int pixel   = i + (universe - config.universe) * 512;
-    int channel = i * config.leds + config.offset;
-
-    if (pixel >= 0 && pixel < strip.numPixels())
-      if (channel >= 0 && (channel + config.leds) < length) {
-        if (config.leds == 3)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2]);
-        else if (config.leds == 4)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2], data[channel + 3]);
-      }
-  }
-  strip.show();
-} // mode0
-
-void mode1(uint16_t, uint16_t, uint8_t, uint8_t *) {}
-void mode2(uint16_t, uint16_t, uint8_t, uint8_t *) {}
-void mode3(uint16_t, uint16_t, uint8_t, uint8_t *) {}
-
 /************************************************************************************/
 /************************************************************************************/
 
