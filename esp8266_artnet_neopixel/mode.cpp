@@ -140,6 +140,7 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   }
   strip.show();
 } // mode2
+
 /*
   mode 3: single uniform color, blinking between the color and black
   channel 1  = red

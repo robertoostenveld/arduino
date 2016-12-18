@@ -58,9 +58,15 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * 
   Serial.print("msgCounter = ");
   Serial.println(msgCounter++);
 
-  if (config.mode >= 0 && config.mode < (sizeof(update) / 4))
+  if (config.mode >= 0 && config.mode < (sizeof(update) / 4)) {
     // call the function corresponding to the current mode
+    long tic = millis();
     (*update[config.mode]) (universe, length, sequence, data);
+    Serial.print("updating mode ");
+    Serial.print("takes ");
+    Serial.print(millis() - tic);
+    Serial.println(" ms");
+  }
   else
     // the current mode does not map onto a function
     Serial.println("invalid mode");
