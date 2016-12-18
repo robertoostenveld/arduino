@@ -62,7 +62,7 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     g = data[config.offset + 1];
     b = data[config.offset + 2];
     w = data[config.offset + 3];
-    intensity = data[config.offset + 3];
+    intensity = data[config.offset + 4];
   }
   // scale with the intensity
   r = (r * intensity) / 255;
@@ -84,17 +84,62 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   channel 2  = color 1 green
   channel 3  = color 1 blue
   channel 4  = color 1 white
-  channel 5 = color 1 intensity
-  channel 6  = color 2 red
-  channel 7  = color 2 green
-  channel 8  = color 2 blue
-  channel 9  = color 2 white
-  channel 10 = ratio (between color 1 and color2)
-  channel 11 = intensity (this also allows to black out the colors)
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9 = balance (between color 1 and color2)
+  channel 10 = intensity (this also allows to black out the colors)
 */
 
-void mode2(uint16_t, uint16_t, uint8_t, uint8_t *) {}
-
+void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int r1, g1, b1, w1, r2, g2, b2, w2, balance, intensity;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 8)
+    return;
+  if (RGBW && (length - config.offset) < 10)
+    return;
+  if (RGB) {
+    r1 = data[config.offset + 0];
+    g1 = data[config.offset + 1];
+    b1 = data[config.offset + 2];
+    r2 = data[config.offset + 3];
+    g2 = data[config.offset + 4];
+    b2 = data[config.offset + 5];
+    balance   = data[config.offset + 6];
+    intensity = data[config.offset + 7];
+  }
+  else if (RGBW) {
+    r1 = data[config.offset + 0];
+    g1 = data[config.offset + 1];
+    b1 = data[config.offset + 2];
+    w1 = data[config.offset + 3];
+    r2 = data[config.offset + 4];
+    g2 = data[config.offset + 5];
+    b2 = data[config.offset + 6];
+    w2 = data[config.offset + 7];
+    balance   = data[config.offset + 8];
+    intensity = data[config.offset + 9];
+  }
+  // apply the balance between the two colors
+  r1 = (r1*(255-balance) + r2*balance)/255;
+  g1 = (g1*(255-balance) + g2*balance)/255;
+  b1 = (b1*(255-balance) + b2*balance)/255;
+  w1 = (w1*(255-balance) + w2*balance)/255;
+  // scale with the intensity
+  r1 = (r1 * intensity) / 255;
+  g1 = (g1 * intensity) / 255;
+  b1 = (b1 * intensity) / 255;
+  w1 = (w1 * intensity) / 255;
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    if (RGB)
+      strip.setPixelColor(pixel, r1, g1, b1);
+    else if (RGBW)
+      strip.setPixelColor(pixel, r1, g1, b1, w1);
+  }
+  strip.show();
+} // mode2
 /*
   mode 3: single uniform color, blinking between the color and black
   channel 1  = red
