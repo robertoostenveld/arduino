@@ -4,6 +4,8 @@
 extern Config config;
 extern Adafruit_NeoPixel strip;
 
+long tic_frame;
+
 int gamma_l[] = {
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
@@ -174,6 +176,65 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 */
 
 void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int r, g, b, w;
+  float intensity, speed, ramp, duty, balance;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 4 + 4)
+    return;
+  if (RGB) {
+    r         = data[config.offset + 0];
+    g         = data[config.offset + 1];
+    b         = data[config.offset + 2];
+    intensity = data[config.offset + 3] / 255.; // fraction between 0 and 1
+    speed     = data[config.offset + 4] / 8.;   // the value 256 maps onto 32 flashes per second
+    ramp      = data[config.offset + 5] * (360. / 255.);
+    duty      = data[config.offset + 6] * (360. / 255.);
+  }
+  else if (RGBW) {
+    r         = data[config.offset + 0];
+    g         = data[config.offset + 1];
+    b         = data[config.offset + 2];
+    w         = data[config.offset + 3];
+    intensity = data[config.offset + 4] / 255.; // fraction between 0 and 1
+    speed     = data[config.offset + 5] / 8.;   // the value 256 maps onto 32 flashes per second
+    ramp      = data[config.offset + 6] * (360. / 255.);
+    duty      = data[config.offset + 7] * (360. / 255.);
+  }
+  // determine the present phase in the cycle
+  float phase = (speed * millis()) / 1000.;
+  phase = 360. * (phase - int(phase));
+  // center the phase on 180 degrees
+  phase -= 180;
+  // only consider the absolute phase
+  phase *= (phase < 0 ? -1 : 1);
+
+  // the duty should be more than half the ramp, and less than 360 minus half the ramp
+  duty = (duty <     ramp/2 ?     ramp/2 : duty);
+  duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
+
+  if (phase <= (duty / 2 - ramp / 4))
+    balance = 1;
+  else if (phase >= (duty / 2 + ramp / 4))
+    balance = 0;
+  else
+    balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
+
+  // scale with the balance and intensity
+  intensity *= balance;
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    if (RGB)
+      strip.setPixelColor(pixel, r, g, b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, r, g, b, w);
+  }
+  strip.show();
 }
 
 /*
@@ -194,6 +255,77 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 */
 
 void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int r, g, b, w, r2, g2, b2, w2;
+  float intensity, speed, ramp, duty, balance;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 2 * 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 2 * 4 + 4)
+    return;
+  if (RGB) {
+    r         = data[config.offset + 0];
+    g         = data[config.offset + 1];
+    b         = data[config.offset + 2];
+    r2        = data[config.offset + 3];
+    g2        = data[config.offset + 4];
+    b2        = data[config.offset + 5];
+    intensity = data[config.offset + 6] / 255.; // fraction between 0 and 1
+    speed     = data[config.offset + 7] / 8.;   // the value 256 maps onto 32 flashes per second
+    ramp      = data[config.offset + 8] * (360. / 255.);
+    duty      = data[config.offset + 9] * (360. / 255.);
+  }
+  else if (RGBW) {
+    r         = data[config.offset + 0];
+    g         = data[config.offset + 1];
+    b         = data[config.offset + 2];
+    w         = data[config.offset + 3];
+    r2        = data[config.offset + 4];
+    g2        = data[config.offset + 5];
+    b2        = data[config.offset + 6];
+    w2        = data[config.offset + 7];
+    intensity = data[config.offset + 8]  / 255.; // fraction between 0 and 1
+    speed     = data[config.offset + 9]  / 8.;   // the value 256 maps onto 32 flashes per second
+    ramp      = data[config.offset + 10] * (360. / 255.);
+    duty      = data[config.offset + 11] * (360. / 255.);
+  }
+  // determine the present phase in the cycle
+  float phase = (speed * millis()) / 1000.;
+  phase = 360. * (phase - int(phase));
+  // center the phase on 180 degrees
+  phase -= 180;
+  // only consider the absolute phase
+  phase *= (phase < 0 ? -1 : 1);
+
+  // the duty should be more than half the ramp, and less than 360 minus half the ramp
+  duty = (duty <     ramp/2 ?     ramp/2 : duty);
+  duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
+
+  if (phase <= (duty / 2 - ramp / 4))
+    balance = 1;
+  else if (phase >= (duty / 2 + ramp / 4))
+    balance = 0;
+  else
+    balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
+
+  // apply the balance between the two colors
+  r = (r * (1. - balance) + r2 * balance);
+  g = (g * (1. - balance) + g2 * balance);
+  b = (b * (1. - balance) + b2 * balance);
+  w = (w * (1. - balance) + w2 * balance);
+  // scale with the intensity
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+  
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    if (RGB)
+      strip.setPixelColor(pixel, r, g, b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, r, g, b, w);
+  }
+  strip.show();
 }
 
 /************************************************************************************/

@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+extern long tic_frame;
+
 void singleRed();
 void singleGreen();
 void singleBlue();
