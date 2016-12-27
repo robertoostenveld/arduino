@@ -189,7 +189,7 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   else
     ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
 
-  // determine the present phase in the cycle
+  // determine the current phase in the temporal cycle
   phase = (speed * millis()) * 360. / 1000.;
   phase = WRAP180(phase);
   phase = ABS(phase);
@@ -268,7 +268,7 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   else
     ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
 
-  // determine the present phase in the cycle
+  // determine the current phase in the temporal cycle
   phase = (speed * millis()) * 360. / 1000.;
   phase = WRAP180(phase);
   phase = ABS(phase);
@@ -549,8 +549,63 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   strip.show();
 }
 
+/*
+  mode 9: rotating slider
+  channel 1 = red
+  channel 2 = green
+  channel 3 = blue
+  channel 4 = white
+  channel 5 = intensity
+  channel 6 = speed
+  channel 7 = width
+*/
+
 void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  };
+  int i = 0, r, g, b, w;
+  float intensity, speed, width, phase;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 4 + 4)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.;  // fraction between 0 and 1
+  speed     = data[config.offset + i++]  / 8.;   // the value 256 maps onto 32 flashes per second
+  width     = data[config.offset + i++] * 360 / 255.;
+
+  // scale with the intensity
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+
+  // determine the current phase in the temporal cycle
+  phase = (speed * millis()) * 360. / 1000.;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    float position, balance;
+
+    position = 360. * pixel / (strip.numPixels() - 1);
+    position = WRAP180(position - phase);
+    position = ABS(position);
+
+    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
+      balance = 1;
+    else
+      balance = 0;
+
+    if (RGB)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+  }
+  strip.show();
+};
 
 /************************************************************************************/
 /************************************************************************************/
