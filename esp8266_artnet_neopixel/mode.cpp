@@ -25,7 +25,6 @@ int gamma_l[] = {
   215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
 };
 
-
 #define RGB  (config.leds==3)
 #define RGBW (config.leds==4)
 
@@ -66,31 +65,27 @@ void mode0(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 */
 
 void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  int r, g, b, w, intensity;
+  int i = 0, r, g, b, w;
+  float intensity;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 3 + 1)
     return;
   if (RGBW && (length - config.offset) < 4 + 1)
     return;
-  if (RGB) {
-    r = data[config.offset + 0];
-    g = data[config.offset + 1];
-    b = data[config.offset + 2];
-    intensity = data[config.offset + 3];
-  }
-  else if (RGBW) {
-    r = data[config.offset + 0];
-    g = data[config.offset + 1];
-    b = data[config.offset + 2];
-    w = data[config.offset + 3];
-    intensity = data[config.offset + 4];
-  }
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+
   // scale with the intensity
-  r = (r * intensity) / 255;
-  g = (g * intensity) / 255;
-  b = (b * intensity) / 255;
-  w = (w * intensity) / 255;
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     if (RGB)
       strip.setPixelColor(pixel, r, g, b);
@@ -98,7 +93,7 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b, w);
   }
   strip.show();
-} // mode1
+}
 
 /*
   mode 2: two color mixing
@@ -110,50 +105,44 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   channel 6  = color 2 green
   channel 7  = color 2 blue
   channel 8  = color 2 white
-  channel 9  = balance (between color 1 and color2)
-  channel 10 = intensity (this also allows to black out the colors)
+  channel 9  = intensity (this also allows to black out the colors)
+  channel 10 = balance (between color 1 and color2)
 */
 
 void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  int r, g, b, w, r2, g2, b2, w2, balance, intensity;
+  int i = 0, r, g, b, w, r2, g2, b2, w2;
+  float balance, intensity;
   if (universe != config.universe)
     return;
-  if (RGB && (length - config.offset) < 6 + 2)
+  if (RGB && (length - config.offset) < 2 * 3 + 2)
     return;
-  if (RGBW && (length - config.offset) < 8 + 2)
+  if (RGBW && (length - config.offset) < 2 * 4 + 2)
     return;
-  if (RGB) {
-    r  = data[config.offset + 0];
-    g  = data[config.offset + 1];
-    b  = data[config.offset + 2];
-    r2 = data[config.offset + 3];
-    g2 = data[config.offset + 4];
-    b2 = data[config.offset + 5];
-    balance   = data[config.offset + 6];
-    intensity = data[config.offset + 7];
-  }
-  else if (RGBW) {
-    r  = data[config.offset + 0];
-    g  = data[config.offset + 1];
-    b  = data[config.offset + 2];
-    w  = data[config.offset + 3];
-    r2 = data[config.offset + 4];
-    g2 = data[config.offset + 5];
-    b2 = data[config.offset + 6];
-    w2 = data[config.offset + 7];
-    balance   = data[config.offset + 8];
-    intensity = data[config.offset + 9];
-  }
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  r2        = data[config.offset + i++];
+  g2        = data[config.offset + i++];
+  b2        = data[config.offset + i++];
+  if (RGBW)
+    w2      = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  balance   = data[config.offset + i++] / 255.; // fraction between 0 and 1
+
   // apply the balance between the two colors
-  r = (r * (255 - balance) + r2 * balance) / 255;
-  g = (g * (255 - balance) + g2 * balance) / 255;
-  b = (b * (255 - balance) + b2 * balance) / 255;
-  w = (w * (255 - balance) + w2 * balance) / 255;
+  r = BALANCE(balance, r, r2);
+  g = BALANCE(balance, g, g2);
+  b = BALANCE(balance, b, b2);
+  w = BALANCE(balance, w, w2);
+
   // scale with the intensity
-  r = (r * intensity) / 255;
-  g = (g * intensity) / 255;
-  b = (b * intensity) / 255;
-  w = (w * intensity) / 255;
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     if (RGB)
       strip.setPixelColor(pixel, r, g, b);
@@ -161,7 +150,7 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b, w);
   }
   strip.show();
-} // mode2
+}
 
 /*
   mode 3: single uniform color, blinking between the color and black
@@ -171,63 +160,59 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   channel 4 = white
   channel 5 = intensity
   channel 6 = speed (number of flashes per unit of time)
-  channel 7 = ramp (to specify whether there is a abrubt or more smooth transition)
-  channel 8 = duty cycle (what is the time ratio between color and black)
+  channel 7 = ramp (whether there is a abrubt or more smooth transition)
+  channel 8 = duty cycle (the time ratio between the color and black)
 */
 
 void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  int r, g, b, w;
-  float intensity, speed, ramp, duty, balance;
+  int i = 0, r, g, b, w;
+  float intensity, speed, ramp, duty, phase, balance;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 3 + 4)
     return;
   if (RGBW && (length - config.offset) < 4 + 4)
     return;
-  if (RGB) {
-    r         = data[config.offset + 0];
-    g         = data[config.offset + 1];
-    b         = data[config.offset + 2];
-    intensity = data[config.offset + 3] / 255.; // fraction between 0 and 1
-    speed     = data[config.offset + 4] / 8.;   // the value 256 maps onto 32 flashes per second
-    ramp      = data[config.offset + 5] * (360. / 255.);
-    duty      = data[config.offset + 6] * (360. / 255.);
-  }
-  else if (RGBW) {
-    r         = data[config.offset + 0];
-    g         = data[config.offset + 1];
-    b         = data[config.offset + 2];
-    w         = data[config.offset + 3];
-    intensity = data[config.offset + 4] / 255.; // fraction between 0 and 1
-    speed     = data[config.offset + 5] / 8.;   // the value 256 maps onto 32 flashes per second
-    ramp      = data[config.offset + 6] * (360. / 255.);
-    duty      = data[config.offset + 7] * (360. / 255.);
-  }
-  // determine the present phase in the cycle
-  float phase = (speed * millis()) / 1000.;
-  phase = 360. * (phase - int(phase));
-  // center the phase on 180 degrees
-  phase -= 180;
-  // only consider the absolute phase
-  phase *= (phase < 0 ? -1 : 1);
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  speed     = data[config.offset + i++] / 8.;   // the value 256 maps onto 32 flashes per second
+  ramp      = data[config.offset + i++] * (360. / 255.);
+  duty      = data[config.offset + i++] * (360. / 255.);
 
-  // the duty should not be more than half the ramp, and less than 360 minus half the ramp
-  duty = (duty <     ramp/2 ?     ramp/2 : duty);
-  duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
+  // the ramp cannot be too wide
+  if (duty < 180)
+    ramp = (ramp < duty ? ramp : duty);
+  else
+    ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
+
+  // determine the present phase in the cycle
+  phase = (speed * millis()) * 360. / 1000.;
+  phase = WRAP180(phase);
+  phase = ABS(phase);
 
   if (phase <= (duty / 2 - ramp / 4))
     balance = 1;
   else if (phase >= (duty / 2 + ramp / 4))
     balance = 0;
-  else
+  else if (ramp > 0)
     balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
 
-  // scale with the balance and intensity
-  intensity *= balance;
+  // scale with the intensity
   r = intensity * r;
   g = intensity * g;
   b = intensity * b;
   w = intensity * w;
+
+  // scale with the balance
+  r = balance * r;
+  g = balance * g;
+  b = balance * b;
+  w = balance * w;
+
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     if (RGB)
       strip.setPixelColor(pixel, r, g, b);
@@ -243,82 +228,70 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   channel 2  = color 1 green
   channel 3  = color 1 blue
   channel 4  = color 1 white
-  channel 5  = color 1 intensity
-  channel 6  = color 2 red
-  channel 7  = color 2 green
-  channel 8  = color 2 blue
-  channel 9  = color 2 white
-  channel 10 = intensity
-  channel 11 = speed
-  channel 12 = ramp (here it is the time it takes to transition, i.e color transitions can be abrupt, but also gradually fused)
-  channel 13 = duty cycle
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9  = intensity
+  channel 10 = speed
+  channel 11 = ramp
+  channel 12 = duty cycle
 */
 
 void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  int r, g, b, w, r2, g2, b2, w2;
-  float intensity, speed, ramp, duty, balance;
+  int i = 0, r, g, b, w, r2, g2, b2, w2;
+  float intensity, speed, ramp, duty, phase, balance;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 2 * 3 + 4)
     return;
   if (RGBW && (length - config.offset) < 2 * 4 + 4)
     return;
-  if (RGB) {
-    r         = data[config.offset + 0];
-    g         = data[config.offset + 1];
-    b         = data[config.offset + 2];
-    r2        = data[config.offset + 3];
-    g2        = data[config.offset + 4];
-    b2        = data[config.offset + 5];
-    intensity = data[config.offset + 6] / 255.; // fraction between 0 and 1
-    speed     = data[config.offset + 7] / 8.;   // the value 256 maps onto 32 flashes per second
-    ramp      = data[config.offset + 8] * (360. / 255.);
-    duty      = data[config.offset + 9] * (360. / 255.);
-  }
-  else if (RGBW) {
-    r         = data[config.offset + 0];
-    g         = data[config.offset + 1];
-    b         = data[config.offset + 2];
-    w         = data[config.offset + 3];
-    r2        = data[config.offset + 4];
-    g2        = data[config.offset + 5];
-    b2        = data[config.offset + 6];
-    w2        = data[config.offset + 7];
-    intensity = data[config.offset + 8]  / 255.; // fraction between 0 and 1
-    speed     = data[config.offset + 9]  / 8.;   // the value 256 maps onto 32 flashes per second
-    ramp      = data[config.offset + 10] * (360. / 255.);
-    duty      = data[config.offset + 11] * (360. / 255.);
-  }
-  // determine the present phase in the cycle
-  float phase = (speed * millis()) / 1000.;
-  phase = 360. * (phase - int(phase));
-  // center the phase on 180 degrees
-  phase -= 180;
-  // only consider the absolute phase
-  phase *= (phase < 0 ? -1 : 1);
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  r2        = data[config.offset + i++];
+  g2        = data[config.offset + i++];
+  b2        = data[config.offset + i++];
+  if (RGBW)
+    w2      = data[config.offset + i++];
+  intensity = data[config.offset + i++]  / 255.; // fraction between 0 and 1
+  speed     = data[config.offset + i++]  / 8.;   // the value 256 maps onto 32 flashes per second
+  ramp      = data[config.offset + i++] * (360. / 255.);
+  duty      = data[config.offset + i++] * (360. / 255.);
 
-  // the duty should not be more than half the ramp, and less than 360 minus half the ramp
-  duty = (duty <     ramp/2 ?     ramp/2 : duty);
-  duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
+  // the ramp cannot be too wide
+  if (duty < 180)
+    ramp = (ramp < duty ? ramp : duty);
+  else
+    ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
+
+  // determine the present phase in the cycle
+  phase = (speed * millis()) * 360. / 1000.;
+  phase = WRAP180(phase);
+  phase = ABS(phase);
 
   if (phase <= (duty / 2 - ramp / 4))
     balance = 1;
   else if (phase >= (duty / 2 + ramp / 4))
     balance = 0;
-  else
+  else if (ramp > 0)
     balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
 
   // apply the balance between the two colors
-  r = (r * (1. - balance) + r2 * balance);
-  g = (g * (1. - balance) + g2 * balance);
-  b = (b * (1. - balance) + b2 * balance);
-  w = (w * (1. - balance) + w2 * balance);
+  r = BALANCE(balance, r, r2);
+  g = BALANCE(balance, g, g2);
+  b = BALANCE(balance, b, b2);
+  w = BALANCE(balance, w, w2);
+
   // scale with the intensity
   r = intensity * r;
   g = intensity * g;
   b = intensity * b;
   w = intensity * w;
-  
+
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     if (RGB)
       strip.setPixelColor(pixel, r, g, b);
@@ -328,7 +301,269 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   strip.show();
 }
 
+/*
+  mode 5: single color slider, segment that can be moved along the array (between the edges)
+  channel 1 = red
+  channel 2 = green
+  channel 3 = blue
+  channel 4 = white
+  channel 5 = intensity
+  channel 6 = position (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 7 = width    (from 0-255 or 0-360 degrees, relative to the length of the array)
+*/
+
+void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r, g, b, w;
+  float intensity, width, position, phase, balance;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 + 3)
+    return;
+  if (RGBW && (length - config.offset) < 4 + 3)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  position  = data[config.offset + i++] * (strip.numPixels() - 1) / 255.;
+  width     = data[config.offset + i++] * (strip.numPixels() - 0) / 255.;
+
+  // scale with the intensity
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+
+  position -= strip.numPixels() / 2;
+  position /= strip.numPixels() / 2;
+  position *= (strip.numPixels() - width) / 2;
+  position += strip.numPixels() / 2;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+
+    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
+      balance = 1;
+    else
+      balance = 0;
+
+    if (RGB)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+  }
+  strip.show();
+}
+
+/*
+  mode 6: dual color slider, segment can be moved along the array (between the edges)
+  channel 1  = color 1 red
+  channel 2  = color 1 green
+  channel 3  = color 1 blue
+  channel 4  = color 1 white
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9  = intensity
+  channel 10 = position (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 11 = width    (from 0-255 or 0-360 degrees, relative to the length of the array)
+*/
+
+void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r, g, b, w, r2, g2, b2, w2;
+  float intensity, width, position, phase, balance;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 2 * 3 + 3)
+    return;
+  if (RGBW && (length - config.offset) < 2 * 4 + 3)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  r2        = data[config.offset + i++];
+  g2        = data[config.offset + i++];
+  b2        = data[config.offset + i++];
+  if (RGBW)
+    w2      = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  position  = data[config.offset + i++] * (strip.numPixels() - 1) / 255.;
+  width     = data[config.offset + i++] * (strip.numPixels() - 0) / 255.;
+
+  position -= strip.numPixels() / 2;
+  position /= strip.numPixels() / 2;
+  position *= (strip.numPixels() - width) / 2;
+  position += strip.numPixels() / 2;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+
+    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
+      balance = 1;
+    else
+      balance = 0;
+
+    if (RGB)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
+    else if (RGBW)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+  }
+  strip.show();
+}
+
+/*
+  mode 7: single color smooth slider, segment can be moved along the array (continuous over the edge)
+  channel 1 = red
+  channel 2 = green
+  channel 3 = blue
+  channel 4 = white
+  channel 5 = intensity
+  channel 6 = position (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 7 = width    (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 8 = ramp     (from 0-255 or 0-360 degrees, relative to the length of the array)
+*/
+
+void mode7(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r, g, b, w;
+  float intensity, position, width, ramp;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 4 + 4)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.;        // fraction between 0 and 1
+  position  = data[config.offset + i++] * 360 / 255.;
+  width     = data[config.offset + i++] * 360 / 255.;
+  ramp      = data[config.offset + i++] * 360 / 255.;
+
+  // the ramp cannot be too wide
+  if (width < 180)
+    ramp = (ramp < width ? ramp : width);
+  else
+    ramp = (ramp < (360 - width) ? ramp : (360 - width));
+
+  // scale with the intensity
+  r = intensity * r;
+  g = intensity * g;
+  b = intensity * b;
+  w = intensity * w;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    float phase = 360. * pixel / (strip.numPixels() - 1);
+    phase = WRAP180(phase - position);
+    phase = ABS(phase);
+
+    float balance = 0;
+    if (width == 0)
+      balance = 0;
+    else if (phase < (width / 2. - ramp / 2.))
+      balance = 1;
+    else if (phase > (width / 2. + ramp / 2.))
+      balance = 0;
+    else if (ramp > 0)
+      balance = ((width / 2. + ramp / 2.) - phase) / ramp;
+
+    if (RGB)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+  }
+  strip.show();
+}
+
+/*
+  mode 8: dual color smooth slider, segment can be moved along the array (continuous over the edge)
+  channel 1  = color 1 red
+  channel 2  = color 1 green
+  channel 3  = color 1 blue
+  channel 4  = color 1 white
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9  = intensity
+  channel 10 = position (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 11 = width    (from 0-255 or 0-360 degrees, relative to the length of the array)
+  channel 12 = ramp     (from 0-255 or 0-360 degrees, relative to the length of the array)
+*/
+
+void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r, g, b, w, r2, g2, b2, w2;
+  float intensity, position, width, ramp;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 2 * 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 2 * 4 + 4)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  r2        = data[config.offset + i++];
+  g2        = data[config.offset + i++];
+  b2        = data[config.offset + i++];
+  if (RGBW)
+    w2      = data[config.offset + i++];
+  intensity = data[config.offset + i++] / 255.;        // fraction between 0 and 1
+  position  = data[config.offset + i++] * 360 / 255.;
+  width     = data[config.offset + i++] * 360 / 255.;
+  ramp      = data[config.offset + i++] * 360 / 255.;
+
+  // the ramp cannot be too wide
+  if (width < 180)
+    ramp = (ramp < width ? ramp : width);
+  else
+    ramp = (ramp < (360 - width) ? ramp : (360 - width));
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    float phase = 360. * pixel / (strip.numPixels() - 1);
+    phase = WRAP180(phase - position);
+    phase = ABS(phase);
+
+    float balance = 0;
+    if (width == 0)
+      balance = 0;
+    else if (phase < (width / 2. - ramp / 2.))
+      balance = 1;
+    else if (phase > (width / 2. + ramp / 2.))
+      balance = 0;
+    else if (ramp > 0)
+      balance = ((width / 2. + ramp / 2.) - phase) / ramp;
+
+    if (RGB)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
+    else if (RGBW)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+  }
+  strip.show();
+}
+
+void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  };
+
 /************************************************************************************/
+/************************************************************************************/
+/************************************************************************************/
+
+void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode13(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode14(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode15(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+void mode16(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
+
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/

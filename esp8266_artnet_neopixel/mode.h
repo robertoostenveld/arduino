@@ -8,6 +8,14 @@
 #include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
 
+#define ROUND(x)   (int(x + 0.5))
+#define ABS(x)     (x * (x < 0 ? -1 : 1))
+#define MIN(x, y)  (x < y ? x : y)
+#define MAX(x, y)  (x > y ? x : y)
+#define WRAP360(x) (x > 0 ? (x - int((x)/360)*360) : (x - int((x)/360 - 1)*360))  // between    0 and 360
+#define WRAP180(x) (WRAP360(x) < 180 ? WRAP360(x) : WRAP360(x) - 360)             // between -180 and 180
+#define BALANCE(l, x1, x2)  ((x1) * (1. - l) + (x2) * l)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
