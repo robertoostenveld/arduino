@@ -99,7 +99,7 @@ Updating the firmware on the Wemos D1 mini board using the Arduino IDE requires 
   channel 11 = width    (from 0-255 or 0-360 degrees, relative to the length of the array)
   channel 12 = ramp     (from 0-255 or 0-360 degrees, relative to the length of the array)
 
-  mode 9: rotating slider
+  mode 9: spinning wheel
   channel 1 = red
   channel 2 = green
   channel 3 = blue

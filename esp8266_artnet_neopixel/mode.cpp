@@ -550,7 +550,7 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 }
 
 /*
-  mode 9: rotating slider
+  mode 9: spinning wheel
   channel 1 = red
   channel 2 = green
   channel 3 = blue
