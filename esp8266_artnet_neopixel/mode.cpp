@@ -211,7 +211,7 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   // only consider the absolute phase
   phase *= (phase < 0 ? -1 : 1);
 
-  // the duty should be more than half the ramp, and less than 360 minus half the ramp
+  // the duty should not be more than half the ramp, and less than 360 minus half the ramp
   duty = (duty <     ramp/2 ?     ramp/2 : duty);
   duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
 
@@ -297,7 +297,7 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   // only consider the absolute phase
   phase *= (phase < 0 ? -1 : 1);
 
-  // the duty should be more than half the ramp, and less than 360 minus half the ramp
+  // the duty should not be more than half the ramp, and less than 360 minus half the ramp
   duty = (duty <     ramp/2 ?     ramp/2 : duty);
   duty = (duty > 360-ramp/2 ? 360-ramp/2 : duty);
 
