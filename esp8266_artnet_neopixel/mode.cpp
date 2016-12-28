@@ -1,10 +1,12 @@
 #include "config.h"
 #include "mode.h"
+#include "colorspace.h"
 
 extern Config config;
 extern Adafruit_NeoPixel strip;
 
 long tic_frame;
+float prev;
 
 int gamma_l[] = {
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -39,21 +41,31 @@ int gamma_l[] = {
 */
 
 void mode0(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
-  for (int i = 0; i < length / config.leds; i++) {
-    int pixel   = i + (universe - config.universe) * 512;
-    int channel = i * config.leds + config.offset;
+  int i = 0, r, g, b, w;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 * strip.numPixels() + 1)
+    return;
+  if (RGBW && (length - config.offset) < 4 * strip.numPixels() + 1)
+    return;
 
-    if (pixel >= 0 && pixel < strip.numPixels())
-      if (channel >= 0 && (channel + config.leds) < length) {
-        if (RGB)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2]);
-        else if (RGBW)
-          strip.setPixelColor(pixel, data[channel + 0], data[channel + 1], data[channel + 2], data[channel + 3]);
-      }
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    r         = data[config.offset + i++];
+    g         = data[config.offset + i++];
+    b         = data[config.offset + i++];
+    if (RGBW)
+      w       = data[config.offset + i++];
+
+    if (config.hsv)
+      map_hsv_to_rgb(&r, &g, &b);
+
+    if (RGB)
+      strip.setPixelColor(pixel, r, g, b);
+    else if (RGBW)
+      strip.setPixelColor(pixel, r, g, b, w);
   }
   strip.show();
-} // mode0
-
+}
 
 /*
   mode 1: single uniform color
@@ -78,7 +90,10 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b         = data[config.offset + i++];
   if (RGBW)
     w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  intensity = 1. * data[config.offset + i++] / 255.;
+
+  if (config.hsv)
+    map_hsv_to_rgb(&r, &g, &b);
 
   // scale with the intensity
   r = intensity * r;
@@ -128,8 +143,13 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b2        = data[config.offset + i++];
   if (RGBW)
     w2      = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
-  balance   = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  intensity = 1. * data[config.offset + i++] / 255.;
+  balance   = 1. * data[config.offset + i++] / 255.;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r, &g, &b);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
 
   // apply the balance between the two colors
   r = BALANCE(balance, r, r2);
@@ -178,10 +198,13 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b         = data[config.offset + i++];
   if (RGBW)
     w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
-  speed     = data[config.offset + i++] / 8.;   // the value 256 maps onto 32 flashes per second
-  ramp      = data[config.offset + i++] * (360. / 255.);
-  duty      = data[config.offset + i++] * (360. / 255.);
+  intensity = data[config.offset + i++] / 255.;
+  speed     = 1. * data[config.offset + i++] / config.speed;
+  ramp      = 1. * data[config.offset + i++] * 360. / 255.;
+  duty      = 1. * data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv)
+    map_hsv_to_rgb(&r, &g, &b);
 
   // the ramp cannot be too wide
   if (duty < 180)
@@ -191,6 +214,13 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 
   // determine the current phase in the temporal cycle
   phase = (speed * millis()) * 360. / 1000.;
+
+  // prevent rolling back
+  if (WRAP180(phase - prev) < 0)
+    phase = prev;
+  else
+    prev = phase;
+
   phase = WRAP180(phase);
   phase = ABS(phase);
 
@@ -257,10 +287,15 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b2        = data[config.offset + i++];
   if (RGBW)
     w2      = data[config.offset + i++];
-  intensity = data[config.offset + i++]  / 255.; // fraction between 0 and 1
-  speed     = data[config.offset + i++]  / 8.;   // the value 256 maps onto 32 flashes per second
-  ramp      = data[config.offset + i++] * (360. / 255.);
-  duty      = data[config.offset + i++] * (360. / 255.);
+  intensity = 1. * data[config.offset + i++] / 255.;
+  speed     = 1. * data[config.offset + i++] / config.speed;
+  ramp      = 1. * data[config.offset + i++] * 360. / 255.;
+  duty      = 1. * data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r, &g, &b);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
 
   // the ramp cannot be too wide
   if (duty < 180)
@@ -270,6 +305,13 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 
   // determine the current phase in the temporal cycle
   phase = (speed * millis()) * 360. / 1000.;
+
+  // prevent rolling back
+  if (WRAP180(phase - prev) < 0)
+    phase = prev;
+  else
+    prev = phase;
+
   phase = WRAP180(phase);
   phase = ABS(phase);
 
@@ -326,9 +368,12 @@ void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b         = data[config.offset + i++];
   if (RGBW)
     w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  intensity = data[config.offset + i++] / 255.;
   position  = data[config.offset + i++] * (strip.numPixels() - 1) / 255.;
   width     = data[config.offset + i++] * (strip.numPixels() - 0) / 255.;
+
+  if (config.hsv)
+    map_hsv_to_rgb(&r, &g, &b);
 
   // scale with the intensity
   r = intensity * r;
@@ -390,9 +435,14 @@ void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b2        = data[config.offset + i++];
   if (RGBW)
     w2      = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.; // fraction between 0 and 1
+  intensity = data[config.offset + i++] / 255.;
   position  = data[config.offset + i++] * (strip.numPixels() - 1) / 255.;
   width     = data[config.offset + i++] * (strip.numPixels() - 0) / 255.;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r, &g, &b);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
 
   position -= strip.numPixels() / 2;
   position /= strip.numPixels() / 2;
@@ -440,10 +490,13 @@ void mode7(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b         = data[config.offset + i++];
   if (RGBW)
     w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.;        // fraction between 0 and 1
-  position  = data[config.offset + i++] * 360 / 255.;
-  width     = data[config.offset + i++] * 360 / 255.;
-  ramp      = data[config.offset + i++] * 360 / 255.;
+  intensity = data[config.offset + i++] / 255.;
+  position  = data[config.offset + i++] * 360. / 255.;
+  width     = data[config.offset + i++] * 360. / 255.;
+  ramp      = data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv)
+    map_hsv_to_rgb(&r, &g, &b);
 
   // the ramp cannot be too wide
   if (width < 180)
@@ -515,10 +568,15 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b2        = data[config.offset + i++];
   if (RGBW)
     w2      = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.;        // fraction between 0 and 1
-  position  = data[config.offset + i++] * 360 / 255.;
-  width     = data[config.offset + i++] * 360 / 255.;
-  ramp      = data[config.offset + i++] * 360 / 255.;
+  intensity = data[config.offset + i++] / 255.;
+  position  = data[config.offset + i++] * 360. / 255.;
+  width     = data[config.offset + i++] * 360. / 255.;
+  ramp      = data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r, &g, &b);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
 
   // the ramp cannot be too wide
   if (width < 180)
@@ -550,7 +608,7 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 }
 
 /*
-  mode 9: spinning wheel
+  mode 9: spinning color wheel
   channel 1 = red
   channel 2 = green
   channel 3 = blue
@@ -558,11 +616,12 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   channel 5 = intensity
   channel 6 = speed
   channel 7 = width
+  channel 8 = ramp
 */
 
 void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
   int i = 0, r, g, b, w;
-  float intensity, speed, width, phase;
+  float intensity, speed, width, ramp, phase;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 3 + 4)
@@ -574,9 +633,19 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b         = data[config.offset + i++];
   if (RGBW)
     w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.;  // fraction between 0 and 1
-  speed     = data[config.offset + i++]  / 8.;   // the value 256 maps onto 32 flashes per second
-  width     = data[config.offset + i++] * 360 / 255.;
+  intensity = 1. * data[config.offset + i++] / 255.;
+  speed     = 1. * data[config.offset + i++] / config.speed;
+  width     = 1. * data[config.offset + i++] * 360. / 255.;
+  ramp      = 1. * data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv)
+    map_hsv_to_rgb(&r, &g, &b);
+
+  // the ramp cannot be too wide
+  if (width < 180)
+    ramp = (ramp < width ? ramp : width);
+  else
+    ramp = (ramp < (360 - width) ? ramp : (360 - width));
 
   // scale with the intensity
   r = intensity * r;
@@ -587,6 +656,12 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   // determine the current phase in the temporal cycle
   phase = (speed * millis()) * 360. / 1000.;
 
+  // prevent rolling back
+  if (WRAP180(phase - prev) < 0)
+    phase = prev;
+  else
+    prev = phase;
+
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     float position, balance;
 
@@ -594,10 +669,14 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     position = WRAP180(position - phase);
     position = ABS(position);
 
-    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
-      balance = 1;
-    else
+    if (width == 0)
       balance = 0;
+    else if (position < (width / 2. - ramp / 2.))
+      balance = 1;
+    else if (position > (width / 2. + ramp / 2.))
+      balance = 0;
+    else if (position > 0)
+      balance = ((width / 2. + ramp / 2.) - position) / ramp;
 
     if (RGB)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
@@ -607,11 +686,94 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   strip.show();
 };
 
+/*
+  mode 10: spinning color wheel with color background
+  channel 1  = color 1 red
+  channel 2  = color 1 green
+  channel 3  = color 1 blue
+  channel 4  = color 1 white
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9  = intensity
+  channel 10 = speed
+  channel 11 = width
+  channel 12 = ramp
+*/
+
+void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r, g, b, w, r2, g2, b2, w2;
+  float intensity, speed, width, ramp, phase;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 2 * 3 + 4)
+    return;
+  if (RGBW && (length - config.offset) < 2 * 4 + 4)
+    return;
+  r         = data[config.offset + i++];
+  g         = data[config.offset + i++];
+  b         = data[config.offset + i++];
+  if (RGBW)
+    w       = data[config.offset + i++];
+  r2        = data[config.offset + i++];
+  g2        = data[config.offset + i++];
+  b2        = data[config.offset + i++];
+  if (RGBW)
+    w2      = data[config.offset + i++];
+  intensity = 1. * data[config.offset + i++] / 255.;
+  speed     = 1. * data[config.offset + i++] / config.speed;
+  width     = 1. * data[config.offset + i++] * 360. / 255.;
+  ramp      = 1. * data[config.offset + i++] * 360. / 255.;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r, &g, &b);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
+
+  // the ramp cannot be too wide
+  if (width < 180)
+    ramp = (ramp < width ? ramp : width);
+  else
+    ramp = (ramp < (360 - width) ? ramp : (360 - width));
+
+  // determine the current phase in the temporal cycle
+  phase = (speed * millis()) * 360. / 1000.;
+
+  // prevent rolling back
+  if (WRAP180(phase - prev) < 0)
+    phase = prev;
+  else
+    prev = phase;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    float position, balance;
+
+    position = 360. * pixel / (strip.numPixels() - 1);
+    position = WRAP180(position - phase);
+    position = ABS(position);
+
+    if (width == 0)
+      balance = 0;
+    else if (position < (width / 2. - ramp / 2.))
+      balance = 1;
+    else if (position > (width / 2. + ramp / 2.))
+      balance = 0;
+    else if (position > 0)
+      balance = ((width / 2. + ramp / 2.) - position) / ramp;
+
+    if (RGB)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
+    else if (RGBW)
+      strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+  }
+  strip.show();
+};
+
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
 
-void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode13(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
@@ -841,5 +1003,17 @@ void rainbow(uint8_t wait) {
     strip.show();
     delay(wait);
   }
+}
+
+void map_hsv_to_rgb(int *r, int *g, int *b) {
+  hsv in;
+  rgb out;
+  in.h = 360. * (*r) / 256.;
+  in.s =   1. * (*g) / 255.;
+  in.v =   1. * (*b) / 255.;
+  out = hsv2rgb(in);
+  (*r) = out.r * 255;
+  (*g) = out.g * 255;
+  (*b) = out.b * 255;
 }
 

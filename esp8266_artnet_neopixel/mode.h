@@ -22,13 +22,14 @@ extern "C" {
 
 extern long tic_frame;
 
+void map_hsv_to_rgb(int *, int *, int *);
+
 void singleRed();
 void singleGreen();
 void singleBlue();
 void singleYellow();
 void singleWhite();
 void fullBlack();
-void rainbowFade2White(uint8_t wait, int rainbowLoops, int whiteLoops);
 
 void mode0(uint16_t, uint16_t, uint8_t, uint8_t *);
 void mode1(uint16_t, uint16_t, uint8_t, uint8_t *);

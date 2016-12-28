@@ -22,7 +22,7 @@ ConfigManager configManager;
 // Neopixel settings
 const byte dataPin = D2;
 byte brightness = 100;
-int numberOfChannels;     // total number of channels you want to receive
+int numberOfChannels; // total number of channels you want to receive
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(1, dataPin, NEO_GRBW + NEO_KHZ800); // start with one pixel
 
 // Artnet settings
@@ -73,9 +73,8 @@ void setup() {
   Serial.begin(115200);
   Serial.println("setup");
 
-  strip.setBrightness(brightness);
   strip.begin();
-
+  strip.setBrightness(255);
   singleYellow();
   delay(1000);
 
@@ -86,27 +85,37 @@ void setup() {
 
   configManager.setAPName("ARTNET");
   configManager.setAPFilename("/index.html");
-  configManager.addParameter("length",   &config.length); // number of pixels
-  configManager.addParameter("leds",     &config.leds);   // number of leds per pixel: 3 for NEO_GRB, 4 for NEO_GRBW
-  configManager.addParameter("universe", &config.universe);
-  configManager.addParameter("offset",   &config.offset);
-  configManager.addParameter("mode",     &config.mode);
+  configManager.addParameter("length",     &config.length); // number of pixels
+  configManager.addParameter("leds",       &config.leds);   // number of leds per pixel: 3 for NEO_GRB, 4 for NEO_GRBW
+  configManager.addParameter("universe",   &config.universe);
+  configManager.addParameter("brightness", &config.brightness);
+  configManager.addParameter("offset",     &config.offset);
+  configManager.addParameter("mode",       &config.mode);
+  configManager.addParameter("speed",      &config.speed);
+  configManager.addParameter("hsv",        &config.hsv);
   configManager.begin(config);
 
-  Serial.print("length   = ");
+  Serial.print("length     = ");
   Serial.println(config.length);
-  Serial.print("leds     = ");
+  Serial.print("leds       = ");
   Serial.println(config.leds);
-  Serial.print("universe = ");
+  Serial.print("brightness = ");
+  Serial.println(config.brightness);
+  Serial.print("universe   = ");
   Serial.println(config.universe);
-  Serial.print("offset   = ");
+  Serial.print("offset     = ");
   Serial.println(config.offset);
-  Serial.print("mode     = ");
+  Serial.print("mode       = ");
   Serial.println(config.mode);
+  Serial.print("speed      = ");
+  Serial.println(config.speed);
+  Serial.print("hsv        = ");
+  Serial.println(config.hsv);
 
   // update the neopixel strip configuration
   numberOfChannels = config.length * config.leds;
   strip.updateLength(config.length);
+  strip.setBrightness(config.brightness);
   if (config.leds == 3)
     strip.updateType(NEO_GRB + NEO_KHZ800);
   else if (config.leds == 4)
@@ -127,9 +136,10 @@ void setup() {
 
   artnet.begin();
   artnet.setArtDmxCallback(onDmxFrame);
+  
   // reset all timers
-  tic_loop = millis();
-  tic_dmx = millis();
+  tic_loop  = millis();
+  tic_dmx   = millis();
   tic_frame = millis();
 } // setup
 
@@ -138,7 +148,7 @@ void loop() {
   artnet.read();
 
   if ((millis() - tic_loop) > 9)
-    // this code gets executed at a rate of 100Hz
+    // this code gets executed at a maximum rate of 100Hz
     if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
       tic_loop = millis();
       executed++;
