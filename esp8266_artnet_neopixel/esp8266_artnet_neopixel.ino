@@ -112,21 +112,6 @@ void setup() {
   Serial.print("hsv        = ");
   Serial.println(config.hsv);
 
-  // update the neopixel strip configuration
-  numberOfChannels = config.length * config.leds;
-  strip.updateLength(config.length);
-  strip.setBrightness(config.brightness);
-  if (config.leds == 3)
-    strip.updateType(NEO_GRB + NEO_KHZ800);
-  else if (config.leds == 4)
-    strip.updateType(NEO_GRBW + NEO_KHZ800);
-
-  //  colorWipe(20, strip.Color(255, 0, 0));    // Red
-  //  colorWipe(20, strip.Color(0, 255, 0));    // Green
-  //  colorWipe(20, strip.Color(0, 0, 255));    // Blue
-  //  colorWipe(20, strip.Color(0, 0, 0, 255)); // White
-  //  colorWipe(20, strip.Color(0, 0, 0, 0));   // Black
-
   // give the WiFi status, only until the first Artnet package arrives
   fullBlack();
   if (WiFi.status() != WL_CONNECTED)
@@ -136,7 +121,7 @@ void setup() {
 
   artnet.begin();
   artnet.setArtDmxCallback(onDmxFrame);
-  
+
   // reset all timers
   tic_loop  = millis();
   tic_dmx   = millis();
@@ -146,6 +131,15 @@ void setup() {
 void loop() {
   configManager.loop();
   artnet.read();
+
+  // update the neopixel strip configuration
+  numberOfChannels = config.length * config.leds;
+  strip.updateLength(config.length);
+  strip.setBrightness(config.brightness);
+  if (config.leds == 3)
+    strip.updateType(NEO_GRB + NEO_KHZ800);
+  else if (config.leds == 4)
+    strip.updateType(NEO_GRBW + NEO_KHZ800);
 
   if ((millis() - tic_loop) > 9)
     // this code gets executed at a maximum rate of 100Hz
