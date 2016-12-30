@@ -123,3 +123,13 @@ curl -X PUT -d '{"universe":1,"offset":0,"length":24,"leds":4,"white":0,"brightn
   channel 11 = width
   channel 12 = ramp
 
+  mode 11: rainbow slider
+  channel 1 = saturation
+  channel 2 = value
+  channel 3 = position
+
+  mode 12: rainbow spinner
+  channel 1 = saturation
+  channel 2 = value
+  channel 3 = speed
+
