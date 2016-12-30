@@ -1,7 +1,8 @@
 Updating the firmware on the Wemos D1 mini board using the Arduino IDE requires that you install the drivers from https://www.wemos.cc/downloads.
 
 The Neopixel and Art-Net settings can be updated on the fly like this
-curl -X PUT -d '{"universe":1,"offset":0,"length":24,"leds":4,"white":0,"brightness":100,"hsv":100,"mode":10,"speed":8,"position":2}' 192.168.1.14/settings
+
+curl -X PUT -d '{"universe":1,"offset":0,"length":24,"leds":4,"white":0,"brightness":100,"hsv":0,"mode":10,"speed":8,"position":2,"reverse":0}' 192.168.1.14/settings
 
   mode 0: individual pixel control
   channel 1 = pixel 1 red
