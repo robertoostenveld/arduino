@@ -21,8 +21,6 @@ ConfigManager configManager;
 
 // Neopixel settings
 const byte dataPin = D2;
-byte brightness = 100;
-int numberOfChannels; // total number of channels you want to receive
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(1, dataPin, NEO_GRBW + NEO_KHZ800); // start with one pixel
 
 // Artnet settings
@@ -69,6 +67,18 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * 
     global.data[i] = data[i];
 } // onDmxFrame
 
+void updateNeopixelStrip(void) {
+  // update the neopixel strip configuration
+  strip.updateLength(config.length);
+  strip.setBrightness(config.brightness);
+  if (config.leds == 3)
+    strip.updateType(NEO_GRB + NEO_KHZ800);
+  else if (config.leds == 4 && config.white)
+    strip.updateType(NEO_GRBW + NEO_KHZ800);
+  else if (config.leds == 4 && !config.white)
+    strip.updateType(NEO_GRBW + NEO_KHZ800);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("setup");
@@ -85,34 +95,45 @@ void setup() {
 
   configManager.setAPName("ARTNET");
   configManager.setAPFilename("/index.html");
+  configManager.addParameter("universe",   &config.universe);
+  configManager.addParameter("offset",     &config.offset);
   configManager.addParameter("length",     &config.length); // number of pixels
   configManager.addParameter("leds",       &config.leds);   // number of leds per pixel: 3 for NEO_GRB, 4 for NEO_GRBW
-  configManager.addParameter("universe",   &config.universe);
+  configManager.addParameter("white",      &config.white);  // if true: use the white led
   configManager.addParameter("brightness", &config.brightness);
-  configManager.addParameter("offset",     &config.offset);
+  configManager.addParameter("hsv",        &config.hsv);    // if true: use HSV instead of RGB
   configManager.addParameter("mode",       &config.mode);
+  configManager.addParameter("reverse",    &config.reverse);
   configManager.addParameter("speed",      &config.speed);
-  configManager.addParameter("hsv",        &config.hsv);
+  configManager.addParameter("position",   &config.position);
   configManager.begin(config);
 
-  Serial.print("length     = ");
-  Serial.println(config.length);
-  Serial.print("leds       = ");
-  Serial.println(config.leds);
-  Serial.print("brightness = ");
-  Serial.println(config.brightness);
   Serial.print("universe   = ");
   Serial.println(config.universe);
   Serial.print("offset     = ");
   Serial.println(config.offset);
-  Serial.print("mode       = ");
-  Serial.println(config.mode);
-  Serial.print("speed      = ");
-  Serial.println(config.speed);
+  Serial.print("length     = ");
+  Serial.println(config.length);
+  Serial.print("leds       = ");
+  Serial.println(config.leds);
+  Serial.print("white      = ");
+  Serial.println(config.white);
+  Serial.print("brightness = ");
+  Serial.println(config.brightness);
   Serial.print("hsv        = ");
   Serial.println(config.hsv);
+  Serial.print("mode       = ");
+  Serial.println(config.mode);
+  Serial.print("reverse    = ");
+  Serial.println(config.reverse);
+  Serial.print("speed      = ");
+  Serial.println(config.speed);
+  Serial.print("position   = ");
+  Serial.println(config.position);
 
-  // give the WiFi status, only until the first Artnet package arrives
+  updateNeopixelStrip();
+
+  // show the WiFi status, only until the first Artnet package arrives
   fullBlack();
   if (WiFi.status() != WL_CONNECTED)
     singleRed();
@@ -132,24 +153,17 @@ void loop() {
   configManager.loop();
   artnet.read();
 
-  // update the neopixel strip configuration
-  numberOfChannels = config.length * config.leds;
-  strip.updateLength(config.length);
-  strip.setBrightness(config.brightness);
-  if (config.leds == 3)
-    strip.updateType(NEO_GRB + NEO_KHZ800);
-  else if (config.leds == 4)
-    strip.updateType(NEO_GRBW + NEO_KHZ800);
+  // this code gets executed at a maximum rate of 100Hz
+  if ((millis() - tic_loop) > 9) {
+    updateNeopixelStrip();
 
-  if ((millis() - tic_loop) > 9)
-    // this code gets executed at a maximum rate of 100Hz
     if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
       tic_loop = millis();
       executed++;
       // call the function corresponding to the current mode
       (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
     }
-
+  }
 } // loop
 
 

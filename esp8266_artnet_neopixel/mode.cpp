@@ -27,8 +27,8 @@ int gamma_l[] = {
   215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
 };
 
-#define RGB  (config.leds==3)
-#define RGBW (config.leds==4)
+#define RGB  (config.leds==3 || (config.leds==4 && !config.white))
+#define RGBW (                  (config.leds==4 &&  config.white))
 
 /*
   mode 0: individual pixel control
@@ -63,6 +63,7 @@ void mode0(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b);
     else if (RGBW)
       strip.setPixelColor(pixel, r, g, b, w);
+    yield();
   }
   strip.show();
 }
@@ -106,6 +107,7 @@ void mode1(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b);
     else if (RGBW)
       strip.setPixelColor(pixel, r, g, b, w);
+    yield();
   }
   strip.show();
 }
@@ -168,6 +170,7 @@ void mode2(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b);
     else if (RGBW)
       strip.setPixelColor(pixel, r, g, b, w);
+    yield();
   }
   strip.show();
 }
@@ -248,6 +251,7 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b);
     else if (RGBW)
       strip.setPixelColor(pixel, r, g, b, w);
+    yield();
   }
   strip.show();
 }
@@ -339,6 +343,7 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, r, g, b);
     else if (RGBW)
       strip.setPixelColor(pixel, r, g, b, w);
+    yield();
   }
   strip.show();
 }
@@ -356,7 +361,7 @@ void mode4(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 
 void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
   int i = 0, r, g, b, w;
-  float intensity, width, position, phase, balance;
+  float intensity, width, position;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 3 + 3)
@@ -381,14 +386,26 @@ void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   b = intensity * b;
   w = intensity * w;
 
+  // the position needs to be corrected for the width
   position -= strip.numPixels() / 2;
   position /= strip.numPixels() / 2;
   position *= (strip.numPixels() - width) / 2;
   position += strip.numPixels() / 2;
 
-  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+  // express the position and with as phase along the strip
+  position *= 360. / strip.numPixels();
+  width    *= 360. / strip.numPixels();
 
-    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
+    float phase, balance;
+
+    phase = WRAP180((360. * flip * pixel / strip.numPixels()) * config.position - position);
+    phase = ABS(phase);
+
+    if (width == 0)
+      balance = 0;
+    else if (phase <= width / 2)
       balance = 1;
     else
       balance = 0;
@@ -397,6 +414,7 @@ void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
     else if (RGBW)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+    yield();
   }
   strip.show();
 }
@@ -418,7 +436,7 @@ void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 
 void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
   int i = 0, r, g, b, w, r2, g2, b2, w2;
-  float intensity, width, position, phase, balance;
+  float intensity, width, position;
   if (universe != config.universe)
     return;
   if (RGB && (length - config.offset) < 2 * 3 + 3)
@@ -444,14 +462,26 @@ void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     map_hsv_to_rgb(&r2, &g2, &b2);
   }
 
+  // the position needs to be corrected for the width
   position -= strip.numPixels() / 2;
   position /= strip.numPixels() / 2;
   position *= (strip.numPixels() - width) / 2;
   position += strip.numPixels() / 2;
 
-  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+  // express the position and with as phase along the strip
+  position *= 360. / strip.numPixels();
+  width    *= 360. / strip.numPixels();
 
-    if (width > 0 && pixel >= ROUND(position - width / 2) && pixel <= ROUND(position + width / 2))
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
+    float phase, balance;
+
+    phase = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.position - position);
+    phase = ABS(phase);
+
+    if (width == 0)
+      balance = 0;
+    else if (phase <= width / 2)
       balance = 1;
     else
       balance = 0;
@@ -460,6 +490,7 @@ void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
     else if (RGBW)
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+    yield();
   }
   strip.show();
 }
@@ -511,11 +542,12 @@ void mode7(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   w = intensity * w;
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    float phase = 360. * pixel / (strip.numPixels() - 1);
-    phase = WRAP180(phase - position);
+    int flip = (config.reverse ? -1 : 1);
+    float phase, balance;
+
+    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - position);
     phase = ABS(phase);
 
-    float balance = 0;
     if (width == 0)
       balance = 0;
     else if (phase < (width / 2. - ramp / 2.))
@@ -529,6 +561,7 @@ void mode7(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
     else if (RGBW)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+    yield();
   }
   strip.show();
 }
@@ -585,11 +618,12 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     ramp = (ramp < (360 - width) ? ramp : (360 - width));
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    float phase = 360. * pixel / (strip.numPixels() - 1);
-    phase = WRAP180(phase - position);
+    int flip = (config.reverse ? -1 : 1);
+    float phase, balance;
+
+    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - position);
     phase = ABS(phase);
 
-    float balance = 0;
     if (width == 0)
       balance = 0;
     else if (phase < (width / 2. - ramp / 2.))
@@ -603,6 +637,7 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
     else if (RGBW)
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+    yield();
   }
   strip.show();
 }
@@ -663,10 +698,10 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     prev = phase;
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
     float position, balance;
 
-    position = 360. * pixel / (strip.numPixels() - 1);
-    position = WRAP180(position - phase);
+    position = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - phase);
     position = ABS(position);
 
     if (width == 0)
@@ -682,6 +717,7 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b);
     else if (RGBW)
       strip.setPixelColor(pixel, balance * r, balance * g, balance * b, balance * w);
+    yield();
   }
   strip.show();
 };
@@ -747,10 +783,10 @@ void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
     prev = phase;
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
     float position, balance;
 
-    position = 360. * pixel / (strip.numPixels() - 1);
-    position = WRAP180(position - phase);
+    position = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.position - phase);
     position = ABS(position);
 
     if (width == 0)
@@ -766,16 +802,95 @@ void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
     else if (RGBW)
       strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2), intensity * BALANCE(balance, w, w2));
+    yield();
   }
   strip.show();
 };
 
+/*
+  mode 11: rainbow slider
+  channel 1 = saturation
+  channel 2 = value
+  channel 3 = position
+*/
+
+void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0;
+  float saturation, value, position;
+
+  if (universe != config.universe)
+    return;
+  if ((length - config.offset) < 3)
+    return;
+  saturation = 1. * data[config.offset + i++];
+  value      = 1. * data[config.offset + i++] ;
+  position   = 1. * data[config.offset + i++] * 360. / 255.;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
+    float phase = WRAP360((360. * flip * pixel / strip.numPixels()) * config.position - position);
+
+    int r, g, b;
+    r = phase;           // hue, between 0-360
+    g = saturation;      // saturation, between 0-255
+    b = value;           // value, between 0-255
+    map_hsv_to_rgb(&r, &g, &b);
+
+    strip.setPixelColor(pixel, r, g, b);
+    yield();
+  }
+  strip.show();
+};
+
+/*
+  mode 11: spinning rainbow
+  channel 1 = saturation
+  channel 2 = value
+  channel 3 = speed
+*/
+
+void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0;
+  float saturation, value, speed, phase;
+
+  if (universe != config.universe)
+    return;
+  if ((length - config.offset) < 3)
+    return;
+  saturation = 1. * data[config.offset + i++];
+  value      = 1. * data[config.offset + i++] ;
+  speed      = 1. * data[config.offset + i++] / config.speed;
+
+  // determine the current phase in the temporal cycle
+  phase = (speed * millis()) * 360. / 1000.;
+
+  // prevent rolling back
+  if (WRAP180(phase - prev) < 0)
+    phase = prev;
+  else
+    prev = phase;
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+    int flip = (config.reverse ? -1 : 1);
+    float position = WRAP360((360. * flip * pixel / strip.numPixels()) * config.position - phase);
+
+    int r, g, b;
+    r = position;        // hue, between 0-360
+    g = saturation;      // saturation, between 0-255
+    b = value;           // value, between 0-255
+    map_hsv_to_rgb(&r, &g, &b);
+
+    strip.setPixelColor(pixel, r, g, b);
+    yield();
+  }
+  strip.show();
+};
+
+
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
 
-void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
-void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode13(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode14(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode15(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};

@@ -2,14 +2,17 @@
 #define _CONFIG_H_
 
 struct Config {
-  int length;
-  int leds;
-  int brightness;
   int universe;
   int offset;
-  int mode;
-  int speed;
+  int length;
+  int leds;
+  int white;
+  int brightness;
   int hsv;
+  int mode;
+  int reverse;
+  int speed;
+  int position;
 };
 
 #endif
