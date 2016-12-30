@@ -153,16 +153,15 @@ void loop() {
   configManager.loop();
   artnet.read();
 
-  // this code gets executed at a maximum rate of 100Hz
-  if ((millis() - tic_loop) > 9) {
+  // this section gets executed at a maximum rate of around 10Hz
+  if ((millis() - tic_loop) > 99)
     updateNeopixelStrip();
 
-    if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
-      tic_loop = millis();
-      executed++;
-      // call the function corresponding to the current mode
-      (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
-    }
+  if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
+    tic_loop = millis();
+    executed++;
+    // call the function corresponding to the current mode
+    (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
   }
 } // loop
 

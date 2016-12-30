@@ -192,66 +192,73 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   float intensity, speed, ramp, duty, phase, balance;
   if (universe != config.universe)
     return;
-  if (RGB && (length - config.offset) < 3 + 4)
+  if (RGB && (length - config.offset) < (3 + 4) * config.position)
     return;
-  if (RGBW && (length - config.offset) < 4 + 4)
+  if (RGBW && (length - config.offset) < (4 + 4) * config.position)
     return;
-  r         = data[config.offset + i++];
-  g         = data[config.offset + i++];
-  b         = data[config.offset + i++];
-  if (RGBW)
-    w       = data[config.offset + i++];
-  intensity = data[config.offset + i++] / 255.;
-  speed     = 1. * data[config.offset + i++] / config.speed;
-  ramp      = 1. * data[config.offset + i++] * 360. / 255.;
-  duty      = 1. * data[config.offset + i++] * 360. / 255.;
 
-  if (config.hsv)
-    map_hsv_to_rgb(&r, &g, &b);
+  // the code that takes care of the blinking repeats for each of the segments
+  for (int segment = 0; segment < config.position; segment++) {
+    r         = data[config.offset + i++];
+    g         = data[config.offset + i++];
+    b         = data[config.offset + i++];
+    if (RGBW)
+      w       = data[config.offset + i++];
+    intensity = data[config.offset + i++] / 255.;
+    speed     = 1. * data[config.offset + i++] / config.speed;
+    ramp      = 1. * data[config.offset + i++] * 360. / 255.;
+    duty      = 1. * data[config.offset + i++] * 360. / 255.;
 
-  // the ramp cannot be too wide
-  if (duty < 180)
-    ramp = (ramp < duty ? ramp : duty);
-  else
-    ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
+    if (config.hsv)
+      map_hsv_to_rgb(&r, &g, &b);
 
-  // determine the current phase in the temporal cycle
-  phase = (speed * millis()) * 360. / 1000.;
+    // the ramp cannot be too wide
+    if (duty < 180)
+      ramp = (ramp < duty ? ramp : duty);
+    else
+      ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
 
-  // prevent rolling back
-  if (WRAP180(phase - prev) < 0)
-    phase = prev;
-  else
-    prev = phase;
+    // determine the current phase in the temporal cycle
+    phase = (speed * millis()) * 360. / 1000.;
 
-  phase = WRAP180(phase);
-  phase = ABS(phase);
+    // prevent rolling back
+    // only feasible with a single segment
+    if (config.position == 1 && WRAP180(phase - prev) < 0)
+      phase = prev;
+    else
+      prev = phase;
 
-  if (phase <= (duty / 2 - ramp / 4))
-    balance = 1;
-  else if (phase >= (duty / 2 + ramp / 4))
-    balance = 0;
-  else if (ramp > 0)
-    balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
+    phase = WRAP180(phase);
+    phase = ABS(phase);
 
-  // scale with the intensity
-  r = intensity * r;
-  g = intensity * g;
-  b = intensity * b;
-  w = intensity * w;
+    if (phase <= (duty / 2 - ramp / 4))
+      balance = 1;
+    else if (phase >= (duty / 2 + ramp / 4))
+      balance = 0;
+    else if (ramp > 0)
+      balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
 
-  // scale with the balance
-  r = balance * r;
-  g = balance * g;
-  b = balance * b;
-  w = balance * w;
+    // scale with the intensity
+    r *= intensity;
+    g *= intensity;
+    b *= intensity;
+    w *= intensity;
 
-  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    if (RGB)
-      strip.setPixelColor(pixel, r, g, b);
-    else if (RGBW)
-      strip.setPixelColor(pixel, r, g, b, w);
-    yield();
+    // scale with the balance
+    r *= balance;
+    g *= balance;
+    b *= balance;
+    w *= balance;
+
+    int begpixel = MAX((segment + 0) * strip.numPixels() / config.position, 0);
+    int endpixel = MIN((segment + 1) * strip.numPixels() / config.position, strip.numPixels());
+    for (int pixel = begpixel; pixel < endpixel; pixel++) {
+      if (RGB)
+        strip.setPixelColor(pixel, r, g, b);
+      else if (RGBW)
+        strip.setPixelColor(pixel, r, g, b, w);
+      yield();
+    }
   }
   strip.show();
 }
@@ -843,7 +850,7 @@ void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
 };
 
 /*
-  mode 11: spinning rainbow
+  mode 12: rainbow spinner
   channel 1 = saturation
   channel 2 = value
   channel 3 = speed
