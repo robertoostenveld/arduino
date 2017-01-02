@@ -1,24 +1,24 @@
-/*==============================================================================
-  Copyright (c) 2013 Soixante circuits
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in
-  all copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
-  ==============================================================================*/
+/*
+ * The purpose of this sketch is to implement a module that converts from USB to DMX512. 
+ * This allows to use computer software to control stage lighting lamps 
+ * 
+ * This sketch is (partially) compatible with the Enntec DMX Pro module and software that 
+ * is compatible with that module is expected to work with this module as well. 
+ * 
+ * Components
+ * - Arduino Nano or other 5V Arduino board, e.g. http://ebay.to/2iAeUON 
+ * - MAX485 module, e.g.  http://ebay.to/2iuKQlr 
+ * - 3 or 5 pin female XLR connector
+ * 
+ * Wiring scheme
+ * - connect 3.3V and GND from the Arduino to Vcc and GND of the MAX485 module
+ * - connect pin DE (data enable) and RE (receive enable) of the MAX485 module to 3.3V
+ * - connect pin D2 of the Arduino to the DI (data in) pin of the MAX485 module
+ * - connect pin A to XLR 3 
+ * - connect pin B to XLR 2 
+ * - connect GND   to XLR 1 
+ * 
+ */
 
 #include <DmxSimple.h>
 
