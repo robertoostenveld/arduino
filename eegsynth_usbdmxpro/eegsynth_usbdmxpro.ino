@@ -1,24 +1,25 @@
+
 /*
- * The purpose of this sketch is to implement a module that converts from USB to DMX512. 
- * This allows to use computer software to control stage lighting lamps 
- * 
- * This sketch is (partially) compatible with the Enntec DMX Pro module and software that 
- * is compatible with that module is expected to work with this module as well. 
- * 
- * Components
- * - Arduino Nano or other 5V Arduino board, e.g. http://ebay.to/2iAeUON 
- * - MAX485 module, e.g.  http://ebay.to/2iuKQlr 
- * - 3 or 5 pin female XLR connector
- * 
- * Wiring scheme
- * - connect 3.3V and GND from the Arduino to Vcc and GND of the MAX485 module
- * - connect pin DE (data enable) and RE (receive enable) of the MAX485 module to 3.3V
- * - connect pin D2 of the Arduino to the DI (data in) pin of the MAX485 module
- * - connect pin A to XLR 3 
- * - connect pin B to XLR 2 
- * - connect GND   to XLR 1 
- * 
- */
+   The purpose of this sketch is to implement a module that converts from USB to DMX512.
+   This allows to use computer software to control stage lighting lamps
+
+   This sketch is (partially) compatible with the Enntec DMX Pro module and software that
+   is compatible with that module is expected to work with this module as well.
+
+   Components
+   - Arduino Nano or other 5V Arduino board, e.g. http://ebay.to/2iAeUON
+   - MAX485 module, e.g.  http://ebay.to/2iuKQlr
+   - 3 or 5 pin female XLR connector
+
+   Wiring scheme
+   - connect 3.3V and GND from the Arduino to Vcc and GND of the MAX485 module
+   - connect pin DE (data enable) and RE (receive enable) of the MAX485 module to 3.3V
+   - connect pin D2 of the Arduino to the DI (data in) pin of the MAX485 module
+   - connect pin A to XLR 3
+   - connect pin B to XLR 2
+   - connect GND   to XLR 1
+
+*/
 
 #include <DmxSimple.h>
 
@@ -37,6 +38,7 @@
 unsigned char state;
 unsigned int dataSize;
 unsigned int channel;
+unsigned int max = 0;
 
 void setup() {
   Serial.begin(57600);
@@ -50,7 +52,7 @@ void loop() {
 
   while (!Serial.available())
     yield();
-    
+
   c = Serial.read();
   if (c == DMX_PRO_START_MSG && state == DMX_PRO_END_MSG) {
     state = c;
@@ -73,6 +75,11 @@ void loop() {
   else if ( state == DMX_START_CODE && channel < dataSize) {
     DmxSimple.write(channel, c);
     channel++;
+    if (c && channel > max) {
+      // only write non-zero channels
+      max = channel;
+      DmxSimple.maxChannel(max);
+    }
   }
   else if ( state == DMX_START_CODE && channel == dataSize && c == DMX_PRO_END_MSG) {
     state = c;
