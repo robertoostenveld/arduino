@@ -133,11 +133,8 @@ void setup() {
 
   updateNeopixelStrip();
 
-  // show the WiFi status, only until the first Artnet package arrives
-  fullBlack();
-  if (WiFi.status() != WL_CONNECTED)
-    singleRed();
-  else
+  if (WiFi.status() == WL_CONNECTED)
+    // show the WiFi status
     singleGreen();
 
   artnet.begin();
@@ -157,11 +154,18 @@ void loop() {
   if ((millis() - tic_loop) > 99)
     updateNeopixelStrip();
 
-  if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
-    tic_loop = millis();
-    executed++;
-    // call the function corresponding to the current mode
-    (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
+  // this section gets executed at a maximum rate of around 100Hz
+  if ((millis() - tic_loop) > 9) {
+    if (WiFi.status() != WL_CONNECTED) {
+      // show the WiFi status
+      singleRed();
+    }
+    else if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
+      tic_loop = millis();
+      executed++;
+      // call the function corresponding to the current mode
+      (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
+    }
   }
 } // loop
 
