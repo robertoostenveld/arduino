@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+
+<!--try to load jQuery from google CDN-->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<!--fall back to a local copy when not connected to internet-->
+<script>
+  window.jQuery || document.write('<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"><\/script>'); 
+</script>
+
+</head>
+
+<body>
+<h1>Settings</h1>
+
+<form id="settings-form" method="post" action="settings">
+    <div class="field">
+        <label for="name">var1:</label>
+        <input type="text" id="var1" name="var1" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="var2">var2:</label>
+        <input type="text" id="var2" name="var2" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="var2">var3:</label>
+        <input type="text" id="var3" name="var3" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+var4: <span id="var4">?</span>
+
+<script language="javascript" type="text/javascript" src="settings.js"></script>
+
+</body>
+</html>
