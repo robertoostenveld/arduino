@@ -9,15 +9,21 @@
 #include <MemoryFree.h>
 #include "secret.h"
 
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT2(x, y)
+#define DEBUG_PRINTLN(x)
+
 /*
   #define DEBUG_PRINT(x)     Serial.print (x)
   #define DEBUG_PRINT2(x, y) Serial.print (x, y)
   #define DEBUG_PRINTLN(x)   Serial.println (x)
 */
 
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINT2(x, y)
-#define DEBUG_PRINTLN(x)
+/*
+  #define DEBUG_PRINT(x)        Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+  #define DEBUG_PRINT2(x, y)    Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+  #define DEBUG_PRINTLN(x)      Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+*/
 
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
 byte loghost[] = { 192, 168, 1, 7 };
@@ -65,15 +71,15 @@ void(* resetArduino) (void) = 0; // declare reset function at address 0
 
 void setup() {
   Serial.begin(57600);
-  Serial.println(F("\n[rfm12b_thingspeak / " __DATE__ " / " __TIME__ "]"));
+  Serial.println("\n[rfm12b_thingspeak / " __DATE__ " / " __TIME__ "]");
 
   // start the Ethernet connection:
   while (Ethernet.begin(mac) == 0) {
-    Serial.println(F("Failed to configure Ethernet using DHCP"));
+    Serial.println("Failed to configure Ethernet using DHCP");
     delay(5000);
   }
   // print your local IP address:
-  Serial.print(F("My IP address: "));
+  Serial.print("My IP address: ");
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
     // print the value of each byte of the IP address:
     Serial.print(Ethernet.localIP()[thisByte], DEC);
@@ -97,12 +103,6 @@ void setup() {
 
 void loop() {
 
-  // Print Update Response to Serial Monitor
-  if (client.available()) {
-    char c = client.read();
-    DEBUG_PRINT(c);
-  }
-
   // Clock rollover, reset after 49 days
   if (millis() < lastConnectionTime)
     resetArduino();
@@ -117,32 +117,34 @@ void loop() {
     // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
 
-    DEBUG_PRINTLN("packet received");
-    DEBUG_PRINT(message->id);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT(message->counter);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT2(message->value1, 2);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT2(message->value2, 2);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT2(message->value3, 2);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT2(message->value4, 2);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINT2(message->value5, 2);
-    DEBUG_PRINT(",\t");
-    DEBUG_PRINTLN(message->crc);
+    //    DEBUG_PRINTLN("packet received");
+    //    DEBUG_PRINT(message->id);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT(message->counter);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT2(message->value1, 2);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT2(message->value2, 2);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT2(message->value3, 2);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT2(message->value4, 2);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINT2(message->value5, 2);
+    //    DEBUG_PRINT(",\t");
+    //    DEBUG_PRINTLN(message->crc);
 
     if (message->crc == crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long))) {
 
       DEBUG_PRINTLN("CRC valid.");
 
-      String postString = "id=" + String(message->id) + " counter=" + String(message->counter);
-      Syslog.logger(1, 6, "rfm12b_thingspeak:", "", postString);
+      // String postString = "id=" + String(message->id) + " counter=" + String(message->counter);
+      // DEBUG_PRINTLN(postString);
 
-      // forward the received message
-      postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
+      // connect to ThingSpeak and forward the received message
+      String postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
+
+      DEBUG_PRINTLN(postString);
 
       switch (message->id) {
         case 2:
@@ -164,8 +166,7 @@ void loop() {
 
     } // if message with correct CRC
     else {
-      DEBUG_PRINTLN(F("CRC mismatch."));
-      DEBUG_PRINTLN();
+      DEBUG_PRINTLN("CRC mismatch.\n");
     }
 
     bufblk = 0; // release buffer
@@ -177,8 +178,7 @@ void loop() {
 
 void updateThingSpeak(const String tsData, const String writeAPIKey) {
   if (client.connected() || client.connect(server, 80)) {
-    DEBUG_PRINTLN(F("Connected to ThingSpeak..."));
-    DEBUG_PRINTLN();
+    DEBUG_PRINTLN("Connected to ThingSpeak...\n");
     lastConnectionTime = millis();
     resetCounter = 0;
 
@@ -193,24 +193,32 @@ void updateThingSpeak(const String tsData, const String writeAPIKey) {
     client.print(tsData.length());
     client.print(F("\n\n"));
     client.print(tsData);
+
+    // Print Update Response to Serial Monitor
+    while (client.available()) {
+      char c = client.read();
+      DEBUG_PRINT(c);
+    }
+
+    // disconnect from ThingSpeak
+    client.stop();
+
   }
   else {
-    DEBUG_PRINTLN(F("Not connected."));
-    DEBUG_PRINTLN();
+    DEBUG_PRINTLN("Not connected.\n");
     client.stop();
     resetCounter++;
   }
 } // updateThingSpeak
 
 void resetEthernetShield() {
-  DEBUG_PRINTLN(F("Resetting Ethernet Shield."));
-  DEBUG_PRINTLN();
+  DEBUG_PRINTLN("Resetting Ethernet Shield.\n");
 
   client.stop();
   delay(1000);
 
   while (Ethernet.begin(mac) == 0) {
-    DEBUG_PRINTLN(F("Failed to configure Ethernet using DHCP"));
+    DEBUG_PRINTLN("Failed to configure Ethernet using DHCP");
     delay(5000);
   }
 } // resetEthernetShield
