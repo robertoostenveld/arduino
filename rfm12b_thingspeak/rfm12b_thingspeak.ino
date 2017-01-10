@@ -10,24 +10,24 @@
 #include "secret.h"
 
 /*
-#define DEBUG_PRINT(x)     Serial.print (x)
-#define DEBUG_PRINT2(x, y) Serial.print (x, y)
-#define DEBUG_PRINTLN(x)   Serial.println (x)
+  #define DEBUG_PRINT(x)     Serial.print (x)
+  #define DEBUG_PRINT2(x, y) Serial.print (x, y)
+  #define DEBUG_PRINTLN(x)   Serial.println (x)
 */
 
-  #define DEBUG_PRINT(x)
-  #define DEBUG_PRINT2(x, y)
-  #define DEBUG_PRINTLN(x)
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT2(x, y)
+#define DEBUG_PRINTLN(x)
 
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
-byte loghost[] = { 192, 168, 1, 2 };
+byte loghost[] = { 192, 168, 1, 7 };
 
 byte buf[32]; // ring buffer
 unsigned int bufptr = 0; // pointer into ring buffer
 unsigned int bufblk = 0; // boolean to block buffer updates
 
 // ThingSpeak Settings
-IPAddress server(184, 106, 153, 149 );          // IP Address for the ThingSpeak API
+IPAddress server(184, 106, 153, 149);          // IP Address for the ThingSpeak API
 EthernetClient client;
 
 /*
@@ -54,8 +54,8 @@ typedef struct message_t {
 
 // Variable Setup
 unsigned long lastConnectionTime = 0;
-boolean lastConnectionStatus = false;
-unsigned int resetCounter = 0;
+boolean       lastConnectionStatus = false;
+unsigned int  resetCounter = 0;
 
 /*******************************************************************************************************************/
 
@@ -97,25 +97,21 @@ void setup() {
 
 void loop() {
 
-  char stringbuf[256];
-  
   // Print Update Response to Serial Monitor
-  if (client.available())
-  {
+  if (client.available()) {
     char c = client.read();
     DEBUG_PRINT(c);
   }
 
-  // Disconnect from ThingSpeak
-  if (!client.connected() && lastConnectionStatus)
-  {
-    DEBUG_PRINTLN();
-    client.stop();
-  }
-
   // Clock rollover, reset after 49 days
   if (millis() < lastConnectionTime)
-    resetArduino();  //call reset
+    resetArduino();
+
+  // There is a problem with ethernet, restart the shield
+  if (resetCounter >= 5 ) {
+    resetEthernetShield();
+    resetCounter = 0;
+  }
 
   if (bufblk) {
     // the I2C buffer is full and needs to be processed
@@ -138,59 +134,53 @@ void loop() {
     DEBUG_PRINT(",\t");
     DEBUG_PRINTLN(message->crc);
 
-    String msg = String(message->id) + String(", ") + String(message->counter) + String(", ") + String(message->value1) + String(", ") + String(message->value2) + String(", ") + String(message->value3) + String(", ") + String(message->value4) + String(", ") + String(message->value5) + String(", ") + (message->crc);
-    msg.toCharArray(stringbuf, 255);
-    Syslog.logger(1, 6, "", "rfm12b_thingspeak:", stringbuf);
+    if (message->crc == crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long))) {
 
-    unsigned long check = crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long));
+      DEBUG_PRINTLN("CRC valid.");
 
-    if (message->crc == check) {
+      String postString = "id=" + String(message->id) + " counter=" + String(message->counter);
+      Syslog.logger(1, 6, "rfm12b_thingspeak:", "", postString);
 
       // forward the received message
-      if (!client.connected()) {
-        String postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
-        lastConnectionTime = millis();
-        switch (message->id) {
-          case 2:
-            updateThingSpeak(postString, APIKeyChannel2);
-            break;
-          case 3:
-            updateThingSpeak(postString, APIKeyChannel3);
-            break;
-          case 4:
-            updateThingSpeak(postString, APIKeyChannel4);
-            break;
-          case 5:
-            updateThingSpeak(postString, APIKeyChannel5);
-            break;
-          case 6:
-            updateThingSpeak(postString, APIKeyChannel6);
-            break;
-        } // switch
-      }
-      else {
-        DEBUG_PRINTLN(F("not connected"));
-      }
+      postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
 
-    }
+      switch (message->id) {
+        case 2:
+          updateThingSpeak(postString, APIKeyChannel2);
+          break;
+        case 3:
+          updateThingSpeak(postString, APIKeyChannel3);
+          break;
+        case 4:
+          updateThingSpeak(postString, APIKeyChannel4);
+          break;
+        case 5:
+          updateThingSpeak(postString, APIKeyChannel5);
+          break;
+        case 6:
+          updateThingSpeak(postString, APIKeyChannel6);
+          break;
+      } // switch
+
+    } // if message with correct CRC
     else {
-      DEBUG_PRINTLN(F("CRC mismatch"));
+      DEBUG_PRINTLN(F("CRC mismatch."));
+      DEBUG_PRINTLN();
     }
 
     bufblk = 0; // release buffer
-  }
+  } // if the I2C buffer is full
 
-  lastConnectionStatus = client.connected();
-} //loop
+} // loop
 
 /*******************************************************************************************************************/
 
-void updateThingSpeak(const String tsData, const String writeAPIKey)
-{
-  if (client.connect(server, 80))
-  {
+void updateThingSpeak(const String tsData, const String writeAPIKey) {
+  if (client.connected() || client.connect(server, 80)) {
     DEBUG_PRINTLN(F("Connected to ThingSpeak..."));
     DEBUG_PRINTLN();
+    lastConnectionTime = millis();
+    resetCounter = 0;
 
     client.print(F("POST /update HTTP/1.1\n"));
     client.print(F("Host: api.thingspeak.com\n"));
@@ -203,45 +193,37 @@ void updateThingSpeak(const String tsData, const String writeAPIKey)
     client.print(tsData.length());
     client.print(F("\n\n"));
     client.print(tsData);
-
-    resetCounter = 0;
   }
-  else
-  {
-    DEBUG_PRINTLN(F("Connection Failed."));
+  else {
+    DEBUG_PRINTLN(F("Not connected."));
     DEBUG_PRINTLN();
-
+    client.stop();
     resetCounter++;
-
-    if (resetCounter >= 5 ) {
-      resetEthernetShield();
-    }
   }
 } // updateThingSpeak
 
-void resetEthernetShield()
-{
-  Serial.println(F("Resetting Ethernet Shield."));
-  Serial.println();
+void resetEthernetShield() {
+  DEBUG_PRINTLN(F("Resetting Ethernet Shield."));
+  DEBUG_PRINTLN();
 
   client.stop();
   delay(1000);
 
   while (Ethernet.begin(mac) == 0) {
-    Serial.println(F("Failed to configure Ethernet using DHCP"));
+    DEBUG_PRINTLN(F("Failed to configure Ethernet using DHCP"));
     delay(5000);
   }
-}
+} // resetEthernetShield
 
 void receiveEvent(int howMany) {
-  DEBUG_PRINT("receiveEvent ");
-  DEBUG_PRINT(howMany);
-  DEBUG_PRINT(" : ");
+  //DEBUG_PRINT("receiveEvent ");
+  //DEBUG_PRINT(howMany);
+  //DEBUG_PRINT(" : ");
 
   while (howMany-- > 0) {
     int x = Wire.read(); // receive byte as an integer
-    DEBUG_PRINT(x);
-    DEBUG_PRINT(" ");
+    //DEBUG_PRINT(x);
+    //DEBUG_PRINT(" ");
 
     if (!bufblk)
       buf[bufptr++] = x; // insert into buffer
@@ -251,7 +233,7 @@ void receiveEvent(int howMany) {
       bufblk = 1; // block buffer
     }
   }
-  DEBUG_PRINTLN("");
+  //DEBUG_PRINTLN("");
 
 } // receiveEvent
 
