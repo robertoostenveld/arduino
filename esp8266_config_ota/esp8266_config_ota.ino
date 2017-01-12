@@ -1,7 +1,6 @@
 #include <ArduinoJson.h>
 
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <DNSServer.h>
 #include <WiFiManager.h>         //https://github.com/tzapu/WiFiManager
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -9,10 +8,28 @@
 #include <FS.h>
 
 ESP8266WebServer server(80);
-
-const char* host = "ARTNET";
-
+const char* host = "esp8266";
 int var1, var2, var3;
+
+static String getContentType(const String& path) {
+  if (path.endsWith(".html"))       return "text/html";
+  else if (path.endsWith(".htm"))   return "text/html";
+  else if (path.endsWith(".css"))   return "text/css";
+  else if (path.endsWith(".txt"))   return "text/plain";
+  else if (path.endsWith(".js"))    return "application/javascript";
+  else if (path.endsWith(".png"))   return "image/png";
+  else if (path.endsWith(".gif"))   return "image/gif";
+  else if (path.endsWith(".jpg"))   return "image/jpeg";
+  else if (path.endsWith(".jpeg"))  return "image/jpeg";
+  else if (path.endsWith(".ico"))   return "image/x-icon";
+  else if (path.endsWith(".svg"))   return "image/svg+xml";
+  else if (path.endsWith(".xml"))   return "text/xml";
+  else if (path.endsWith(".pdf"))   return "application/pdf";
+  else if (path.endsWith(".zip"))   return "application/zip";
+  else if (path.endsWith(".gz"))    return "application/x-gzip";
+  else if (path.endsWith(".json"))  return "application/json";
+  return "application/octet-stream";
+}
 
 bool loadConfig() {
   Serial.println("loadConfig");
@@ -66,25 +83,36 @@ bool saveConfig() {
   return true;
 }
 
+void handleUpdate1() {
+  server.sendHeader("Connection", "close");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+  ESP.restart();
+}
 
-static String getContentType(const String& path) {
-  if (path.endsWith(".html"))       return "text/html";
-  else if (path.endsWith(".htm"))   return "text/html";
-  else if (path.endsWith(".css"))   return "text/css";
-  else if (path.endsWith(".txt"))   return "text/plain";
-  else if (path.endsWith(".js"))    return "application/javascript";
-  else if (path.endsWith(".png"))   return "image/png";
-  else if (path.endsWith(".gif"))   return "image/gif";
-  else if (path.endsWith(".jpg"))   return "image/jpeg";
-  else if (path.endsWith(".jpeg"))  return "image/jpeg";
-  else if (path.endsWith(".ico"))   return "image/x-icon";
-  else if (path.endsWith(".svg"))   return "image/svg+xml";
-  else if (path.endsWith(".xml"))   return "text/xml";
-  else if (path.endsWith(".pdf"))   return "application/pdf";
-  else if (path.endsWith(".zip"))   return "application/zip";
-  else if (path.endsWith(".gz"))    return "application/x-gzip";
-  else if (path.endsWith(".json"))  return "application/json";
-  return "application/octet-stream";
+void handleUpdate2() {
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.setDebugOutput(true);
+    WiFiUDP::stopAll();
+    Serial.printf("Update: %s\n", upload.filename.c_str());
+    uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+    if (!Update.begin(maxSketchSpace)) { //start with max available size
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) { //true to set the size to the current progress
+      Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+    } else {
+      Update.printError(Serial);
+    }
+    Serial.setDebugOutput(false);
+  }
+  yield();
 }
 
 void handleDirList() {
@@ -179,7 +207,7 @@ void handleSettings() {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      server.send(200, "text/plain", "FAILED");
+      sendStaticFile("/reload_failed.html");
       return;
     }
     if (root.containsKey("var1"))
@@ -188,7 +216,7 @@ void handleSettings() {
       var2 = root["var2"];
     if (root.containsKey("var3"))
       var3 = root["var3"];
-    server.send(200, "text/plain", "OK");
+    sendStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
@@ -205,7 +233,7 @@ void handleSettings() {
       str = server.arg("var3");
       var3 = str.toInt();
     }
-    server.send(200, "text/plain", "OK");
+    sendStaticFile("/reload_success.html");
   }
   saveConfig();
 }
@@ -231,11 +259,15 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.on("/", HTTP_GET, []() {
+    sendRedirect("/index");
+  });
+
+  server.on("/index", HTTP_GET, []() {
     sendStaticFile("/index.html");
   });
 
   server.on("/wifi", HTTP_GET, []() {
-    server.send(200, "text/plain", "OK");
+    sendStaticFile("/reload_success.html");
     Serial.println("handleWifi");
     Serial.flush();
     WiFiManager wifiManager;
@@ -245,7 +277,7 @@ void setup() {
   });
 
   server.on("/reset", HTTP_GET, []() {
-    server.send(200, "text/plain", "OK");
+    sendStaticFile("/reload_success.html");
     Serial.println("handleReset");
     Serial.flush();
     WiFiManager wifiManager;
@@ -255,11 +287,15 @@ void setup() {
 
   server.on("/dir", HTTP_GET, handleDirList);
 
-  server.on("/settings", HTTP_POST, handleSettings);
-
-  server.on("/settings", HTTP_PUT, handleSettings);
-
   server.on("/settings", HTTP_GET, [] {
+    sendStaticFile("/settings.html");
+  });
+
+  server.on("/json", HTTP_PUT, handleSettings);
+
+  server.on("/json", HTTP_POST, handleSettings);
+
+  server.on("/json", HTTP_GET, [] {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
     root["var1"] = var1;
@@ -274,35 +310,7 @@ void setup() {
     sendStaticFile("/update.html");
   });
 
-  server.on("/update", HTTP_POST, []() {
-    server.sendHeader("Connection", "close");
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-    ESP.restart();
-  }, []() {
-    HTTPUpload& upload = server.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      Serial.setDebugOutput(true);
-      WiFiUDP::stopAll();
-      Serial.printf("Update: %s\n", upload.filename.c_str());
-      uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-      if (!Update.begin(maxSketchSpace)) { //start with max available size
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-        Update.printError(Serial);
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      if (Update.end(true)) { //true to set the size to the current progress
-        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-      } else {
-        Update.printError(Serial);
-      }
-      Serial.setDebugOutput(false);
-    }
-    yield();
-  });
+  server.on("/update", HTTP_POST, handleUpdate1, handleUpdate2);
 
   server.begin();
 
@@ -311,7 +319,7 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  // put your main code here, to run repeatedly
   server.handleClient();
   delay(1);
 }

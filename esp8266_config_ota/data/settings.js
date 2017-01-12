@@ -2,31 +2,12 @@
 jQuery( document ).ready(function( $ ) {
   $(document).ready( getSettingsForm );
   $(document).ready( getSettingsDiv );
-  $(document).ready( postSettings );
+//  $(document).ready( postSettings );
 });
 
-function postSettings() {
-   $('#configure-form').submit(function(e){
-       e.preventDefault();
-       var form = $(this);
-       var post_url = form.attr('action');
-       var post_data = form.serialize();
-       $('#loader3', form).html('<img src="/cat.jpg" />       Please wait...');
-       $.ajax({
-           type: 'POST',
-           url: post_url,
-           data: post_data,
-           success: function(msg) {
-               $(form).fadeOut(800, function(){
-                   form.html(msg).fadeIn().delay(2000);
-               });
-           }
-       });
-   });
-}
-
+// update the value of form elements
 function getSettingsForm() {
-$.getJSON( "settings", function() {
+$.getJSON( "json", function() {
   //alert( "success" );
 })
   .done(function(data) {
@@ -43,9 +24,9 @@ $.getJSON( "settings", function() {
   });
 }
 
-
+// update the content of div elements
 function getSettingsDiv() {
-$.getJSON( "settings", function() {
+$.getJSON( "json", function() {
   //alert( "success" );
 })
   .done(function(data) {
@@ -61,3 +42,24 @@ $.getJSON( "settings", function() {
     //alert( "finished" );
   });
 }
+
+//function postSettings() {
+//   $('#settings-form').submit(function(e){
+//       e.preventDefault();
+//       var form = $(this);
+//       var post_url = form.attr('action');
+//       var post_data = form.serialize();
+//       $('#loader3', form).html('<img src="/cat.jpg" />       Please wait...');
+//       $.ajax({
+//           type: 'POST',
+//           url: post_url,
+//           data: post_data,
+//           success: function(msg) {
+//               $(form).fadeOut(800, function(){
+//                   form.html(msg).fadeIn().delay(2000);
+//               });
+//           }
+//       });
+//   });
+//}
+
