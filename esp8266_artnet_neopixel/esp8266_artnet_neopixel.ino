@@ -12,8 +12,8 @@
 #include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
 
-#include "config.h"
-#include "mode.h"
+#include "setup_ota.h"
+#include "neopixel_mode.h"
 
 // Configuration settings
 Config config;
