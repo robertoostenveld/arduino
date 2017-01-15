@@ -27,6 +27,8 @@ void singleRed();
 void singleGreen();
 void singleBlue();
 void singleYellow();
+void singleMagenta();
+void singleCyan();
 void singleWhite();
 void fullBlack();
 

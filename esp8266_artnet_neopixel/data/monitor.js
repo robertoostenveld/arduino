@@ -8,8 +8,11 @@ $.getJSON( "json", function() {
   //alert( "success" );
 })
   .done(function(data) {
+    console.log(data);
     $.each(data, function(key, value) {
-      document.getElementById(key).innerHTML = value;
+      elem = document.getElementById(key);
+      if (elem)
+        elem.innerHTML = value;
     });
     //alert( "done" );
   })

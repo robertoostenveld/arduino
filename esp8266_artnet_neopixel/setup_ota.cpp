@@ -28,8 +28,25 @@ static String getContentType(const String& path) {
 
 /***************************************************************************/
 
+
+bool initialConfig() {
+  config.universe = 1;
+  config.offset = 0;
+  config.pixels = 12;
+  config.leds = 4;
+  config.white = 0;
+  config.brightness = 255;
+  config.hsv = 0;
+  config.mode = 1;
+  config.reverse = 0;
+  config.speed = 8;
+  config.position = 1;
+  return true;
+}
+
 bool loadConfig() {
   Serial.println("loadConfig");
+  
   File configFile = SPIFFS.open("/config.json", "r");
   if (!configFile) {
     Serial.println("Failed to open config file");
@@ -45,7 +62,7 @@ bool loadConfig() {
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
 
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(buf.get());
 
   if (!root.success()) {
@@ -55,7 +72,7 @@ bool loadConfig() {
 
   JSON_TO_CONFIG(universe, "universe");
   JSON_TO_CONFIG(offset, "offset");
-  JSON_TO_CONFIG(length, "length");
+  JSON_TO_CONFIG(pixels, "pixels");
   JSON_TO_CONFIG(leds, "leds");
   JSON_TO_CONFIG(white, "white");
   JSON_TO_CONFIG(brightness, "brightness");
@@ -70,12 +87,12 @@ bool loadConfig() {
 
 bool saveConfig() {
   Serial.println("saveConfig");
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
   CONFIG_TO_JSON(universe, "universe");
   CONFIG_TO_JSON(offset, "offset");
-  CONFIG_TO_JSON(length, "length");
+  CONFIG_TO_JSON(pixels, "pixels");
   CONFIG_TO_JSON(leds, "leds");
   CONFIG_TO_JSON(white, "white");
   CONFIG_TO_JSON(brightness, "brightness");
@@ -217,7 +234,7 @@ void handleJSON() {
   // this gets called in response to either a PUT or a POST
   if (server.hasArg("plain")) {
     // parse it as JSON object
-    StaticJsonBuffer<200> jsonBuffer;
+    StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
       handleStaticFile("/reload_failed.html");
@@ -225,7 +242,7 @@ void handleJSON() {
     }
     JSON_TO_CONFIG(universe, "universe");
     JSON_TO_CONFIG(offset, "offset");
-    JSON_TO_CONFIG(length, "length");
+    JSON_TO_CONFIG(pixels, "pixels");
     JSON_TO_CONFIG(leds, "leds");
     JSON_TO_CONFIG(white, "white");
     JSON_TO_CONFIG(brightness, "brightness");
@@ -240,7 +257,7 @@ void handleJSON() {
     // parse it as key1=val1&key2=val2&key3=val3
     KEYVAL_TO_CONFIG(universe, "universe");
     KEYVAL_TO_CONFIG(offset, "offset");
-    KEYVAL_TO_CONFIG(length, "length");
+    KEYVAL_TO_CONFIG(pixels, "pixels");
     KEYVAL_TO_CONFIG(leds, "leds");
     KEYVAL_TO_CONFIG(white, "white");
     KEYVAL_TO_CONFIG(brightness, "brightness");

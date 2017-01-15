@@ -920,7 +920,7 @@ void singleGreen() {
   singleLed(0, 128, 0, 0);
 }
 void singleBlue() {
-  singleLed(128, 0, 0, 0);
+  singleLed(0, 0, 128, 0);
 }
 void singleYellow() {
   singleLed(128, 128, 0, 0);

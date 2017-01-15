@@ -16,7 +16,7 @@
 struct Config {
   int universe;
   int offset;
-  int length;
+  int pixels;
   int leds;
   int white;
   int brightness;
@@ -27,6 +27,7 @@ struct Config {
   int position;
 };
 
+bool initialConfig(void);
 bool loadConfig(void);
 bool saveConfig(void);
 

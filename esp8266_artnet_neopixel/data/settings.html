@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <link href="style.css" rel="stylesheet" type="text/css">
 <!--try to load jQuery from google CDN-->
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <!--fall back to a local copy when not connected to internet-->
 <script>
   window.jQuery || document.write('<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"><\/script>'); 
@@ -16,7 +16,6 @@
 
 <h1>Settings</h1>
 <form id="settings-form" method="post" action="json">
-
     <div class="field">
         <label for="name">universe:</label>
         <input type="text" id="universe" name="universe" value="?" required>
@@ -28,8 +27,8 @@
     </div>
 
     <div class="field">
-        <label for="name">length:</label>
-        <input type="text" id="length" name="length" value="?" required>
+        <label for="name">pixels:</label>
+        <input type="text" id="pixels" name="pixels" value="?" required>
     </div>
 
     <div class="field">
