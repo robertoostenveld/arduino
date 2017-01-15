@@ -36,7 +36,7 @@ $.getJSON( "json", function() {
     //alert( "done" );
   })
   .fail(function() {
-/    //alert( "error" );
+    //alert( "error" );
   })
   .always(function() {
     //alert( "finished" );
