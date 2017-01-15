@@ -6,18 +6,22 @@
   https://github.com/adafruit/Adafruit_NeoPixel
 */
 
-#include <ESP8266WiFi.h>
-#include <WiFiUdp.h>
+#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+#include <WiFiManager.h>         //https://github.com/tzapu/WiFiManager
+#include <WiFiClient.h>
 #include <ArtnetWifi.h>
-#include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
+#include <FS.h>
 
 #include "setup_ota.h"
 #include "neopixel_mode.h"
 
-// Configuration settings
 Config config;
-ConfigManager configManager;
+ESP8266WebServer server(80);
+const char* host = "ARTNET";
+float temperature = 0;
 
 // Neopixel settings
 const byte dataPin = D2;
@@ -25,7 +29,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(1, dataPin, NEO_GRBW + NEO_KHZ800); 
 
 // Artnet settings
 ArtnetWifi artnet;
-unsigned int msgCounter = 0;
+unsigned int packetCounter = 0;
 
 // Global universe buffer
 struct {
@@ -41,20 +45,22 @@ void (*mode[]) (uint16_t, uint16_t, uint8_t, uint8_t *) {
 };
 
 // keep the timing of the function calls
-long tic_loop = 0, tic_dmx = 0;
-long executed = 0;
+long tic_loop = 0;
+long tic_fps = 0;
+long tic_packet = 0;
+long frameCounter = 0;
 
 //this will be called for each UDP packet received
-void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+void onDmxPacket(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
   // print some feedback
-  Serial.print("msgCounter = ");
-  Serial.print(msgCounter++);
-  if ((millis() - tic_dmx) > 1000 && executed > 100) {
+  Serial.print("packetCounter = ");
+  Serial.print(packetCounter++);
+  if ((millis() - tic_fps) > 1000 && frameCounter > 100) {
     // don't estimate the FPS too quickly
     Serial.print(",  FPS = ");
-    Serial.print(1000 * executed / (millis() - tic_dmx));
-    tic_dmx = millis();
-    executed = 0;
+    Serial.print(1000 * frameCounter / (millis() - tic_fps));
+    tic_fps = millis();
+    frameCounter = 0;
   }
   Serial.println();
 
@@ -65,7 +71,7 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * 
     global.length = length;
   for (int i = 0; i < global.length; i++)
     global.data[i] = data[i];
-} // onDmxFrame
+} // onDmxpacket
 
 void updateNeopixelStrip(void) {
   // update the neopixel strip configuration
@@ -83,71 +89,143 @@ void setup() {
   Serial.begin(115200);
   Serial.println("setup");
 
-  strip.begin();
-  strip.setBrightness(255);
-  singleYellow();
-  delay(1000);
-
   global.universe = 0;
   global.sequence = 0;
   global.length = 512;
   global.data = (uint8_t *)malloc(512);
 
-  configManager.setAPName("ARTNET");
-  configManager.setAPFilename("/index.html");
-  configManager.addParameter("universe",   &config.universe);
-  configManager.addParameter("offset",     &config.offset);
-  configManager.addParameter("length",     &config.length); // number of pixels
-  configManager.addParameter("leds",       &config.leds);   // number of leds per pixel: 3 for NEO_GRB, 4 for NEO_GRBW
-  configManager.addParameter("white",      &config.white);  // if true: use the white led
-  configManager.addParameter("brightness", &config.brightness);
-  configManager.addParameter("hsv",        &config.hsv);    // if true: use HSV instead of RGB
-  configManager.addParameter("mode",       &config.mode);
-  configManager.addParameter("reverse",    &config.reverse);
-  configManager.addParameter("speed",      &config.speed);
-  configManager.addParameter("position",   &config.position);
-  configManager.begin(config);
+  SPIFFS.begin();
+  loadConfig();
 
-  Serial.print("universe   = ");
-  Serial.println(config.universe);
-  Serial.print("offset     = ");
-  Serial.println(config.offset);
-  Serial.print("length     = ");
-  Serial.println(config.length);
-  Serial.print("leds       = ");
-  Serial.println(config.leds);
-  Serial.print("white      = ");
-  Serial.println(config.white);
-  Serial.print("brightness = ");
-  Serial.println(config.brightness);
-  Serial.print("hsv        = ");
-  Serial.println(config.hsv);
-  Serial.print("mode       = ");
-  Serial.println(config.mode);
-  Serial.print("reverse    = ");
-  Serial.println(config.reverse);
-  Serial.print("speed      = ");
-  Serial.println(config.speed);
-  Serial.print("position   = ");
-  Serial.println(config.position);
+  //  Serial.print("universe   = ");
+  //  Serial.println(config.universe);
+  //  Serial.print("offset     = ");
+  //  Serial.println(config.offset);
+  //  Serial.print("length     = ");
+  //  Serial.println(config.length);
+  //  Serial.print("leds       = ");
+  //  Serial.println(config.leds);
+  //  Serial.print("white      = ");
+  //  Serial.println(config.white);
+  //  Serial.print("brightness = ");
+  //  Serial.println(config.brightness);
+  //  Serial.print("hsv        = ");
+  //  Serial.println(config.hsv);
+  //  Serial.print("mode       = ");
+  //  Serial.println(config.mode);
+  //  Serial.print("reverse    = ");
+  //  Serial.println(config.reverse);
+  //  Serial.print("speed      = ");
+  //  Serial.println(config.speed);
+  //  Serial.print("position   = ");
+  //  Serial.println(config.position);
 
+  strip.begin();
   updateNeopixelStrip();
+  strip.setBrightness(255);
+  singleYellow();
+  delay(1000);
+
+  WiFiManager wifiManager;
+  // wifiManager.resetSettings();
+  wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
+  wifiManager.autoConnect(host);
+  Serial.println("connected");
+
+  // this serves all URIs that can be resolved to a file on the SPIFFS filesystem
+  server.onNotFound(handleNotFound);
+
+  server.on("/", HTTP_GET, []() {
+    handleRedirect("/index");
+  });
+
+  server.on("/index", HTTP_GET, []() {
+    handleStaticFile("/index.html");
+  });
+
+  server.on("/wifi", HTTP_GET, []() {
+    handleStaticFile("/reload_success.html");
+    Serial.println("handleWifi");
+    Serial.flush();
+    WiFiManager wifiManager;
+    wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
+    wifiManager.startConfigPortal(host);
+    Serial.println("connected");
+  });
+
+  server.on("/reset", HTTP_GET, []() {
+    handleStaticFile("/reload_success.html");
+    Serial.println("handleReset");
+    Serial.flush();
+    WiFiManager wifiManager;
+    wifiManager.resetSettings();
+    ESP.restart();
+  });
+
+  server.on("/dir", HTTP_GET, handleDirList);
+
+  server.on("/monitor", HTTP_GET, [] {
+    handleStaticFile("/monitor.html");
+  });
+
+  server.on("/hello", HTTP_GET, [] {
+    handleStaticFile("/hello.html");
+  });
+
+  server.on("/settings", HTTP_GET, [] {
+    handleStaticFile("/settings.html");
+  });
+
+  server.on("/json", HTTP_PUT, handleJSON);
+
+  server.on("/json", HTTP_POST, handleJSON);
+
+  server.on("/json", HTTP_GET, [] {
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& root = jsonBuffer.createObject();
+    CONFIG_TO_JSON(universe, "universe");
+    CONFIG_TO_JSON(offset, "offset");
+    CONFIG_TO_JSON(length, "length");
+    CONFIG_TO_JSON(leds, "leds");
+    CONFIG_TO_JSON(white, "white");
+    CONFIG_TO_JSON(brightness, "brightness");
+    CONFIG_TO_JSON(hsv, "hsv");
+    CONFIG_TO_JSON(mode, "mode");
+    CONFIG_TO_JSON(reverse, "reverse");
+    CONFIG_TO_JSON(speed, "speed");
+    CONFIG_TO_JSON(position, "position");
+    root["packets"]     = packetCounter; // this is dynamic
+    root["temperature"] = temperature;  // this is dynamic
+    String str;
+    root.printTo(str);
+    server.send(200, "application/json", str);
+  });
+
+  server.on("/update", HTTP_GET, []() {
+    handleStaticFile("/update.html");
+  });
+
+  server.on("/update", HTTP_POST, handleUpdate1, handleUpdate2);
+
+  server.begin();
+
+  MDNS.begin(host);
+  MDNS.addService("http", "tcp", 80);
 
   if (WiFi.status() == WL_CONNECTED)
-    // show the WiFi status
     singleGreen();
 
   artnet.begin();
-  artnet.setArtDmxCallback(onDmxFrame);
+  artnet.setArtDmxCallback(onDmxPacket);
 
-  // reset all timers
-  tic_loop  = millis();
-  tic_dmx   = millis();
-  tic_frame = millis();
+  // initialize all timers
+  tic_loop   = millis();
+  tic_packet = millis();
+  tic_fps    = millis();
 } // setup
 
 void loop() {
-  configManager.loop();
+  server.handleClient();
   artnet.read();
 
   // this section gets executed at a maximum rate of around 10Hz
@@ -162,7 +240,7 @@ void loop() {
     }
     else if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
       tic_loop = millis();
-      executed++;
+      frameCounter++;
       // call the function corresponding to the current mode
       (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
     }

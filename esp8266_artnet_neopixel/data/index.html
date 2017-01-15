@@ -1,106 +1,16 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            body {
-                color: #434343;
-                font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
-                font-size: 14px;
-                line-height: 1.42857142857143;
-                padding: 20px;
-            }
+<!doctype html>
+<html lang="en">
+<head>
+<title>Index</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+</head>
 
-            .container {
-                margin: 0 auto;
-                max-width: 400px;
-            }
-
-            form .field-group {
-                box-sizing: border-box;
-                clear: both;
-                padding: 4px 0;
-                position: relative;
-                margin: 1px 0;
-                width: 100%;
-            }
-
-            form .field-group > label {
-                color: #757575;
-                display: block;
-                margin: 0 0 5px 0;
-                padding: 5px 0 0;
-                position: relative;
-                word-wrap: break-word;
-            }
-
-            input[type=text] {
-                background: #fff;
-                border: 1px solid #d0d0d0;
-                border-radius: 2px;
-                box-sizing: border-box;
-                color: #434343;
-                font-family: inherit;
-                font-size: inherit;
-                height: 2.14285714em;
-                line-height: 1.4285714285714;
-                padding: 4px 5px;
-                margin: 0;
-                width: 100%;
-            }
-
-            input[type=text]:focus {
-                border-color: #4C669F;
-                outline: 0;
-            }
-
-            .button-container {
-                box-sizing: border-box;
-                clear: both;
-                margin: 1px 0 0;
-                padding: 4px 0;
-                position: relative;
-                width: 100%;
-            }
-
-            button[type=submit] {
-                box-sizing: border-box;
-                background: #f5f5f5;
-                border: 1px solid #bdbdbd;
-                border-radius: 2px;
-                color: #434343;
-                cursor: pointer;
-                display: inline-block;
-                font-family: inherit;
-                font-size: 14px;
-                font-variant: normal;
-                font-weight: 400;
-                height: 2.14285714em;
-                line-height: 1.42857143;
-                margin: 0;
-                padding: 4px 10px;
-                text-decoration: none;
-                vertical-align: baseline;
-                white-space: nowrap;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <form method="post" action="/">
-            <h1 style="text-align: center;">WiFi configuration</h1>
-                <div class="field-group">
-                    <label>SSID</label>
-                    <input name="ssid" type="text" length=32>
-                </div>
-                <div class="field-group">
-                    <label>Password</label>
-                    <input name="password" type="text" length=64>
-                </div>
-                <div class="button-container">
-                    <button type="submit">Save</button>
-                </div>
-            </form>
-        </div>
-    </body>
+<body>
+<a href="/monitor">Monitor</a></br>
+<a href="/settings">Change settings</a></br>
+<a href="/wifi">Reconfigure WiFi</a></br>
+<a href="/reset">Reset to factory defaults</a></br>
+<a href="/update">Update firmware</a></br>
+</body>
 </html>

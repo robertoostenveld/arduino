@@ -5,7 +5,6 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <ArtnetWifi.h>
-#include <ConfigManager.h>
 #include <Adafruit_NeoPixel.h>
 
 #define ROUND(x)   (int(x + 0.5))

@@ -1,3 +1,8 @@
+#include "setup_ota.h"
+
+extern ESP8266WebServer server;
+extern Config config;
+extern int packetCounter;
 
 /***************************************************************************/
 
@@ -48,22 +53,37 @@ bool loadConfig() {
     return false;
   }
 
-  if (root.containsKey("var1"))
-    var1 = root["var1"];
-  if (root.containsKey("var2"))
-    var2 = root["var2"];
-  if (root.containsKey("var3"))
-    var3 = root["var3"];
+  JSON_TO_CONFIG(universe, "universe");
+  JSON_TO_CONFIG(offset, "offset");
+  JSON_TO_CONFIG(length, "length");
+  JSON_TO_CONFIG(leds, "leds");
+  JSON_TO_CONFIG(white, "white");
+  JSON_TO_CONFIG(brightness, "brightness");
+  JSON_TO_CONFIG(hsv, "hsv");
+  JSON_TO_CONFIG(mode, "mode");
+  JSON_TO_CONFIG(reverse, "reverse");
+  JSON_TO_CONFIG(speed, "speed");
+  JSON_TO_CONFIG(position, "position");
+
   return true;
 }
 
 bool saveConfig() {
   Serial.println("saveConfig");
   StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& json = jsonBuffer.createObject();
-  json["var1"] = var1;
-  json["var2"] = var2;
-  json["var3"] = var3;
+  JsonObject& root = jsonBuffer.createObject();
+
+  CONFIG_TO_JSON(universe, "universe");
+  CONFIG_TO_JSON(offset, "offset");
+  CONFIG_TO_JSON(length, "length");
+  CONFIG_TO_JSON(leds, "leds");
+  CONFIG_TO_JSON(white, "white");
+  CONFIG_TO_JSON(brightness, "brightness");
+  CONFIG_TO_JSON(hsv, "hsv");
+  CONFIG_TO_JSON(mode, "mode");
+  CONFIG_TO_JSON(reverse, "reverse");
+  CONFIG_TO_JSON(speed, "speed");
+  CONFIG_TO_JSON(position, "position");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -71,7 +91,7 @@ bool saveConfig() {
     return false;
   }
 
-  json.printTo(configFile);
+  root.printTo(configFile);
   return true;
 }
 
@@ -179,9 +199,8 @@ void handleStaticFile(const char * filename) {
   }
 }
 
-void handleSettings() {
-  Serial.println("handleSettings");
-
+void handleJSON() {
+  Serial.println("handleJSON");
   String message = "HTTP Request\n\n";
   message += "URI: ";
   message += server.uri();
@@ -204,29 +223,32 @@ void handleSettings() {
       handleStaticFile("/reload_failed.html");
       return;
     }
-    if (root.containsKey("var1"))
-      var1 = root["var1"];
-    if (root.containsKey("var2"))
-      var2 = root["var2"];
-    if (root.containsKey("var3"))
-      var3 = root["var3"];
+    JSON_TO_CONFIG(universe, "universe");
+    JSON_TO_CONFIG(offset, "offset");
+    JSON_TO_CONFIG(length, "length");
+    JSON_TO_CONFIG(leds, "leds");
+    JSON_TO_CONFIG(white, "white");
+    JSON_TO_CONFIG(brightness, "brightness");
+    JSON_TO_CONFIG(hsv, "hsv");
+    JSON_TO_CONFIG(mode, "mode");
+    JSON_TO_CONFIG(reverse, "reverse");
+    JSON_TO_CONFIG(speed, "speed");
+    JSON_TO_CONFIG(position, "position");
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
-    String str;
-    if (server.hasArg("var1")) {
-      str = server.arg("var1");
-      var1 = str.toInt();
-    }
-    if (server.hasArg("var2")) {
-      str = server.arg("var2");
-      var2 = str.toInt();
-    }
-    if (server.hasArg("var3")) {
-      str = server.arg("var3");
-      var3 = str.toInt();
-    }
+    KEYVAL_TO_CONFIG(universe, "universe");
+    KEYVAL_TO_CONFIG(offset, "offset");
+    KEYVAL_TO_CONFIG(length, "length");
+    KEYVAL_TO_CONFIG(leds, "leds");
+    KEYVAL_TO_CONFIG(white, "white");
+    KEYVAL_TO_CONFIG(brightness, "brightness");
+    KEYVAL_TO_CONFIG(hsv, "hsv");
+    KEYVAL_TO_CONFIG(mode, "mode");
+    KEYVAL_TO_CONFIG(reverse, "reverse");
+    KEYVAL_TO_CONFIG(speed, "speed");
+    KEYVAL_TO_CONFIG(position, "position");
     handleStaticFile("/reload_success.html");
   }
   saveConfig();

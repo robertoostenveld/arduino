@@ -1,11 +1,11 @@
-#include "config.h"
-#include "mode.h"
+#include "neopixel_mode.h"
+#include "setup_ota.h"
 #include "colorspace.h"
 
 extern Config config;
 extern Adafruit_NeoPixel strip;
 
-long tic_frame;
+extern long tic_frame;
 float prev;
 
 int gamma_l[] = {

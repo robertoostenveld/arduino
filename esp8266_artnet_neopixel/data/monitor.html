@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Monitor</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+<!--try to load jQuery from google CDN-->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<!--fall back to a local copy when not connected to internet-->
+<script>
+  window.jQuery || document.write('<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"><\/script>'); 
+</script>
+</head>
+
+<body>
+
+<h1>Monitor</h1>
+
+Packets received:
+<div id="packets">?</div>
+
+Temperature:
+<div id="temperature">?</div>
+
+<script language="javascript" type="text/javascript" src="monitor.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+<!--try to load jQuery from google CDN-->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<!--fall back to a local copy when not connected to internet-->
+<script>
+  window.jQuery || document.write('<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"><\/script>'); 
+</script>
+</head>
+
+<body>
+
+<h1>Settings</h1>
+<form id="settings-form" method="post" action="json">
+
+    <div class="field">
+        <label for="name">universe:</label>
+        <input type="text" id="universe" name="universe" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">offset:</label>
+        <input type="text" id="offset" name="offset" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">length:</label>
+        <input type="text" id="length" name="length" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">leds:</label>
+        <input type="text" id="leds" name="leds" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">white:</label>
+        <input type="text" id="white" name="white" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">brightness:</label>
+        <input type="text" id="brightness" name="brightness" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">hsv:</label>
+        <input type="text" id="hsv" name="hsv" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">mode:</label>
+        <input type="text" id="mode" name="mode" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">reverse:</label>
+        <input type="text" id="reverse" name="reverse" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">speed:</label>
+        <input type="text" id="speed" name="speed" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">position:</label>
+        <input type="text" id="position" name="position" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script language="javascript" type="text/javascript" src="settings.js"></script>
+
+</body>
+</html>
