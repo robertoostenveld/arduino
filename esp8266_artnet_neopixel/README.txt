@@ -10,6 +10,7 @@ curl -X PUT -d '{"universe":1,"offset":0,"pixels":24,"leds":4,"white":0,"brightn
   channel 3 = pixel 1 blue
   channel 4 = pixel 1 white
   channel 5 = pixel 2 red
+  etc.
 
   mode 1: single uniform color
   channel 1 = red
