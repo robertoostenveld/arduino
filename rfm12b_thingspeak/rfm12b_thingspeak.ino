@@ -1,3 +1,4 @@
+
 // ethernet starts off from http://arduino.cc/en/Tutorial/DhcpAddressPrinter
 // thingspeak starts off from http://community.thingspeak.com/arduino/ThingSpeakClient.pde
 
@@ -27,6 +28,7 @@
 
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
 byte loghost[] = { 192, 168, 1, 7 };
+
 
 byte buf[32]; // ring buffer
 unsigned int bufptr = 0; // pointer into ring buffer
@@ -62,6 +64,9 @@ typedef struct message_t {
 unsigned long lastConnectionTime = 0;
 boolean       lastConnectionStatus = false;
 unsigned int  resetCounter = 0;
+unsigned int  keepalive_count = 0;
+unsigned int  keepalive_time = 0;
+
 
 /*******************************************************************************************************************/
 
@@ -113,6 +118,14 @@ void loop() {
     resetCounter = 0;
   }
 
+  if ((millis() - keepalive_time) > 30000) {
+    keepalive_count++;
+    keepalive_time = millis();
+    String postString = "&field1=" + String(keepalive_count) + "&field2=" + String(int(keepalive_time/1000));
+    // updateThingSpeak(postString, APIKeyChannel1);
+    Serial.println(postString);
+  }
+
   if (bufblk) {
     // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
@@ -141,11 +154,10 @@ void loop() {
       // String postString = "id=" + String(message->id) + " counter=" + String(message->counter);
       // DEBUG_PRINTLN(postString);
 
-      // connect to ThingSpeak and forward the received message
       String postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
-
       DEBUG_PRINTLN(postString);
 
+      // connect to ThingSpeak and forward the received message
       switch (message->id) {
         case 2:
           updateThingSpeak(postString, APIKeyChannel2);
