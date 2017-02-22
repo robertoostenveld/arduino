@@ -30,6 +30,7 @@ static String getContentType(const String& path) {
 
 
 bool initialConfig() {
+  config.active = 1;
   config.universe = 1;
   config.offset = 0;
   config.pixels = 12;
@@ -70,6 +71,7 @@ bool loadConfig() {
     return false;
   }
 
+  JSON_TO_CONFIG(active, "active");
   JSON_TO_CONFIG(universe, "universe");
   JSON_TO_CONFIG(offset, "offset");
   JSON_TO_CONFIG(pixels, "pixels");
@@ -90,6 +92,7 @@ bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
+  CONFIG_TO_JSON(active, "active");
   CONFIG_TO_JSON(universe, "universe");
   CONFIG_TO_JSON(offset, "offset");
   CONFIG_TO_JSON(pixels, "pixels");
@@ -240,6 +243,7 @@ void handleJSON() {
       handleStaticFile("/reload_failed.html");
       return;
     }
+    JSON_TO_CONFIG(active, "active");
     JSON_TO_CONFIG(universe, "universe");
     JSON_TO_CONFIG(offset, "offset");
     JSON_TO_CONFIG(pixels, "pixels");
@@ -255,6 +259,7 @@ void handleJSON() {
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
+    KEYVAL_TO_CONFIG(active, "active");
     KEYVAL_TO_CONFIG(universe, "universe");
     KEYVAL_TO_CONFIG(offset, "offset");
     KEYVAL_TO_CONFIG(pixels, "pixels");

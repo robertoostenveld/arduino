@@ -14,6 +14,7 @@
 
 
 struct Config {
+  int active;
   int universe;
   int offset;
   int pixels;

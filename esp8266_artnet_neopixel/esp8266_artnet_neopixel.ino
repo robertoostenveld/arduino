@@ -128,14 +128,25 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.on("/", HTTP_GET, []() {
+    tic_web = millis();
     handleRedirect("/index");
   });
 
   server.on("/index", HTTP_GET, []() {
+    tic_web = millis();
     handleStaticFile("/index.html");
   });
 
+  server.on("/defaults", HTTP_GET, []() {
+    tic_web = millis();
+    WiFiManager wifiManager;
+    wifiManager.resetSettings();
+    delay(2000);
+    ESP.restart();
+  });
+
   server.on("/reconnect", HTTP_GET, []() {
+    tic_web = millis();
     handleStaticFile("/reload_success.html");
     delay(2000);
     Serial.println("handleReconnect");
@@ -147,6 +158,7 @@ void setup() {
   });
 
   server.on("/reset", HTTP_GET, []() {
+    tic_web = millis();
     handleStaticFile("/reload_success.html");
     delay(2000);
     Serial.println("handleReset");
@@ -155,26 +167,40 @@ void setup() {
   });
 
   server.on("/monitor", HTTP_GET, [] {
+    tic_web = millis();
     handleStaticFile("/monitor.html");
   });
 
   server.on("/hello", HTTP_GET, [] {
+    tic_web = millis();
     handleStaticFile("/hello.html");
   });
 
   server.on("/settings", HTTP_GET, [] {
+    tic_web = millis();
     handleStaticFile("/settings.html");
   });
 
-  server.on("/dir", HTTP_GET, handleDirList);
+  server.on("/dir", HTTP_GET, [] {
+    tic_web = millis();
+    handleDirList();
+  });
 
-  server.on("/json", HTTP_PUT, handleJSON);
+  server.on("/json", HTTP_PUT, [] {
+    tic_web = millis();
+    handleJSON();
+  });
 
-  server.on("/json", HTTP_POST, handleJSON);
+  server.on("/json", HTTP_POST, [] {
+    tic_web = millis();
+    handleJSON();
+  });
 
   server.on("/json", HTTP_GET, [] {
+    tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
+    CONFIG_TO_JSON(active, "active");
     CONFIG_TO_JSON(universe, "universe");
     CONFIG_TO_JSON(offset, "offset");
     CONFIG_TO_JSON(pixels, "pixels");
@@ -195,7 +221,8 @@ void setup() {
     server.send(200, "application/json", str);
   });
 
-  server.on("/update", HTTP_GET, []() {
+  server.on("/update", HTTP_GET, [] {
+    tic_web = millis();
     handleStaticFile("/update.html");
   });
 
@@ -229,7 +256,7 @@ void loop() {
     updateNeopixelStrip();
 
   // this section gets executed at a maximum rate of around 100Hz
-  if ((millis() - tic_web) > 5000 && (millis() - tic_loop) > 9) {
+  if (config.active && (millis() - tic_web) > 5000 && (millis() - tic_loop) > 9) {
     if (WiFi.status() != WL_CONNECTED) {
       // show the WiFi status
       singleRed();
