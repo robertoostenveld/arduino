@@ -114,18 +114,23 @@ void do_send(osjob_t* j) {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial) {
+
+  unsigned long timeout = millis() + 1000;
+  while (!Serial && millis() < timeout) {
     ; // wait for serial port to connect. Needed for native USB
   }
   Serial.println(F("Starting"));
 
   // initialize the sensors
   init_sensor();
+
+  // Start with an empty packet
   payload.id = 1;
   payload.counter = 0;
 
   // LMIC init
   os_init();
+
   // Reset the MAC state. Session and pending data transfers will be discarded.
   LMIC_reset();
 

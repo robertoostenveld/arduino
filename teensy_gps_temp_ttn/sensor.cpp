@@ -2,19 +2,16 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
-#include <SoftwareSerial.h>
 
 #include "payload.h"
 extern payload_t payload;
 
-unsigned long lastDisplay = 0;
-
-
-uint32_t readVcc();
-unsigned long crc_buf(char *b, unsigned long l);
-
 // Data wire is plugged into port 15 on the Teensy
 #define ONE_WIRE_BUS 15
+
+// pin 13 corresponds to the onboard LED, but it is already used for SPI
+// hence we are using an external LED
+#define LED 14 
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
@@ -31,21 +28,27 @@ static const uint32_t GPSBaud = 9600;
 TinyGPSPlus gps;
 
 // The serial connection to the GPS device
-// SoftwareSerial ss(RXPin, TXPin);
 #define ss Serial1
 
+// These functions are defined further down
+uint32_t readVcc();
+unsigned long crc_buf(char *b, unsigned long l);
 
 /*****************************************************************************/
 
 void init_sensor() {
-  // Start up the library
+    pinMode(LED, OUTPUT);
+  
+  // Start up the GPS serial port
+  ss.begin(GPSBaud);
+
+  // Start up the Wire interface
   dallasTemperature.begin();
 
+  // Start up the internal voltage measurement
   analogReference(EXTERNAL);
   analogReadResolution(12);
-  analogReadAveraging(32); // this one is optional.
-
-  ss.begin(GPSBaud);
+  analogReadAveraging(32); // this one is optional
 }
 
 /*****************************************************************************/
@@ -53,6 +56,8 @@ void init_sensor() {
 void read_sensor() {
   float lat = 0, lng = 0, alt = 0, temp = 0, volt = 0;
   int verbose = 1;
+  
+  digitalWrite(LED, HIGH);
 
   volt = 0.001 * readVcc(); // this is in mV, we want V
 
@@ -103,6 +108,7 @@ void read_sensor() {
     Serial.print(",\t");
     Serial.println(payload.crc);
   }
+    digitalWrite(LED, LOW);
 }
 
 /*****************************************************************************/
