@@ -1,8 +1,13 @@
 /*
-  This sketch receives the data of one DMX universes via Artnet and
-  sends it over the serial interface to a MAX485 module
+  This sketch receives the data of one DMX universes over WiFi 
+  via Artnet and sends it over the serial interface to a MAX485 module
 
-  https://github.com/rstephan/ArtnetWifi
+  DI (data in) on the MAX485 module connects to pin D4/TXD1/GPIO02 on the NodeMCU
+  DE (data enable) on the MAX485 module connects to 3.3V
+  the blue  leg of a RDB Led connects over a 100 Ohm resistor to D0/GPIO16 on the NodeMCU
+  the green leg of a RDB Led connects over a 220 Ohm resistor to D1/GPIO05 on the NodeMCU
+  the red   leg of a RDB Led connects over a 220 Ohm resistor to D2/GPIO04 on the NodeMCU
+  
 */
 
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
@@ -20,9 +25,9 @@ ESP8266WebServer server(80);
 const char* host = "ARTNET";
 const char* version = __DATE__ " / " __TIME__;
 
-#define LED_R 16  // D0
-#define LED_G 5   // D1
-#define LED_B 4   // D2
+#define LED_B 16  // GPIO16/D0
+#define LED_G 5   // GPIO05/D1
+#define LED_R 4   // GPIO04/D2
 
 // Artnet settings
 ArtnetWifi artnet;
@@ -68,7 +73,7 @@ void onDmxPacket(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *
 
 
 void setup() {
-  Serial1.begin(250000); // this connects over D4/TXD1/GPIO02 to the MAX485 module
+  Serial1.begin(250000); 
   Serial.begin(115200);
   while (!Serial) {
     ;
@@ -91,13 +96,16 @@ void setup() {
   initialConfig();
 
   if (loadConfig()) {
-    singleYellow();
+    singleGreen();
     delay(1000);
   }
   else {
     singleRed();
     delay(1000);
   }
+
+  if (WiFi.status() != WL_CONNECTED)
+    singleRed();
 
   WiFiManager wifiManager;
   // wifiManager.resetSettings();
@@ -139,7 +147,7 @@ void setup() {
     Serial.println("handleReconnect");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    singleYellow();
+    singleRed();
     WiFiManager wifiManager;
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
@@ -192,6 +200,7 @@ void setup() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(universe, "universe");
+    root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["packets"] = packetCounter;
     root["fps"]     = fps;
@@ -236,6 +245,7 @@ void loop() {
     singleBlue();
   }
   else  {
+    singleGreen();
     artnet.read();
 
     // this section gets executed at a maximum rate of around 40Hz
@@ -274,12 +284,6 @@ void singleGreen() {
 void singleBlue() {
   digitalWrite(LED_R, LOW);
   digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, HIGH);
-}
-
-void singleYellow() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, HIGH);
   digitalWrite(LED_B, HIGH);
 }
 
