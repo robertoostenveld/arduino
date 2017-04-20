@@ -15,6 +15,8 @@
 
 struct Config {
   int universe;
+  int channels;
+  int delay;
 };
 
 bool initialConfig(void);

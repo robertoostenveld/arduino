@@ -20,6 +20,8 @@
 
 #include "setup_ota.h"
 
+#define MIN(x,y) (x<y ? x : y)
+
 Config config;
 ESP8266WebServer server(80);
 const char* host = "ARTNET";
@@ -96,7 +98,7 @@ void setup() {
   initialConfig();
 
   if (loadConfig()) {
-    singleGreen();
+    singleYellow();
     delay(1000);
   }
   else {
@@ -200,6 +202,8 @@ void setup() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(universe, "universe");
+    CONFIG_TO_JSON(channels, "channels");
+    CONFIG_TO_JSON(delay, "delay");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["packets"] = packetCounter;
@@ -249,7 +253,7 @@ void loop() {
     artnet.read();
 
     // this section gets executed at a maximum rate of around 40Hz
-    if ((millis() - tic_loop) > 25) {
+    if ((millis() - tic_loop) > config.delay) {
       tic_loop = millis();
       frameCounter++;
 
@@ -259,8 +263,8 @@ void loop() {
       Serial1.begin(250000);
 
       Serial1.write(0); // Start-Byte
-      // send out the buffer
-      for (int i = 0; i < global.length; i++)
+      // send out the value of the selected channels (up to 512)
+      for (int i = 0; i < MIN(global.length, config.channels); i++)
         Serial1.write(global.data[i]);
     }
   }
@@ -285,6 +289,12 @@ void singleBlue() {
   digitalWrite(LED_R, LOW);
   digitalWrite(LED_G, LOW);
   digitalWrite(LED_B, HIGH);
+}
+
+void singleYellow() {
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, HIGH);
+  digitalWrite(LED_B, LOW);
 }
 
 void allBlack() {
