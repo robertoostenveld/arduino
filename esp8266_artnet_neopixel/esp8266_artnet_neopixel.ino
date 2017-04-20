@@ -1,5 +1,5 @@
 /*
-  This example will receive multiple universes via Artnet and control a
+  This sketch receive a DMX universes via Artnet to control a
   strip of ws2811 leds via Adafruit's NeoPixel library:
 
   https://github.com/rstephan/ArtnetWifi
@@ -97,20 +97,20 @@ void setup() {
   global.length = 512;
   global.data = (uint8_t *)malloc(512);
 
+  SPIFFS.begin();
+  strip.begin();
+
   initialConfig();
 
-  strip.begin();
-  updateNeopixelStrip();
-  strip.setBrightness(255);
-  singleYellow();
-  delay(1000);
-
-  SPIFFS.begin();
   if (loadConfig()) {
+    updateNeopixelStrip();
+    strip.setBrightness(255);
     singleYellow();
     delay(1000);
   }
   else {
+    updateNeopixelStrip();
+    strip.setBrightness(255);
     singleRed();
     delay(1000);
   }
@@ -139,30 +139,37 @@ void setup() {
 
   server.on("/defaults", HTTP_GET, []() {
     tic_web = millis();
+    Serial.println("handleDefaults");
+    handleStaticFile("/reload_success.html");
+    delay(2000);
+    singleRed();
+    initialConfig();
+    saveConfig();
     WiFiManager wifiManager;
     wifiManager.resetSettings();
-    delay(2000);
     ESP.restart();
   });
 
   server.on("/reconnect", HTTP_GET, []() {
     tic_web = millis();
+    Serial.println("handleReconnect");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    Serial.println("handleReconnect");
-    Serial.flush();
+    singleYellow();
     WiFiManager wifiManager;
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
+    if (WiFi.status() == WL_CONNECTED)
+      singleGreen();
   });
 
   server.on("/reset", HTTP_GET, []() {
     tic_web = millis();
+    Serial.println("handleReset");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    Serial.println("handleReset");
-    Serial.flush();
+    singleRed();
     ESP.restart();
   });
 
@@ -200,7 +207,6 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    CONFIG_TO_JSON(active, "active");
     CONFIG_TO_JSON(universe, "universe");
     CONFIG_TO_JSON(offset, "offset");
     CONFIG_TO_JSON(pixels, "pixels");
@@ -242,30 +248,35 @@ void setup() {
   tic_loop   = millis();
   tic_packet = millis();
   tic_fps    = millis();
-  tic_web    = millis();
+  tic_web    = 0;
 
   Serial.println("setup done");
 } // setup
 
 void loop() {
   server.handleClient();
-  artnet.read();
 
-  // this section gets executed at a maximum rate of around 1Hz
-  if ((millis() - tic_web) > 5000 && (millis() - tic_loop) > 999)
-    updateNeopixelStrip();
+  if (WiFi.status() != WL_CONNECTED) {
+    singleRed();
+  }
+  else if ((millis() - tic_web) < 5000) {
+    singleBlue();
+  }
+  else  {
+    artnet.read();
 
-  // this section gets executed at a maximum rate of around 100Hz
-  if (config.active && (millis() - tic_web) > 5000 && (millis() - tic_loop) > 9) {
-    if (WiFi.status() != WL_CONNECTED) {
-      // show the WiFi status
-      singleRed();
-    }
-    else if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
-      tic_loop = millis();
-      frameCounter++;
-      // call the function corresponding to the current mode
-      (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
+    // this section gets executed at a maximum rate of around 1Hz
+    if ((millis() - tic_loop) > 999)
+      updateNeopixelStrip();
+
+    // this section gets executed at a maximum rate of around 100Hz
+    if ((millis() - tic_loop) > 9) {
+      if (config.mode >= 0 && config.mode < (sizeof(mode) / 4)) {
+        // call the function corresponding to the current mode
+        (*mode[config.mode]) (global.universe, global.length, global.sequence, global.data);
+        tic_loop = millis();
+        frameCounter++;
+      }
     }
   }
 

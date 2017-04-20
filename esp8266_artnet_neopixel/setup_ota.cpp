@@ -30,7 +30,6 @@ static String getContentType(const String& path) {
 
 
 bool initialConfig() {
-  config.active = 1;
   config.universe = 1;
   config.offset = 0;
   config.pixels = 12;
@@ -47,7 +46,7 @@ bool initialConfig() {
 
 bool loadConfig() {
   Serial.println("loadConfig");
-  
+
   File configFile = SPIFFS.open("/config.json", "r");
   if (!configFile) {
     Serial.println("Failed to open config file");
@@ -62,6 +61,7 @@ bool loadConfig() {
 
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
+  configFile.close();
 
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(buf.get());
@@ -71,7 +71,6 @@ bool loadConfig() {
     return false;
   }
 
-  JSON_TO_CONFIG(active, "active");
   JSON_TO_CONFIG(universe, "universe");
   JSON_TO_CONFIG(offset, "offset");
   JSON_TO_CONFIG(pixels, "pixels");
@@ -92,7 +91,6 @@ bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
-  CONFIG_TO_JSON(active, "active");
   CONFIG_TO_JSON(universe, "universe");
   CONFIG_TO_JSON(offset, "offset");
   CONFIG_TO_JSON(pixels, "pixels");
@@ -110,9 +108,12 @@ bool saveConfig() {
     Serial.println("Failed to open config file for writing");
     return false;
   }
-
-  root.printTo(configFile);
-  return true;
+  else {
+    Serial.println("Writing to config file");
+    root.printTo(configFile);
+    configFile.close();
+    return true;
+  }
 }
 
 /***************************************************************************/
@@ -243,7 +244,6 @@ void handleJSON() {
       handleStaticFile("/reload_failed.html");
       return;
     }
-    JSON_TO_CONFIG(active, "active");
     JSON_TO_CONFIG(universe, "universe");
     JSON_TO_CONFIG(offset, "offset");
     JSON_TO_CONFIG(pixels, "pixels");
@@ -259,7 +259,6 @@ void handleJSON() {
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
-    KEYVAL_TO_CONFIG(active, "active");
     KEYVAL_TO_CONFIG(universe, "universe");
     KEYVAL_TO_CONFIG(offset, "offset");
     KEYVAL_TO_CONFIG(pixels, "pixels");

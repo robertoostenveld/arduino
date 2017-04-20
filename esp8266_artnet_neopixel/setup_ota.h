@@ -1,5 +1,5 @@
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef _SETUP_OTA_H_
+#define _SETUP_OTA_H_
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -14,7 +14,6 @@
 
 
 struct Config {
-  int active;
   int universe;
   int offset;
   int pixels;
@@ -42,5 +41,5 @@ void handleStaticFile(String);
 void handleStaticFile(const char *);
 void handleJSON();
 
-#endif
+#endif // _SETUP_OTA_H_
 
