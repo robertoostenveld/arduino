@@ -2,7 +2,9 @@
 
 This sketch implements a WiFi module that uses the Art-Net protocol over a wireless connection to control wired stage lighting fixtures/lamps that are DMX512 compatible. It listens to incoming Art-Net packets and forwards a single universe to DMX512. It features over-the-air (OTA) configuration of the wifi network that it connects to, configuration of the universe that is forwarded, and monitoring of the incoming packets and the frame rate.
 
-Upon switching on, the led is yellow. It will connect as client to the previously used WiFi network, if that succeeds, the led turns green. If that fails, the led turns red and it creates a wireless acecss point (AP) with the name Artnet. You can connect with laptop or smartphone to that network to configure the WIFi client settings and provide the password of the network to which it should connect. After that it resets.
+Upon switching on, the led turns yellow to indicate that setup is done. After that the led turns red to indicate that it is not connected to WiFi. It will try connect as client to the previously used WiFi network; if that succeeds, the led turns green and setup is ready. If that fails, the led remains red and the node creates a wireless access point (AP) with the name Artnet. You can connect with laptop or smartphone to that network to configure the WIFi client settings and provide the password of the network to which it should connect. After that it resets.
+
+Wherever there is activity on the web interface (configuration, monitoring), the led turns blue. During web interface activity, the DMX512 output is silenced. A smooth web interface and smooth DMX signalling don't go together.
 
 See http://robertoostenveld.nl/art-net-to-dmx512-with-esp8266/ for more details and photo's.
 
