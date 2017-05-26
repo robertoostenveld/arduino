@@ -1,13 +1,9 @@
 /*
-  This sketch receives the data of one DMX universes over WiFi 
-  via Artnet and sends it over the serial interface to a MAX485 module
+  This sketch receives Art-Net data of one DMX universes over WiFi
+  and sends it over the serial interface to a MAX485 module.
 
-  DI (data in) on the MAX485 module connects to pin D4/TXD1/GPIO02 on the NodeMCU
-  DE (data enable) on the MAX485 module connects to 3.3V
-  the blue  leg of a RDB Led connects over a 100 Ohm resistor to D0/GPIO16 on the NodeMCU
-  the green leg of a RDB Led connects over a 220 Ohm resistor to D1/GPIO05 on the NodeMCU
-  the red   leg of a RDB Led connects over a 220 Ohm resistor to D2/GPIO04 on the NodeMCU
-  
+  It provides an interface between wireless Art-Net and wired DMX512.
+
 */
 
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
@@ -15,7 +11,7 @@
 #include <ESP8266mDNS.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 #include <WiFiClient.h>
-#include <ArtnetWifi.h>          // https://github.com/rstephan/ArtnetWifi 
+#include <ArtnetWifi.h>          // https://github.com/rstephan/ArtnetWifi
 #include <FS.h>
 
 #include "setup_ota.h"
@@ -75,7 +71,7 @@ void onDmxPacket(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *
 
 
 void setup() {
-  Serial1.begin(250000); 
+  Serial1.begin(250000);
   Serial.begin(115200);
   while (!Serial) {
     ;
@@ -302,4 +298,3 @@ void allBlack() {
   digitalWrite(LED_G, LOW);
   digitalWrite(LED_B, LOW);
 }
-
