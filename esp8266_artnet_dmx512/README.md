@@ -19,7 +19,8 @@ See http://robertoostenveld.nl/art-net-to-dmx512-with-esp8266/ for more details 
  - connect 5V and GND from the power supply to Vcc and GND of the MAX485 module
  - connect 5V and GND from the power supply to the LD1117 LDO
  - connect the 3.3V output and the GND of the LD1117 LDO to the Vcc of the ESP module
- - connect pin DE (data enable) and RE (receive enable) of the MAX485 module to 3.3V (using 3.3V TTL)
+ - connect pin DE (data enable) of the MAX485 module to 3.3V (using 3.3V TTL)
+ - connect pin RE (receive enable) of the MAX485 module to GND
  - connect pin D2 of the ESP module to the DI (data in) pin of the MAX485 module (using 3.3V TTL)
  - connect pin A to XLR 3
  - connect pin B to XLR 2
