@@ -1,13 +1,13 @@
-
 /*
    The purpose of this sketch is to implement a module that converts from USB to DMX512.
    This allows to use computer software to control stage lighting lamps
 
-   This sketch is (partially) compatible with the Enntec DMX Pro module and software that
-   is compatible with that module is expected to work with this module as well.
+   This sketch is partially compatible with the Enttec DMX USB Pro module, but the startup
+   sequence of this Arduino sketch is different and other/commercial software is likely not
+   to recognize the module as DMX USB Pro .
 
    Components
-   - Arduino Nano or other 5V Arduino board, e.g. http://ebay.to/2iAeUON
+   - Arduino Nano or compatible 5V board, e.g. http://ebay.to/2iAeUON
    - MAX485 module, e.g.  http://ebay.to/2iuKQlr
    - 3 or 5 pin female XLR connector
 
@@ -25,63 +25,73 @@
 
 #define DI_PIN 2 // data out of the Arduino, data in to the MAX485
 
-#define DMX_PRO_HEADER_SIZE   4
-#define DMX_PRO_START_MSG     0x7E
-#define DMX_START_CODE        0
-#define DMX_START_CODE_SIZE   1
-#define DMX_PRO_SEND_PACKET   6 // "periodically send a DMX packet" mode
-#define DMX_PRO_END_SIZE      1
-#define DMX_PRO_END_MSG       0xE7
-#define DMX_PRO_SEND_SIZE_LSB 10
-#define DMX_PRO_SEND_SIZE_MSB 11
+// these are defined in https://www.enttec.com/docs/dmx_usb_pro_api_spec.pdf
+#define DMX_PRO_START_MSG             126  // 0x7E
+#define DMX_PRO_END_MSG               231  // 0xE7
 
-unsigned char state;
+// the packets can have the following labels, i.e. content
+#define DMX_PRO_REPROGRAM_FIRMWARE    1
+#define DMX_PRO_FLASH_PAGE            2
+#define DMX_PRO_GET_WIDGET_PARAM      3
+#define DMX_PRO_SET_WIDGET_PARAM      4
+#define DMX_PRO_RECEIVED_DMX          5
+#define DMX_PRO_SEND_DMX              6
+#define DMX_PRO_SEND_RDM              7
+#define DMX_PRO_RECEIVE_DMX_ON_CHANGE 8
+#define DMX_PRO_RECEIVED_DMX_CHANGE   9
+#define DMX_PRO_GET_SERIAL_NUMBER     10
+#define DMX_PRO_SENT_DRM_DISCOVERY    11
+
+// each DMX data packet starts with this code
+#define DMX_PRO_START_CODE            0
+
+// these are some local states
+#define DMX_PRO_SEND_DMX_LSB          240
+#define DMX_PRO_SEND_DMX_MSB          241
+#define DMX_PRO_SEND_DMX_DATA         242
+
+unsigned char state = DMX_PRO_END_MSG;
 unsigned int dataSize;
 unsigned int channel;
-unsigned int max = 0;
 
 void setup() {
-  Serial.begin(57600);
   DmxSimple.usePin(DI_PIN);
-  state = DMX_PRO_END_MSG;
+  Serial.begin(57600);
+  while (!Serial);
 }
 
-
 void loop() {
-  unsigned char c;
-
   while (!Serial.available())
     yield();
 
-  c = Serial.read();
+  unsigned char c = Serial.read();
+
+  if (c == DMX_PRO_START_MSG && state != DMX_PRO_END_MSG) {
+    state = c; // this should not happen, it means that part of the previous packet was lost
+  }
   if (c == DMX_PRO_START_MSG && state == DMX_PRO_END_MSG) {
     state = c;
   }
-  else if (c == DMX_PRO_SEND_PACKET && state == DMX_PRO_START_MSG) {
+  else if (c == DMX_PRO_SEND_DMX && state == DMX_PRO_START_MSG) {
     state = c;
   }
-  else if (state == DMX_PRO_SEND_PACKET ) {
+  else if (state == DMX_PRO_SEND_DMX) {
     dataSize = c & 0xff;
-    state = DMX_PRO_SEND_SIZE_LSB;
+    state = DMX_PRO_SEND_DMX_LSB;
   }
-  else if (state == DMX_PRO_SEND_SIZE_LSB) {
+  else if (state == DMX_PRO_SEND_DMX_LSB) {
     dataSize += (c << 8) & 0xff00;
-    state = DMX_PRO_SEND_SIZE_MSB;
+    state = DMX_PRO_SEND_DMX_MSB;
   }
-  else if ( c == DMX_START_CODE && state == DMX_PRO_SEND_SIZE_MSB) {
-    state = c;
+  else if (state == DMX_PRO_SEND_DMX_MSB && c == DMX_PRO_START_CODE) {
+    state = DMX_PRO_SEND_DMX_DATA;
     channel = 1;
   }
-  else if ( state == DMX_START_CODE && channel < dataSize) {
+  else if (state == DMX_PRO_SEND_DMX_DATA && channel < dataSize) {
     DmxSimple.write(channel, c);
     channel++;
-    if (c && channel > max) {
-      // only write non-zero channels
-      max = channel;
-      DmxSimple.maxChannel(max);
-    }
   }
-  else if ( state == DMX_START_CODE && channel == dataSize && c == DMX_PRO_END_MSG) {
+  else if (state == DMX_PRO_SEND_DMX_DATA && channel == dataSize && c == DMX_PRO_END_MSG) {
     state = c;
   }
 }
