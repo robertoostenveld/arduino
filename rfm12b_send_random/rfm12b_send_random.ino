@@ -4,7 +4,7 @@
 #include <avr/sleep.h>
 
 #define BLIP_DEBUG
-#define BLIP_NODE 5   // set this to a unique NODE to disambiguate multiple nodes
+#define BLIP_NODE 7   // set this to a unique NODE to disambiguate multiple nodes
 #define BLIP_GRP  17  // wireless net group to use for sending blips
 
 #define SEND_MODE     2   // set to 3 if fuses are e=06/h=DE/l=CE, else set to 2
@@ -96,7 +96,7 @@ void loop () {
   delay(100); // give it some time to send before falling asleep
 #endif
 
-  Sleepy::loseSomeTime(65000);
+  Sleepy::loseSomeTime(67000);
 }
 
 /*****************************************************************************/
