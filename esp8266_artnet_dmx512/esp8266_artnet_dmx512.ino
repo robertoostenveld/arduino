@@ -269,6 +269,40 @@ void loop() {
 } // loop
 
 
+#ifdef COMMON_ANODE
+
+void singleRed() {
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, HIGH);
+  digitalWrite(LED_B, HIGH);
+}
+
+void singleGreen() {
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_B, HIGH);
+}
+
+void singleBlue() {
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, HIGH);
+  digitalWrite(LED_B, LOW);
+}
+
+void singleYellow() {
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_B, HIGH);
+}
+
+void allBlack() {
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, HIGH);
+  digitalWrite(LED_B, HIGH);
+}
+
+#else
+
 void singleRed() {
   digitalWrite(LED_R, HIGH);
   digitalWrite(LED_G, LOW);
@@ -298,3 +332,5 @@ void allBlack() {
   digitalWrite(LED_G, LOW);
   digitalWrite(LED_B, LOW);
 }
+
+#endif
