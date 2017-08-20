@@ -121,7 +121,7 @@ void loop() {
   if ((millis() - keepalive_time) > 30000) {
     keepalive_count++;
     keepalive_time = millis();
-    String postString = "&field1=" + String(keepalive_count) + "&field2=" + String(int(keepalive_time/1000));
+    String postString = "&field1=" + String(keepalive_count) + "&field2=" + String(int(keepalive_time / 1000));
     // updateThingSpeak(postString, APIKeyChannel1);
     Serial.println(postString);
   }
@@ -159,6 +159,9 @@ void loop() {
 
       // connect to ThingSpeak and forward the received message
       switch (message->id) {
+        case 1:
+          // node 1 is the receiving node, which does not have sensors
+          break;
         case 2:
           updateThingSpeak(postString, APIKeyChannel2);
           break;
