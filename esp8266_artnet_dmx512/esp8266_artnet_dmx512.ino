@@ -15,6 +15,7 @@
 #include <FS.h>
 
 #include "setup_ota.h"
+#include "send_break.h"
 
 #define MIN(x,y) (x<y ? x : y)
 
@@ -71,7 +72,7 @@ void onDmxPacket(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *
 
 
 void setup() {
-  Serial1.begin(250000);
+  Serial1.begin(250000, SERIAL_8N2);
   Serial.begin(115200);
   while (!Serial) {
     ;
@@ -107,6 +108,7 @@ void setup() {
 
   WiFiManager wifiManager;
   // wifiManager.resetSettings();
+  WiFi.hostname(host);
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
   Serial.println("connected");
@@ -137,6 +139,7 @@ void setup() {
     saveConfig();
     WiFiManager wifiManager;
     wifiManager.resetSettings();
+    WiFi.hostname(host);
     ESP.restart();
   });
 
@@ -253,15 +256,14 @@ void loop() {
       tic_loop = millis();
       frameCounter++;
 
-      // Send "break" as a "slow" zero.
-      Serial1.begin(56700);
-      Serial1.write(0);
-      Serial1.begin(250000);
+      // Send "break" 
+      sendBreak();
 
       Serial1.write(0); // Start-Byte
       // send out the value of the selected channels (up to 512)
-      for (int i = 0; i < MIN(global.length, config.channels); i++)
+      for (int i = 0; i < MIN(global.length, config.channels); i++) {
         Serial1.write(global.data[i]);
+      }
     }
   }
 
