@@ -9,11 +9,15 @@ Wherever there is activity on the web interface (configuration, monitoring), the
 See http://robertoostenveld.nl/art-net-to-dmx512-with-esp8266/ for more details and photo's.
 
 # Components
- - NodeMCU, Wemos D1 mini or other ESP-8266 module
- - MAX485 module, e.g.  http://ebay.to/2iuKQlr
- - DC-DC boost/buck converter 5V power supply, e.g. http://ebay.to/2iAfOei
- - L1117 3.3V Low Dropout Linear Regulator (LDO)
- - 3 or 5 pin female XLR connector
+  - NodeMCU, Wemos D1 mini or other ESP-8266 module
+  - MAX485 module, e.g. http://ebay.to/2iuKQlr
+  - DC-DC boost/buck converter 5V power supply, e.g. http://ebay.to/2iAfOei
+  - L1117 3.3V Low Dropout Linear Regulator (LDO)
+  - 3 or 5 pin female XLR connector
+  - panel mount 2.1 x 5.5 mm DC barrel jack
+  - common cathode RGB led
+  - 2x 220 Ohm and 1x 100 Ohm resistors
+  - 82 x 58 x 34 mm ABS enclosure box
 
 # Wiring scheme
  - connect 5V and GND from the power supply to Vcc and GND of the MAX485 module
@@ -25,3 +29,6 @@ See http://robertoostenveld.nl/art-net-to-dmx512-with-esp8266/ for more details 
  - connect pin A to XLR 3
  - connect pin B to XLR 2
  - connect GND   to XLR 1
+ - connect the blue  leg of the LED over the 100 Ohm resistor to GPIO16/D0
+ - connect the green leg of the LED over the 220 Ohm resistor to GPIO05/D1
+ - connect the red   leg of the LED over the 220 Ohm resistor to GPIO04/D2
