@@ -18,6 +18,10 @@
 #include "send_break.h"
 
 #define MIN(x,y) (x<y ? x : y)
+#define ENABLE_MDNS
+#define ENABLE_WEBINTERFACE
+#define SERIAL_BREAK
+// #define COMMON_ANODE
 
 Config config;
 ESP8266WebServer server(80);
@@ -87,7 +91,7 @@ void setup() {
   global.sequence = 0;
   global.length = 512;
   global.data = (uint8_t *)malloc(512);
-  for (int i=0; i<512; i++)
+  for (int i = 0; i < 512; i++)
     global.data[i] = 0;
 
   SPIFFS.begin();
@@ -116,6 +120,7 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED)
     singleGreen();
 
+#ifdef ENABLE_WEBINTERFACE
   // this serves all URIs that can be resolved to a file on the SPIFFS filesystem
   server.onNotFound(handleNotFound);
 
@@ -221,10 +226,13 @@ void setup() {
 
   // start the web server
   server.begin();
+#endif
 
   // announce the hostname and web server through zeroconf
+#ifdef ENABLE_MDNS
   MDNS.begin(host);
   MDNS.addService("http", "tcp", 80);
+#endif
 
   artnet.begin();
   artnet.setArtDmxCallback(onDmxPacket);
@@ -243,9 +251,11 @@ void loop() {
 
   if (WiFi.status() != WL_CONNECTED) {
     singleRed();
+    delay(10);
   }
   else if ((millis() - tic_web) < 5000) {
     singleBlue();
+    delay(25);
   }
   else  {
     singleGreen();
@@ -256,8 +266,14 @@ void loop() {
       tic_loop = millis();
       frameCounter++;
 
-      // Send "break" 
+#ifdef SERIAL_BREAK
+      Serial1.begin(56700, SERIAL_8N2);
+      Serial1.write(0);
+      Serial1.begin(250000, SERIAL_8N2);
+#else
+      // Send "break" using low-level code
       sendBreak();
+#endif
 
       Serial1.write(0); // Start-Byte
       // send out the value of the selected channels (up to 512)
