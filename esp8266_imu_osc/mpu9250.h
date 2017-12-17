@@ -1,23 +1,11 @@
+#ifndef __MPU9250_H_
+#define __MPU9250_H_
 
-//Magnetometer Registers
-#define AK8963_ADDRESS     0x0C
-#define WHO_AM_I_AK8963    0x00  // should return 0x48
-#define INFO               0x01
-#define AK8963_ST1         0x02  // data ready status bit 0
-#define AK8963_XOUT_L	   0x03  // data
-#define AK8963_XOUT_H	   0x04
-#define AK8963_YOUT_L	   0x05
-#define AK8963_YOUT_H	   0x06
-#define AK8963_ZOUT_L	   0x07
-#define AK8963_ZOUT_H 	   0x08
-#define AK8963_ST2         0x09  // Data overflow bit 3 and data read error status bit 2
-#define AK8963_CNTL        0x0A  // Power down (0000), single-measurement (0001), self-test (1000) and Fuse ROM (1111) modes on bits 3:0
-#define AK8963_ASTC        0x0C  // Self test control
-#define AK8963_I2CDIS      0x0F  // I2C disable
-#define AK8963_ASAX        0x10  // Fuse ROM x-axis sensitivity adjustment value
-#define AK8963_ASAY        0x11  // Fuse ROM y-axis sensitivity adjustment value
-#define AK8963_ASAZ        0x12  // Fuse ROM z-axis sensitivity adjustment value
+#define MPU9250_ADDRESS 0x68       // MPU9250 address when ADO = 1
+#define AK8963_ADDRESS  0x0C       // Address of AK8963 (MPU9250) magnetometer
+#define BMP280_ADDRESS  0x76       // Address of BMP280 altimeter
 
+// MPU9250 registers
 #define MPU9250_SELF_TEST_X_GYRO  0x00
 #define MPU9250_SELF_TEST_Y_GYRO  0x01
 #define MPU9250_SELF_TEST_Z_GYRO  0x02
@@ -26,23 +14,23 @@
 #define MPU9250_SELF_TEST_Z_ACCEL 0x0F
 #define MPU9250_SELF_TEST_A       0x10
 
-#define MPU9250_XG_OFFSET_H      0x13  // User-defined trim values for gyroscope
-#define MPU9250_XG_OFFSET_L      0x14
-#define MPU9250_YG_OFFSET_H      0x15
-#define MPU9250_YG_OFFSET_L      0x16
-#define MPU9250_ZG_OFFSET_H      0x17
-#define MPU9250_ZG_OFFSET_L      0x18
-#define MPU9250_SMPLRT_DIV       0x19
-#define MPU9250_CONFIG           0x1A
-#define MPU9250_GYRO_CONFIG      0x1B
-#define MPU9250_ACCEL_CONFIG     0x1C
-#define MPU9250_ACCEL_CONFIG2    0x1D
-#define MPU9250_LP_ACCEL_ODR     0x1E
-#define MPU9250_WOM_THR          0x1F
+#define MPU9250_XG_OFFSET_H       0x13  // User-defined trim values for gyroscope
+#define MPU9250_XG_OFFSET_L       0x14
+#define MPU9250_YG_OFFSET_H       0x15
+#define MPU9250_YG_OFFSET_L       0x16
+#define MPU9250_ZG_OFFSET_H       0x17
+#define MPU9250_ZG_OFFSET_L       0x18
+#define MPU9250_SMPLRT_DIV        0x19
+#define MPU9250_CONFIG            0x1A
+#define MPU9250_GYRO_CONFIG       0x1B
+#define MPU9250_ACCEL_CONFIG      0x1C
+#define MPU9250_ACCEL_CONFIG2     0x1D
+#define MPU9250_LP_ACCEL_ODR      0x1E
+#define MPU9250_WOM_THR           0x1F
 
-#define MPU9250_MOT_DUR          0x20  // Duration counter threshold for motion interrupt generation, 1 kHz rate, LSB = 1 ms
-#define MPU9250_ZMOT_THR         0x21  // Zero-motion detection threshold bits [7:0]
-#define MPU9250_ZRMOT_DUR        0x22  // Duration counter threshold for zero motion interrupt generation, 16 Hz rate, LSB = 64 ms
+#define MPU9250_MOT_DUR           0x20  // Duration counter threshold for motion interrupt generation, 1 kHz rate, LSB = 1 ms
+#define MPU9250_ZMOT_THR          0x21  // Zero-motion detection threshold bits [7:0]
+#define MPU9250_ZRMOT_DUR         0x22  // Duration counter threshold for zero motion interrupt generation, 16 Hz rate, LSB = 64 ms 
 
 #define MPU9250_FIFO_EN          0x23
 #define MPU9250_I2C_MST_CTRL     0x24
@@ -115,12 +103,12 @@
 #define MPU9250_I2C_MST_DELAY_CTRL 0x67
 #define MPU9250_SIGNAL_PATH_RESET  0x68
 #define MPU9250_MOT_DETECT_CTRL    0x69
-#define MPU9250_USER_CTRL          0x6A  // Bit 7 enable DMP, bit 3 reset DMP
+#define MPU9250_USER_CTRL          0x6A // Bit 7 enable DMP, bit 3 reset DMP
 #define MPU9250_PWR_MGMT_1         0x6B // Device defaults to the SLEEP mode
 #define MPU9250_PWR_MGMT_2         0x6C
-#define MPU9250_DMP_BANK           0x6D  // Activates a specific bank in the DMP
-#define MPU9250_DMP_RW_PNT         0x6E  // Set read/write pointer to a specific start address in specified DMP bank
-#define MPU9250_DMP_REG            0x6F  // Register in DMP from which to read or to which to write
+#define MPU9250_DMP_BANK           0x6D // Activates a specific bank in the DMP
+#define MPU9250_DMP_RW_PNT         0x6E // Set read/write pointer to a specific start address in specified DMP bank
+#define MPU9250_DMP_REG            0x6F // Register in DMP from which to read or to which to write
 #define MPU9250_DMP_REG_1          0x70
 #define MPU9250_DMP_REG_2          0x71
 #define MPU9250_FIFO_COUNTH        0x72
@@ -133,6 +121,25 @@
 #define MPU9250_YA_OFFSET_L        0x7B
 #define MPU9250_ZA_OFFSET_H        0x7D
 #define MPU9250_ZA_OFFSET_L        0x7E
+
+//Magnetometer Registers, see https://www.akm.com/akm/en/file/datasheet/AK8963C.pdf
+#define AK8963_ADDRESS      0x0C
+#define AK8963_WHO_AM_I     0x00  // should return 0x48
+#define AK8963_INFO         0x01
+#define AK8963_ST1          0x02  // data ready status bit 0
+#define AK8963_XOUT_L       0x03  // data
+#define AK8963_XOUT_H       0x04
+#define AK8963_YOUT_L       0x05
+#define AK8963_YOUT_H       0x06
+#define AK8963_ZOUT_L       0x07
+#define AK8963_ZOUT_H       0x08
+#define AK8963_ST2          0x09  // Data overflow bit 3 and data read error status bit 2
+#define AK8963_CNTL         0x0A  // Power down (0000), single-measurement (0001), self-test (1000) and Fuse ROM (1111) modes on bits 3:0
+#define AK8963_ASTC         0x0C  // Self test control
+#define AK8963_I2CDIS       0x0F  // I2C disable
+#define AK8963_ASAX         0x10  // Fuse ROM x-axis sensitivity adjustment value
+#define AK8963_ASAY         0x11  // Fuse ROM y-axis sensitivity adjustment value
+#define AK8963_ASAZ         0x12  // Fuse ROM z-axis sensitivity adjustment value
 
 // BMP280 registers
 #define BMP280_TEMP_XLSB  0xFC
@@ -147,10 +154,6 @@
 #define BMP280_RESET      0xE0
 #define BMP280_ID         0xD0  // should be 0x58
 #define BMP280_CALIB00    0x88
-
-#define MPU9250_ADDRESS 0x68       // MPU9250 address when ADO = 1
-#define AK8963_ADDRESS  0x0C       // Address of AK8963 (MPU9250) magnetometer
-#define BMP280_ADDRESS  0x76       // Address of BMP280 altimeter
 
 // Set initial input parameters
 enum MPU9250Ascale {
@@ -215,3 +218,5 @@ enum BMP280SBy {
   t_2000ms,
   t_4000ms,
 };
+
+#endif
