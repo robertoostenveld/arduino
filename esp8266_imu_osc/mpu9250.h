@@ -1,3 +1,7 @@
+/*
+ * This is a reorganized version of https://github.com/kriswiner/MPU9250
+ */
+
 #ifndef __MPU9250_H_
 #define __MPU9250_H_
 

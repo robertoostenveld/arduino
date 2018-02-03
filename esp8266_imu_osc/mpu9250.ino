@@ -1,3 +1,7 @@
+/*
+ * This is a reorganized version of https://github.com/kriswiner/MPU9250
+ */
+
 #include "mpu9250.h"
 
 mpu9250::mpu9250() {

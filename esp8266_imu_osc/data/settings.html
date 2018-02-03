@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+<!--try to load jQuery from google CDN-->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<!--fall back to a local copy when not connected to internet-->
+<script>
+  window.jQuery || document.write('<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"><\/script>'); 
+</script>
+</head>
+
+<body>
+
+<h1>Settings</h1>
+<form id="settings-form" method="post" action="json">
+
+    <div class="field">
+        <label for="name">sensors:</label>
+        <input type="text" id="sensors" name="sensors" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">decimate:</label>
+        <input type="text" id="decimate" name="decimate" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script language="javascript" type="text/javascript" src="settings.js"></script>
+
+</body>
+</html>

@@ -1,3 +1,7 @@
+/*
+ * This is a reorganized version of https://github.com/kriswiner/MPU9250
+ */
+
 #include "ahrs.h"
 
 ahrs::ahrs(void) {

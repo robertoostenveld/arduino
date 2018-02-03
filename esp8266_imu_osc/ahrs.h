@@ -1,3 +1,7 @@
+/*
+ * This is a reorganized version of https://github.com/kriswiner/MPU9250
+ */
+
 #ifndef __AHRS_H_
 #define __AHRS_H_
 
