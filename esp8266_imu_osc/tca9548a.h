@@ -7,12 +7,12 @@ class tca9548a {
   public:
     ~tca9548a(void);
     tca9548a(void);
-    tca9548a(uint8_t);
     void select(uint8_t);
     void disable();
   private:
     uint8_t _address;
-};
+
+}; // class
 
 #endif
 

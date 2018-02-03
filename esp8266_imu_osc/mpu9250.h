@@ -1,9 +1,11 @@
 #ifndef __MPU9250_H_
 #define __MPU9250_H_
 
-#define MPU9250_ADDRESS 0x68       // MPU9250 address when ADO = 1
-#define AK8963_ADDRESS  0x0C       // Address of AK8963 (MPU9250) magnetometer
-#define BMP280_ADDRESS  0x76       // Address of BMP280 altimeter
+#define MPU9250_CALIBRATE_MAG  false 
+
+#define MPU9250_ADDRESS 0x68      // MPU9250 address when ADO = 1
+#define AK8963_ADDRESS  0x0C      // Address of AK8963 (MPU9250) magnetometer
+#define BMP280_ADDRESS  0x76      // Address of BMP280 altimeter
 
 // MPU9250 registers
 #define MPU9250_SELF_TEST_X_GYRO  0x00
@@ -221,9 +223,9 @@ enum BMP280SBy {
 
 class mpu9250 {
   public:
-    mpu9250(void);
-    ~mpu9250(void);
-    void setup(void);
+    mpu9250();
+    ~mpu9250();
+    void begin(void);
     bool newData(void);
     void readAccelData(float*, float*, float*);
     void readGyroData(float*, float*, float*);
@@ -256,32 +258,14 @@ class mpu9250 {
     float GyroMeasError = PI * (40.0f / 180.0f);   // gyroscope measurement error in rads/s (start at 40 deg/s)
     float GyroMeasDrift = PI * (0.0f  / 180.0f);   // gyroscope measurement drift in rad/s/s (start at 0.0 deg/s/s)
 
-    // There is a tradeoff in the beta parameter between accuracy and response speed.
-    // In the original Madgwick study, beta of 0.041 (corresponding to GyroMeasError of 2.7 degrees/s) was found to give optimal accuracy.
-    // However, with this value, the LSM9SD0 response time is about 10 seconds to a stable initial quaternion.
-    // Subsequent changes also require a longish lag time to a stable output, not fast enough for a quadcopter or robot car!
-    // By increasing beta (GyroMeasError) by about a factor of fifteen, the response time constant is reduced to ~2 sec
-    // I haven't noticed any reduction in solution accuracy. This is essentially the I coefficient in a PID control sense;
-    // the bigger the feedback coefficient, the faster the solution converges, usually at the expense of accuracy.
-    // In any case, this is the free parameter in the Madgwick filtering and fusion scheme.
-    float beta = sqrt(3.0f / 4.0f) * GyroMeasError;   // compute beta
-    float zeta = sqrt(3.0f / 4.0f) * GyroMeasDrift;   // compute zeta, the other free parameter in the Madgwick scheme usually set to a small or zero value
-    
-    // these are the free parameters in the Mahony filter and fusion scheme, Kp for proportional feedback, Ki for integral
-#define Kp 2.0f * 5.0f
-#define Ki 0.0f
-
-    uint32_t lastDisplay = 0, elapsedTime = 0, count = 0;  // used to control display output rate
-    float pitch, yaw, roll;
-    float a12, a22, a31, a32, a33;            // rotation matrix coefficients for Euler angles and gravity components
-    float deltat = 0.0f, sum = 0.0f;          // integration interval for both filter schemes
-    uint32_t lastUpdate = 0, firstUpdate = 0; // used to calculate integration interval
-    uint32_t Now = 0;                         // used to calculate integration interval
-
     float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest MPU9250 sensor data values
-    float lin_ax, lin_ay, lin_az;             // linear acceleration (acceleration with gravity component subtracted)
-    float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
-    float eInt[3] = {0.0f, 0.0f, 0.0f};       // vector to hold integral error for Mahony method
-};
+
+}; // class
+
+
+void readBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest);
+uint8_t readByte(uint8_t address, uint8_t subAddress);
+void writeByte(uint8_t address, uint8_t subAddress, uint8_t data);
+void I2Cscan();
 
 #endif
