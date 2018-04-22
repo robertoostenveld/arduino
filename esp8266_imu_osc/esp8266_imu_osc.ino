@@ -1,6 +1,6 @@
 /*
   This sketch is for an ESP8266 connected to an TCA9548A I2C multiplexer,
-  which in torn connects to multiple MPU9250 inertial motion units.
+  which in turn connects to multiple MPU9250 inertial motion units (IMUs).
 
   It reads the acceletometer, gyroscope and magnetometer data from the
   IMUs and computes AHRS (yaw/pitch/roll) parameters. All data is combined
@@ -31,9 +31,9 @@
 #include "setup_ota.h"
 #include "rgb_led.h"
 
-#define Debug true          // this is also needed for the LED to blink
-#define SerialDebug false   // this is only desired when connected over the USB port
-#define maxSensors 16
+#define Debug true          // this is for Serial, but also needed for the LED to blink
+#define SerialDebug false   // this is only desired for Serial debugging
+#define maxSensors 8
 
 // this allows some sections of the code to be disabled for debugging purposes
 #define ENABLE_WEBINTERFACE
@@ -48,10 +48,7 @@ const char* version = __DATE__ " / " __TIME__;
 tca9548a tca;
 mpu9250 mpu[maxSensors];
 ahrs ahrs[maxSensors];
-String id[16] = {"imu0", "imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7", "imu8", "imu9", "imu10", "imu11", "imu12", "imu13", "imu14", "imu15"};
-
-// Pin definitions
-int myLed = LED_BUILTIN;
+String id[maxSensors] = {"imu0", "imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7"};
 
 // UDP destination address
 IPAddress outIp(192, 168, 1, 144);
@@ -67,9 +64,6 @@ unsigned int debugCount = 0, transmitCount = 0;
 // keep track of the timing of the web interface
 long tic_web = 0;
 
-float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest MPU9250 sensor data values
-float temp = 20;
-
 void setup() {
   Serial.begin(115200);
   while (!Serial) {
@@ -83,7 +77,7 @@ void setup() {
   WiFi.hostname(host);
   WiFi.begin();
 
-  Wire.begin(D2, D1);
+  Wire.begin(5, 4);  // SDA=D1=5, SCL=D2=4
   Wire.setClock(400000L);
 
   SPIFFS.begin();
@@ -201,6 +195,7 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(sensors, "sensors");
     CONFIG_TO_JSON(decimate, "decimate");
+    CONFIG_TO_JSON(port, "port");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["rate"]    = rate;
@@ -249,6 +244,8 @@ void loop() {
   OSCBundle bundle;
   char msgId[16];
   float roll, yaw, pitch;
+  float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest MPU9250 sensor data values
+  float temp = 20;
 
 #ifdef ENABLE_WEBINTERFACE
   server.handleClient();
@@ -276,6 +273,13 @@ void loop() {
     mpu[i].readGyroData(&gx, &gy, &gz);
     mpu[i].readMagData(&mx, &my, &mz);
 
+    transmitCount++;
+    if ((transmitCount % config.decimate) != 0) {
+      // do not process this sample any further
+      break;
+    }
+    transmitCount = 0;
+
     ahrs[i].update(ax, ay, az, gx, gy, gz, my, mx, mz, deltat);
     roll = ahrs[i].roll;
     yaw = ahrs[i].yaw;
@@ -299,16 +303,13 @@ void loop() {
   } // for loop over the IMUs
 
   Now = millis();
-  transmitCount++;
+  lastTransmit = Now;
   debugCount++;
 
-  if ((transmitCount % config.decimate) == 0) {
-    transmitCount = 0;
-    lastTransmit = Now;
-    Udp.beginPacket(outIp, outPort);
-    bundle.send(Udp);
-    Udp.endPacket();
-  }
+  outIp.fromString(config.destination);
+  Udp.beginPacket(outIp, config.port);
+  bundle.send(Udp);
+  Udp.endPacket();
   bundle.empty();
 
   if ((Now - lastTemperature) > 1000) {
@@ -353,11 +354,9 @@ void loop() {
       ledGreen();
     }
 
-
     lastDisplay = millis();
     debugCount = 0;
   }
 #endif
 
 } // loop
-
