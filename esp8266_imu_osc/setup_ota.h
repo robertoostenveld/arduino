@@ -15,6 +15,8 @@
 struct Config {
   int sensors;
   int decimate;
+  char destination[32];
+  int port;
 };
 
 void handleNotFound();
