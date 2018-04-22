@@ -65,6 +65,7 @@ bool loadConfig() {
 
   JSON_TO_CONFIG(sensors, "sensors");
   JSON_TO_CONFIG(decimate, "decimate");
+  S_JSON_TO_CONFIG(destination, "destination");
   JSON_TO_CONFIG(port, "port");
 
   return true;
@@ -77,6 +78,7 @@ bool saveConfig() {
 
   CONFIG_TO_JSON(sensors, "sensors");
   CONFIG_TO_JSON(decimate, "decimate");
+  S_CONFIG_TO_JSON(destination, "destination");
   CONFIG_TO_JSON(port, "port");
 
   File configFile = SPIFFS.open("/config.json", "w");
@@ -222,6 +224,7 @@ void handleJSON() {
     }
     JSON_TO_CONFIG(sensors, "sensors");
     JSON_TO_CONFIG(decimate, "decimate");
+    S_JSON_TO_CONFIG(destination, "destination");
     JSON_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");
   }
@@ -229,9 +232,19 @@ void handleJSON() {
     // parse it as key1=val1&key2=val2&key3=val3
     KEYVAL_TO_CONFIG(sensors, "sensors");
     KEYVAL_TO_CONFIG(decimate, "decimate");
+    S_KEYVAL_TO_CONFIG(destination, "destination");
     KEYVAL_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");
   }
   saveConfig();
+  // blink five times
+  for (int i = 0; i < 5; i++) {
+    ledRed();
+    delay(200);
+    ledBlack();
+    delay(200);
+  }
+  // some of the settings require re-initialization
+  ESP.restart();
 }
 

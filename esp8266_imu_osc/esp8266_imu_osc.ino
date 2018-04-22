@@ -195,6 +195,7 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(sensors, "sensors");
     CONFIG_TO_JSON(decimate, "decimate");
+    S_CONFIG_TO_JSON(destination, "destination");
     CONFIG_TO_JSON(port, "port");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
@@ -273,13 +274,6 @@ void loop() {
     mpu[i].readGyroData(&gx, &gy, &gz);
     mpu[i].readMagData(&mx, &my, &mz);
 
-    transmitCount++;
-    if ((transmitCount % config.decimate) != 0) {
-      // do not process this sample any further
-      break;
-    }
-    transmitCount = 0;
-
     ahrs[i].update(ax, ay, az, gx, gy, gz, my, mx, mz, deltat);
     roll = ahrs[i].roll;
     yaw = ahrs[i].yaw;
@@ -303,19 +297,23 @@ void loop() {
   } // for loop over the IMUs
 
   Now = millis();
-  lastTransmit = Now;
-  debugCount++;
 
-  outIp.fromString(config.destination);
-  Udp.beginPacket(outIp, config.port);
-  bundle.send(Udp);
-  Udp.endPacket();
-  bundle.empty();
+  transmitCount++;
+  if ((transmitCount % config.decimate) == 0) {
+    outIp.fromString(config.destination);
+    Udp.beginPacket(outIp, config.port);
+    bundle.send(Udp);
+    Udp.endPacket();
+    bundle.empty();
+    lastTransmit = Now;
+    transmitCount = 0;
+  }
 
   if ((Now - lastTemperature) > 1000) {
     lastTemperature = Now;
   }
 
+  debugCount++;
   if (Debug && (Now - lastDisplay) > 1000) {
     // Update the debug information every second, independent of data rates
     long elapsedTime = Now - lastDisplay;

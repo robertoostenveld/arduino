@@ -20,11 +20,8 @@ void mpu9250::begin(void) {
   Serial.println("MPU9250 9-axis motion sensor...");
   byte b = readByte(MPU9250_ADDRESS, MPU9250_WHO_AM_I);
   Serial.print("MPU9250 "); Serial.print("I am "); Serial.print(b, HEX); Serial.print(", I should be "); Serial.println(0x71, HEX);
-  if (b != 0x71) {
-    Serial.println("Halted");    
-    while (1) 
-      delay(1000);
-  }
+  if (b != 0x71)
+    ESP.restart();
 
   selfTest();
 
