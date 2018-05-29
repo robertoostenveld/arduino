@@ -195,6 +195,7 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(sensors, "sensors");
     CONFIG_TO_JSON(decimate, "decimate");
+    CONFIG_TO_JSON(ahrs, "ahrs");
     S_CONFIG_TO_JSON(destination, "destination");
     CONFIG_TO_JSON(port, "port");
     root["version"] = version;
@@ -227,12 +228,18 @@ void setup() {
   I2Cscan();
 
   for (int i = 0; i < config.sensors; i++) {
+    byte status = 0;
     Serial.println("====================================================");
     Serial.println(String("initializing " + id[i]));
-    Serial.println("====================================================");
     tca.select(i);
-    mpu[i].begin();
-    ahrs[i].begin();
+    status += mpu[i].begin();
+    status += ahrs[i].begin();
+    if (status) {
+      Serial.println("failed");
+      config.sensors = i;  // the index starts at 0
+      break;
+    }
+    Serial.println("====================================================");
   }
 #endif
 
@@ -274,22 +281,25 @@ void loop() {
     mpu[i].readGyroData(&gx, &gy, &gz);
     mpu[i].readMagData(&mx, &my, &mz);
 
-    ahrs[i].update(ax, ay, az, gx, gy, gz, my, mx, mz, deltat);
-    roll = ahrs[i].roll;
-    yaw = ahrs[i].yaw;
-    pitch = ahrs[i].pitch;
+    String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(ax).add(ay).add(az);
+    String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(gx).add(gy).add(gz);
+    String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mx).add(my).add(mz);
+
+    if (config.ahrs) {
+      ahrs[i].update(ax, ay, az, gx, gy, gz, my, mx, mz, deltat);
+      roll = ahrs[i].roll;
+      yaw = ahrs[i].yaw;
+      pitch = ahrs[i].pitch;
+      String(id[i] + "/roll").toCharArray(msgId, 16); bundle.add(msgId).add(roll);
+      String(id[i] + "/yaw").toCharArray(msgId, 16); bundle.add(msgId).add(yaw);
+      String(id[i] + "/pitch").toCharArray(msgId, 16); bundle.add(msgId).add(pitch);
+    }
 
     if ((Now - lastTemperature) > 1000) {
       mpu[i].readTempData(&temp);
       String(id[i] + "/temp").toCharArray(msgId, 16); bundle.add(msgId).add(temp);
     }
 
-    String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(ax).add(ay).add(az);
-    String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(gx).add(gy).add(gz);
-    String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mx).add(my).add(mz);
-    String(id[i] + "/roll").toCharArray(msgId, 16); bundle.add(msgId).add(roll);
-    String(id[i] + "/yaw").toCharArray(msgId, 16); bundle.add(msgId).add(yaw);
-    String(id[i] + "/pitch").toCharArray(msgId, 16); bundle.add(msgId).add(pitch);
     String(id[i] + "/rate").toCharArray(msgId, 16); bundle.add(msgId).add(1000000.0f / (Now - Last[i]));
     String(id[i] + "/time").toCharArray(msgId, 16); bundle.add(msgId).add(Now / 1000000.0f);
 
@@ -339,6 +349,7 @@ void loop() {
 
       Serial.print("sensors = "); Serial.println(config.sensors);
       Serial.print("decimate = "); Serial.println(config.decimate);
+      Serial.print("ahrs = "); Serial.println(config.ahrs);
       Serial.print("rate = "); Serial.print(rate); Serial.println(" Hz");
       Serial.print("count = "); Serial.println(debugCount);
       Serial.print("elapsedTime = "); Serial.print(elapsedTime); Serial.println(" ms");

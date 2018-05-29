@@ -31,6 +31,7 @@ static String getContentType(const String& path) {
 bool initialConfig() {
   config.sensors = 1;
   config.decimate = 1;
+  config.ahrs = 0;
   strncpy(config.destination, "192.168.1.144", 32);
   config.port = 8000;
   return true;
@@ -65,6 +66,7 @@ bool loadConfig() {
 
   JSON_TO_CONFIG(sensors, "sensors");
   JSON_TO_CONFIG(decimate, "decimate");
+  JSON_TO_CONFIG(ahrs, "ahrs");
   S_JSON_TO_CONFIG(destination, "destination");
   JSON_TO_CONFIG(port, "port");
 
@@ -78,6 +80,7 @@ bool saveConfig() {
 
   CONFIG_TO_JSON(sensors, "sensors");
   CONFIG_TO_JSON(decimate, "decimate");
+  CONFIG_TO_JSON(ahrs, "ahrs");
   S_CONFIG_TO_JSON(destination, "destination");
   CONFIG_TO_JSON(port, "port");
 
@@ -224,6 +227,7 @@ void handleJSON() {
     }
     JSON_TO_CONFIG(sensors, "sensors");
     JSON_TO_CONFIG(decimate, "decimate");
+    JSON_TO_CONFIG(ahrs, "ahrs");
     S_JSON_TO_CONFIG(destination, "destination");
     JSON_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");
@@ -232,6 +236,7 @@ void handleJSON() {
     // parse it as key1=val1&key2=val2&key3=val3
     KEYVAL_TO_CONFIG(sensors, "sensors");
     KEYVAL_TO_CONFIG(decimate, "decimate");
+    KEYVAL_TO_CONFIG(ahrs, "ahrs");
     S_KEYVAL_TO_CONFIG(destination, "destination");
     KEYVAL_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");

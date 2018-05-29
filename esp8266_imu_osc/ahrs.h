@@ -9,7 +9,7 @@ class ahrs {
   public:
     ahrs(void);
     ~ahrs(void);
-    void begin(void);
+    byte begin(void);
     void update(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float);
     float pitch, yaw, roll;
 

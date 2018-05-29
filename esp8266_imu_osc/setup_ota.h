@@ -19,6 +19,7 @@
 struct Config {
   int sensors;
   int decimate;
+  int ahrs;
   char destination[32];
   int port;
 };

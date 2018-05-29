@@ -15,13 +15,14 @@ mpu9250::~mpu9250() {
 }
 
 
-void mpu9250::begin(void) {
+byte mpu9250::begin(void) {
 
   Serial.println("MPU9250 9-axis motion sensor...");
   byte b = readByte(MPU9250_ADDRESS, MPU9250_WHO_AM_I);
   Serial.print("MPU9250 "); Serial.print("I am "); Serial.print(b, HEX); Serial.print(", I should be "); Serial.println(0x71, HEX);
-  if (b != 0x71)
-    ESP.restart();
+  // MPU9250 should be 0x71, MPU9255 seems to be 0x73
+  if ((b != 0x71) && (b != 0x73))
+    return 1;
 
   selfTest();
 
@@ -43,7 +44,7 @@ void mpu9250::begin(void) {
   byte d = readByte(AK8963_ADDRESS, AK8963_WHO_AM_I);  // Read WHO_AM_I register for AK8963
   Serial.print("AK8963 "); Serial.print("I am "); Serial.print(d, HEX); Serial.print(", I should be "); Serial.println(0x48, HEX);
   if (d != 0x48)
-    while (1);
+    return 1;
 
   initMag();
   if (MPU9250_CALIBRATE_MAG) {
@@ -51,6 +52,7 @@ void mpu9250::begin(void) {
   }
 
   Serial.println("AK8963 initialized for active data mode...."); // Initialize device for active mode read of magnetometer
+  return 0;
 }
 
 //===================================================================================================================

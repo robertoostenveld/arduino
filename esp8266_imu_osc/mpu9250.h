@@ -229,7 +229,7 @@ class mpu9250 {
   public:
     mpu9250();
     ~mpu9250();
-    void begin(void);
+    byte begin(void);
     bool newData(void);
     void readAccelData(float*, float*, float*);
     void readGyroData(float*, float*, float*);

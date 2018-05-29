@@ -13,7 +13,8 @@ ahrs::~ahrs(void) {
 }
 
 
-void ahrs::begin(void) {
+byte ahrs::begin(void) {
+  return 0;
 }
 
 
