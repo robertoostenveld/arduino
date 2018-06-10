@@ -50,6 +50,12 @@ void ledBlack() {
   digitalWrite(LED_B, HIGH);
 }
 
+void ledWhite() {
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, LOW);
+  digitalWrite(LED_B, LOW);
+}
+
 #else
 
 void ledRed() {
@@ -92,6 +98,12 @@ void ledBlack() {
   digitalWrite(LED_R, LOW);
   digitalWrite(LED_G, LOW);
   digitalWrite(LED_B, LOW);
+}
+
+void ledWhite() {
+  digitalWrite(LED_R, HIGH);
+  digitalWrite(LED_G, HIGH);
+  digitalWrite(LED_B, HIGH);
 }
 
 #endif

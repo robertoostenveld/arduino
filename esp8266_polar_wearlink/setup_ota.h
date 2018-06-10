@@ -17,7 +17,6 @@
 #define S_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); strcpy(config.x, str.c_str()); } }
 
 struct Config {
-  float decay;
   char redis[32];
   int port;
 };

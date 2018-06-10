@@ -7,7 +7,7 @@
   that allows to monitor and change parameters.
 
   The status of the wifi connection, http server and received data
-  is indicated by a RDB led that blinks Red, Green or Blue.
+  is indicated by an RDB led that blinks Red, Green or Blue.
 */
 
 #include <Arduino.h>
@@ -28,6 +28,7 @@
 #define ENABLE_WEBINTERFACE
 #define ENABLE_MDNS
 #define ENABLE_REDIS
+#define ENABLE_INTERRUPT
 
 // pointer to object is needed because the initialization is delayed
 Redis *redis_p = NULL;
@@ -45,6 +46,19 @@ const char* version = __DATE__ " / " __TIME__;
 // keep track of the timing of the web interface
 long tic_web = 0;
 long tic_redis = 0;
+long tic_heartbeat = 0;
+
+#define INTERRUPT_PIN       13  // GPIO13 maps to pin D7
+#define INTERRUPT_DEBOUNCE  200 // milliseconds
+volatile byte interruptCounter = 0;
+
+/************************************************************************************************/
+
+void interruptHandler() {
+  // prevent roll-around
+  if (interruptCounter < 255)
+    interruptCounter++;
+}
 
 /************************************************************************************************/
 
@@ -64,6 +78,11 @@ void setup() {
   SPIFFS.begin();
 
   ledInit();
+
+#ifdef ENABLE_INTERRUPT
+  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), interruptHandler, RISING);
+#endif
 
   if (loadConfig()) {
     ledYellow();
@@ -171,7 +190,6 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    CONFIG_TO_JSON(decay, "decay");
     S_CONFIG_TO_JSON(redis, "redis");
     CONFIG_TO_JSON(port, "port");
     root["version"] = version;
@@ -238,14 +256,53 @@ void loop() {
 #endif
 
 #ifdef ENABLE_REDIS
-  if ((millis() - tic_redis) > 1000) {
+  if ((millis() - tic_redis) > 5000) {
     tic_redis = millis();
     String str(tic_redis);
     char buf[32];
     str.toCharArray(buf, 32);
 
     if (redis_p != NULL)
-      redis_p->set("foo", buf);
+      redis_p->set("polar.millis", buf);
   }
 #endif
+
+#ifdef ENABLE_INTERRUPT
+  if (interruptCounter) {
+    if ((millis() - tic_heartbeat) > INTERRUPT_DEBOUNCE) {
+      long now = millis();
+      float bpm = 0;
+      ledMagenta();
+      // skip the first beat, since the BPM cannot be computed
+      if (tic_heartbeat > 0) {
+        bpm = 60000. / (now - tic_heartbeat);
+        String str(bpm);
+        char buf[32];
+        str.toCharArray(buf, 32);
+
+        if (redis_p != NULL) {
+          redis_p->publish("polar.heartbeat", buf);
+          redis_p->set("polar.heartbeat", buf);
+        }
+      }
+      Serial.print("Heartbeat, BPM = ");
+      Serial.println(bpm);
+      tic_heartbeat = now;
+    } // if debounce
+    interruptCounter = 0;
+  } // if interruptCounter
+
+  if ((millis() - tic_heartbeat) > 100) {
+    // switch the LED back to the normal status color
+    if ((millis() - tic_web) < 5000)
+      ledBlue();
+    else if ((WiFi.status() == WL_CONNECTED) && (redis_p != NULL))
+      ledGreen();
+    else if ((WiFi.status() == WL_CONNECTED) && (redis_p == NULL))
+      ledCyan();
+    else
+      ledRed();
+  }
+#endif
+
 }
