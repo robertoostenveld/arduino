@@ -22,8 +22,8 @@ struct Config {
 };
 
 void handleNotFound();
-void handleStaticFile(String filename);
-void handleStaticFile(const char * filename);
+bool handleStaticFile(String filename);
+bool handleStaticFile(const char * filename);
 void handleJSON();
 
 #endif
