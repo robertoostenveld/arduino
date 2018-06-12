@@ -48,6 +48,8 @@ long tic_web = 0;
 long tic_redis = 0;
 long tic_heartbeat = 0;
 
+float bpm = 0;
+
 #define INTERRUPT_PIN       13  // GPIO13 maps to pin D7
 #define INTERRUPT_DEBOUNCE  200 // milliseconds
 volatile byte interruptCounter = 0;
@@ -192,6 +194,7 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     S_CONFIG_TO_JSON(redis, "redis");
     CONFIG_TO_JSON(port, "port");
+    root["heartrate"] = bpm;
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     String str;
@@ -271,7 +274,6 @@ void loop() {
   if (interruptCounter) {
     if ((millis() - tic_heartbeat) > INTERRUPT_DEBOUNCE) {
       long now = millis();
-      float bpm = 0;
       ledMagenta();
       // skip the first beat, since the BPM cannot be computed
       if (tic_heartbeat > 0) {
