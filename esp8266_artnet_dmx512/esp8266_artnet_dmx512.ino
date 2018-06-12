@@ -45,7 +45,7 @@ struct {
   uint8_t *data;
 } global;
 
-// keep reack of the timing of the function calls
+// keep track of the timing of the function calls
 long tic_loop = 0, tic_fps = 0, tic_packet = 0, tic_web = 0;
 
 //this will be called for each UDP packet received
