@@ -131,7 +131,7 @@ void handleDirList() {
 void handleNotFound() {
   Serial.println("handleNotFound");
   if (SPIFFS.exists(server.uri())) {
-    sendStaticFile(server.uri());
+    handleStaticFile(server.uri());
   }
   else {
     String message = "File Not Found\n\n";
@@ -149,26 +149,26 @@ void handleNotFound() {
   }
 }
 
-void sendRedirect(String filename) {
+void handleRedirect(String filename) {
   char buf[64];
   filename.toCharArray(buf, 64);
-  sendRedirect(filename);
+  handleRedirect(filename);
 }
 
-void sendRedirect(const char * filename) {
-  Serial.println("sendRedirect");
+void handleRedirect(const char * filename) {
+  Serial.println("handleRedirect");
   server.sendHeader("Location", String(filename), true);
   server.send(302, "text/plain", "");
 }
 
-void sendStaticFile(String filename) {
+void handleStaticFile(String filename) {
   char buf[64];
   filename.toCharArray(buf, 64);
-  sendStaticFile(buf);
+  handleStaticFile(buf);
 }
 
-void sendStaticFile(const char * filename) {
-  Serial.println("sendStaticFile");
+void handleStaticFile(const char * filename) {
+  Serial.println("handleStaticFile");
   File f = SPIFFS.open(filename, "r");
   Serial.print("Opening file ");
   Serial.print(filename);
@@ -207,7 +207,7 @@ void handleSettings() {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      sendStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failed.html");
       return;
     }
     if (root.containsKey("var1"))
@@ -216,7 +216,7 @@ void handleSettings() {
       var2 = root["var2"];
     if (root.containsKey("var3"))
       var3 = root["var3"];
-    sendStaticFile("/reload_success.html");
+    handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
@@ -233,7 +233,7 @@ void handleSettings() {
       str = server.arg("var3");
       var3 = str.toInt();
     }
-    sendStaticFile("/reload_success.html");
+    handleStaticFile("/reload_success.html");
   }
   saveConfig();
 }
@@ -259,15 +259,15 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.on("/", HTTP_GET, []() {
-    sendRedirect("/index");
+    handleRedirect("/index");
   });
 
   server.on("/index", HTTP_GET, []() {
-    sendStaticFile("/index.html");
+    handleStaticFile("/index.html");
   });
 
   server.on("/wifi", HTTP_GET, []() {
-    sendStaticFile("/reload_success.html");
+    handleStaticFile("/reload_success.html");
     Serial.println("handleWifi");
     Serial.flush();
     WiFiManager wifiManager;
@@ -277,7 +277,7 @@ void setup() {
   });
 
   server.on("/reset", HTTP_GET, []() {
-    sendStaticFile("/reload_success.html");
+    handleStaticFile("/reload_success.html");
     Serial.println("handleReset");
     Serial.flush();
     WiFiManager wifiManager;
@@ -288,7 +288,7 @@ void setup() {
   server.on("/dir", HTTP_GET, handleDirList);
 
   server.on("/settings", HTTP_GET, [] {
-    sendStaticFile("/settings.html");
+    handleStaticFile("/settings.html");
   });
 
   server.on("/json", HTTP_PUT, handleSettings);
@@ -307,7 +307,7 @@ void setup() {
   });
 
   server.on("/update", HTTP_GET, []() {
-    sendStaticFile("/update.html");
+    handleStaticFile("/update.html");
   });
 
   server.on("/update", HTTP_POST, handleUpdate1, handleUpdate2);
