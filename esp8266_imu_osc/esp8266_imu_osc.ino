@@ -31,8 +31,7 @@
 #include "setup_ota.h"
 #include "rgb_led.h"
 
-#define Debug true          // this is for Serial, but also needed for the LED to blink
-#define SerialDebug false   // this is only desired for Serial debugging
+#define debugLevel 1          // 0 = silent, 1 = blink led, 2 = print on serial console
 #define maxSensors 8
 
 // this allows some sections of the code to be disabled for debugging purposes
@@ -50,8 +49,8 @@ mpu9250 mpu[maxSensors];
 ahrs ahrs[maxSensors];
 String id[maxSensors] = {"imu0", "imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7"};
 
-// UDP destination address
-IPAddress outIp(192, 168, 1, 144);
+// UDP destination address, these will be changed according to the configuration
+IPAddress outIp(192, 168, 1, 100);
 const unsigned int inPort = 9000, outPort = 8000;
 WiFiUDP Udp;
 
@@ -59,7 +58,7 @@ float deltat = 0.0f, sum = 0.0f;          // integration interval for both filte
 float rate = 0.0f;
 uint32_t Now = 0, Last[maxSensors];       // used to calculate integration interval
 uint32_t lastDisplay = 0, lastTemperature = 0, lastTransmit = 0;
-unsigned int debugCount = 0, transmitCount = 0;
+unsigned int debugCount = 0, measurementCount = 0;
 
 // keep track of the timing of the web interface
 long tic_web = 0;
@@ -251,8 +250,9 @@ void setup() {
 void loop() {
   OSCBundle bundle;
   char msgId[16];
+  // variables to hold latest MPU9250 sensor data values
   float roll, yaw, pitch;
-  float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest MPU9250 sensor data values
+  float ax, ay, az, gx, gy, gz, mx, my, mz;
   float temp = 20;
 
 #ifdef ENABLE_WEBINTERFACE
@@ -295,41 +295,43 @@ void loop() {
       String(id[i] + "/pitch").toCharArray(msgId, 16); bundle.add(msgId).add(pitch);
     }
 
-    if ((Now - lastTemperature) > 1000) {
-      mpu[i].readTempData(&temp);
-      String(id[i] + "/temp").toCharArray(msgId, 16); bundle.add(msgId).add(temp);
-    }
-
     String(id[i] + "/rate").toCharArray(msgId, 16); bundle.add(msgId).add(1000000.0f / (Now - Last[i]));
     String(id[i] + "/time").toCharArray(msgId, 16); bundle.add(msgId).add(Now / 1000000.0f);
+
+    // the temperature does not change very rapidly
+    if ((Now - lastTemperature) > 1000000) {
+      mpu[i].readTempData(&temp);
+      String(id[i] + "/temp").toCharArray(msgId, 16); bundle.add(msgId).add(temp);
+      // only update the last measurement time for the last sensor
+      if (i == (config.sensors - 1))
+        lastTemperature = Now;
+    }
 
     Last[i] = Now;
   } // for loop over the IMUs
 
+  // the previous section was in micros, the following section in millis
   Now = millis();
 
-  transmitCount++;
-  if ((transmitCount % config.decimate) == 0) {
+  measurementCount++;
+  if ((measurementCount % config.decimate) == 0) {
+    // only send every Nth measurement
     outIp.fromString(config.destination);
     Udp.beginPacket(outIp, config.port);
     bundle.send(Udp);
     Udp.endPacket();
     bundle.empty();
     lastTransmit = Now;
-    transmitCount = 0;
-  }
-
-  if ((Now - lastTemperature) > 1000) {
-    lastTemperature = Now;
+    measurementCount = 0;
   }
 
   debugCount++;
-  if (Debug && (Now - lastDisplay) > 1000) {
+  if ((debugLevel>0) && (Now - lastDisplay) > 1000) {
     // Update the debug information every second, independent of data rates
     long elapsedTime = Now - lastDisplay;
     rate = 1000.0f * debugCount / elapsedTime, 2;
 
-    if (SerialDebug) {
+    if (debugLevel>1) {
       Serial.println("===============================================");
       Serial.println("MPU9250: ");
       Serial.println("===============================================");
