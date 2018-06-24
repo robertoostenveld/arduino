@@ -29,6 +29,15 @@ The following settings can be configured
   * destimation IP address (xxx.xxx.xxx.xxx)
   * destination port (number, the default for OSC is to listen on 8000)
 
+## Status LED
+
+The device has a RGB led to indicate the status:
+  * yellow - initial configuration (should be short)
+  * red - failed to connect to WiFi network, access point started
+  * constant green - setting up all sensors (should be relatively short)
+  * blinking green - measuring and transmitting data
+  * blue - recent activity on the web interface (for 5 seconds)
+
 ## Decimation
 
 The device will sample as fast as possible and send all data in UDP
