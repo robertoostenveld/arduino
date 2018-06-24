@@ -55,6 +55,8 @@ switched off.
 
 ## References
 
+You can find the conceptual design and some photos on my [home page](http://robertoostenveld.nl/?p=835&preview=true).
+
 The IMU and AHRS code is mostly based on https://github.com/kriswiner/MPU9250.
 
 The interface for the wifi configuration is based on https://github.com/tzapu/WiFiManager.
@@ -62,4 +64,3 @@ The interface for the wifi configuration is based on https://github.com/tzapu/Wi
 The [OSCulator](https://osculator.net) software is convenient for debugging.
 
 This motion capture device was designed for the [EEGsynth](http://eegsynth.org).
-
