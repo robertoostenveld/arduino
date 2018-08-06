@@ -48,6 +48,7 @@ long tic_web = 0;
 long tic_redis = 0;
 long tic_heartbeat = 0;
 
+bool pulse = 0;
 float bpm = 0;
 
 #define INTERRUPT_PIN       13  // GPIO13 maps to pin D7
@@ -194,6 +195,8 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     S_CONFIG_TO_JSON(redis, "redis");
     CONFIG_TO_JSON(port, "port");
+    CONFIG_TO_JSON(duration, "duration");
+
     root["heartrate"] = bpm;
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
@@ -225,6 +228,8 @@ void setup() {
   Serial.println(config.redis);
   Serial.print("port = ");
   Serial.println(config.port);
+  Serial.print("duration = ");
+  Serial.println(config.duration);
 
   Redis redis(config.redis, config.port);
   redis.setNoDelay(false);
@@ -284,7 +289,9 @@ void loop() {
 
         if (redis_p != NULL) {
           redis_p->publish("polar.heartbeat", buf);
-          redis_p->set("polar.heartbeat", buf);
+          redis_p->set("polar.heartrate", buf);
+          redis_p->set("polar.heartbeat", "1");
+          pulse = 1;
         }
       }
       Serial.print("Heartbeat, BPM = ");
@@ -293,6 +300,13 @@ void loop() {
     } // if debounce
     interruptCounter = 0;
   } // if interruptCounter
+
+  if (pulse && ((millis() - tic_heartbeat) > config.duration)) {
+    pulse = 0;
+    if (redis_p != NULL) {
+      redis_p->set("polar.heartbeat", "0");
+    }
+  }
 
   if ((millis() - tic_heartbeat) > 100) {
     // switch the LED back to the normal status color

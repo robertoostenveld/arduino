@@ -33,6 +33,7 @@ void handleJSON();
 struct Config {
   char redis[32];
   int port;
+  int duration; // in milliseconds
 };
 
 #endif

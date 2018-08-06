@@ -31,6 +31,7 @@ static String getContentType(const String& path) {
 bool initialConfig() {
   strncpy(config.redis, "192.168.1.182", 32);
   config.port = 6379;
+  config.duration = 100;
   return true;
 }
 
@@ -63,6 +64,7 @@ bool loadConfig() {
 
   S_JSON_TO_CONFIG(redis, "redis");
   JSON_TO_CONFIG(port, "port");
+  JSON_TO_CONFIG(duration, "duration");
 
   return true;
 }
@@ -74,6 +76,7 @@ bool saveConfig() {
 
   S_CONFIG_TO_JSON(redis, "redis");
   CONFIG_TO_JSON(port, "port");
+  CONFIG_TO_JSON(duration, "duration");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -211,12 +214,16 @@ void handleJSON() {
     }
     S_JSON_TO_CONFIG(redis, "redis");
     JSON_TO_CONFIG(port, "port");
+    JSON_TO_CONFIG(duration, "duration");
+    
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
     S_KEYVAL_TO_CONFIG(redis, "redis");
     KEYVAL_TO_CONFIG(port, "port");
+    KEYVAL_TO_CONFIG(duration, "duration");
+    
     handleStaticFile("/reload_success.html");
   }
   saveConfig();
