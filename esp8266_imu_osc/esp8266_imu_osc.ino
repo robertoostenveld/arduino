@@ -47,7 +47,7 @@ const char* version = __DATE__ " / " __TIME__;
 tca9548a tca;
 mpu9250 mpu[maxSensors];
 ahrs ahrs[maxSensors];
-String id[maxSensors] = {"imu0", "imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7"};
+String id[maxSensors] = {"imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7", "imu8"};
 
 // UDP destination address, these will be changed according to the configuration
 IPAddress outIp(192, 168, 1, 100);
