@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+<script src="jquery-3.1.1.min.js"></script>
+</head>
+
+<body>
+
+<h1>Settings</h1>
+<form id="settings-form" method="post" action="json">
+
+    <div class="field">
+        <label for="name">address:</label>
+        <input type="text" id="address" name="address" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="name">port:</label>
+        <input type="text" id="port" name="port" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script language="javascript" type="text/javascript" src="settings.js"></script>
+
+</body>
+</html>
