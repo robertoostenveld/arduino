@@ -1,18 +1,16 @@
 #include "fieldtrip_buffer.h"
 
-// #define DEBUG
+#undef DEBUG
 
 /*******************************************************************************
    OPEN CONNECTION
    returns file descriptor that should be >0 on success
  *******************************************************************************/
 int fieldtrip_open_connection(const char *address, int port) {
-  int status;
 #ifdef DEBUG
   Serial.println("fieldtrip_open_connection");
 #endif
-  status = client.connect(address, port);
-  if (status == 1)
+  if (client.connect(address, port))
     return 1;
   else
     return -1;

@@ -1,5 +1,6 @@
 /*
-  This sketch is for an ESP8266 connected to an AD8232 module to record ECG.
+  This sketch is for an ESP8266 connected to an AD8232 module to record the ECG
+  and to send the continuous signal with the Fieldtrip buffer protocol to a server.
 
   It uses WIFiManager for initial configuration and includes a web-interface
   that allows to monitor and change parameters.
@@ -27,28 +28,25 @@
 #define ENABLE_MDNS
 #define ENABLE_BUFFER
 
-Ticker sampler;
-
 const char* host = "AD8232-ECG";
 const char* version = __DATE__ " / " __TIME__;
 
 ESP8266WebServer server(80);
 Config config;
+Ticker sampler;
 
-// keep track of the timing of the web interface
-long tic_web = 0;
-long tic_buffer = 0;
-long tic_heartbeat = 0;
-int sample = 0, block = 0;
-bool flush0 = false, flush1 = false;
-uint16_t *block0 = NULL, *block1 = NULL;
-int ftserver = 0, status;
-
-#define FSAMPLE   200
 #define NCHANS    1
+#define FSAMPLE   200
 #define BLOCKSIZE (FSAMPLE/10)
 #define LO1 D6 // Lead-off detection
 #define LO2 D7 // Lead-off detection
+
+long tic_web = 0;
+int sample = 0, block = 0;
+bool flush0 = false, flush1 = false;
+uint16_t block0[BLOCKSIZE], block1[BLOCKSIZE];
+int ftserver = 0, status;
+int lo1 = 0, lo2 = 0;
 
 /************************************************************************************************/
 
@@ -67,16 +65,14 @@ void getSample() {
         block = 0;
         break;
     }
+    // sample the lead-off detection every block
+    // they don't behave as they should
+    lo1 = digitalRead(LO1);
+    lo2 = digitalRead(LO2);
   }
 
-  // get the current ECG value
-  unsigned int value;
-//  if (digitalRead(LO1))
-//    value = 0x0000;
-//  else if (digitalRead(LO2))
-//    value = 0xFFFF;
-//  else
-    value = analogRead(A0); // 10-bits ADC, value between 0 and 1023
+  // get the current ECG value, it is from a 10-bits ADC, value between 0 and 1023
+  uint16_t value = analogRead(A0);
 
   // store it in the active block
   switch (block) {
@@ -249,7 +245,9 @@ void setup() {
 #endif
 
 #ifdef ENABLE_BUFFER
-  Serial.println(config.address);
+  Serial.print("Connecting to ");
+  Serial.print(config.address);
+  Serial.print(" on port ");
   Serial.println(config.port);
 
   ftserver = fieldtrip_open_connection(config.address, config.port);
@@ -266,16 +264,7 @@ void setup() {
 
 #endif
 
-  if ((block0 = (uint16_t *)malloc(sizeof(uint16_t) * BLOCKSIZE)) == NULL) {
-    Serial.println("Failed to allocate block 0");
-    ledFast();
-  }
-  if ((block1 = (uint16_t *)malloc(sizeof(uint16_t) * BLOCKSIZE)) == NULL) {
-    Serial.println("Failed to allocate block 1");
-    ledFast();
-  }
-
-  // start sampling the ECG data
+  // start sampling the ECG
   sampler.attach_ms(1000 / FSAMPLE, getSample);
 
   Serial.println("====================================================");
@@ -294,41 +283,30 @@ void loop() {
 #endif
 
 #ifdef ENABLE_BUFFER
+  byte *ptr = NULL;
+
   if (flush0) {
-    // write the full block to the remote FieldTrip buffer
-
-    ftserver = fieldtrip_open_connection(config.address, config.port);
-    if (ftserver > 0) {
-      Serial.println("Connection opened");
-      status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, (byte *)block0);
-      if (status == 0) {
-        Serial.println("Wrote block 0");
-      }
-      status = fieldtrip_close_connection(ftserver);
-      if (status == 0)
-        Serial.println("Connection closed");
-    }
-
+    ptr = (byte *)block0;
     flush0 = false;
   }
+  else if (flush1) {
+    ptr = (byte *)block1;
+    flush1 = false;
+  }
 
-  if (flush1) {
-    // write the full block to the remote FieldTrip buffer
-
+  if (ptr) {
     ftserver = fieldtrip_open_connection(config.address, config.port);
     if (ftserver > 0) {
       Serial.println("Connection opened");
-      status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, (byte *)block1);
-      if (status == 0) {
-        Serial.println("Wrote block 1");
-      }
+      status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, ptr);
+      if (status == 0)
+        Serial.println("Wrote data");
       status = fieldtrip_close_connection(ftserver);
       if (status == 0)
         Serial.println("Connection closed");
     }
-
-    flush1 = false;
   }
+
 #endif
 
   delay(10);
