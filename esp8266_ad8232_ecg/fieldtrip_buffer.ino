@@ -1,176 +1,143 @@
 #include "fieldtrip_buffer.h"
 
-// prepare some of the requests, only the first 8 bytes are specified here
-byte put_hdr[32] = {0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x18, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-byte put_dat[24] = {0x00, 0x01, 0x01, 0x02, 0x00, 0x00, 0x00, 0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-byte put_evt[8]  = {0x00, 0x01, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00};
-byte get_hdr[8]  = {0x00, 0x01, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00};
-byte get_dat[16] = {0x00, 0x01, 0x02, 0x02, 0x00, 0x00, 0x00, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-byte get_evt[16] = {0x00, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+// #define DEBUG
 
-byte buf[256];
-
-messagedef_t request, response;
-headerdef_t  header;
-datadef_t    data;
-
-/*********************************************************************************************************************/
+/*******************************************************************************
+   OPEN CONNECTION
+   returns file descriptor that should be >0 on success
+ *******************************************************************************/
 int fieldtrip_open_connection(const char *address, int port) {
-  int status = 0;
+  int status;
+#ifdef DEBUG
+  Serial.println("fieldtrip_open_connection");
+#endif
   status = client.connect(address, port);
-  if (status == 1) {
-    Serial.println("Cnnected to FieldTrip buffer");
+  if (status == 1)
     return 1;
-  }
-  else {
-    Serial.print("Failed opening connection to ");
-    Serial.print(port);
-    Serial.print(" on ");
-    Serial.println(address);
-    Serial.print("client.connect returned ");
-    Serial.println(status);
+  else
     return -1;
-  }
 };
 
+/*******************************************************************************
+   CLOSE CONNECTION
+   returns 0 on success
+ *******************************************************************************/
 int fieldtrip_close_connection(int s) {
+#ifdef DEBUG
+  Serial.println("fieldtrip_close_connection");
+#endif
   client.stop();
   return 0;
 };
 
-/*********************************************************************************************************************/
-int fieldtrip_write_header(int server, uint32_t datatype, unsigned int nchans, float fsample) {
-  int status = 0;
-  headerdef_t *hdr;
-  messagedef_t *response;
+/*******************************************************************************
+   WRITE HEADER
+   returns 0 on success
+ *******************************************************************************/
+int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float fsample) {
+  int status;
+  messagedef_t *request  = NULL;
+  messagedef_t *response = NULL;
+  headerdef_t  *header   = NULL;
 
-  hdr = (headerdef_t *)(put_hdr + 8); // the first 8 bytes are version, command and bufsize
-  hdr->nchans     = htonl(nchans);
-  hdr->nsamples   = htonl(0);
-  hdr->nevents    = htonl(0);
-  hdr->fsample    = fsample;
-  hdr->data_type  = htonl(datatype);
-  hdr->bufsize    = htonl(0);
+#ifdef DEBUG
+  Serial.println("fieldtrip_write_header");
+#endif
 
-  Serial.print("put_hdr =  ");
-  for (int i = 0; i < sizeof(put_hdr); i++) {
-    Serial.print(put_hdr[i]);
+  byte msg[32];
+  for (int i = 0; i < 32; i++)
+    msg[i] = 0;
+
+  request = (messagedef_t *)(msg + 0);
+  request->version = VERSION;
+  request->command = PUT_HDR_NORESPONSE;
+  request->bufsize = sizeof(headerdef_t);
+
+  header = (headerdef_t *)(msg + sizeof(messagedef_t)); // the first 8 bytes are version, command and bufsize
+  header->nchans     = nchans;
+  header->nsamples   = 0;
+  header->nevents    = 0;
+  header->fsample    = fsample;
+  header->data_type  = datatype;
+  header->bufsize    = 0;
+
+#ifdef DEBUG
+  Serial.print("msg =  ");
+  for (int i = 0; i < sizeof(messagedef_t) + sizeof(headerdef_t); i++) {
+    Serial.print(msg[i]);
     Serial.print(" ");
   }
   Serial.println();
+#endif
 
   int n = 0;
-  n += client.write(put_hdr, sizeof(put_hdr)) ;
+  n += client.write(msg, sizeof(messagedef_t) + sizeof(headerdef_t));
+  client.flush();
+
+#ifdef DEBUG
   Serial.print("Wrote ");
   Serial.print(n);
   Serial.println(" bytes");
+#endif
 
-  // wait for the response to become available
-  int timeout = 0;
-  while ((client.available() < 8) && (++timeout) < 200)
-    delay(10);
-  if (timeout == 200)
-    Serial.println("Timeout");
-
-  // get the general messagedef_t section
-  byte buf[8];
-  for (int i = 0; i < 8; i++) {
-    buf[i] = client.read();
-  }
-
-  Serial.print("response =  ");
-  for (int i = 0; i < sizeof(buf); i++) {
-    Serial.print(buf[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
-
-  response = (messagedef_t *)buf;
-  uint16_t version = ntohs(response->version);
-  uint16_t command = ntohs(response->command);
-  uint32_t bufsize = ntohl(response->bufsize);
-
-  Serial.print("server returned ");
-  Serial.print(version);
-  Serial.print(" ");
-  Serial.print(command);
-  Serial.print(" ");
-  Serial.println(bufsize);
-
-  if ((n == sizeof(put_hdr)) && (command == PUT_OK))
-    status = 0;
+  if (n == sizeof(messagedef_t) + sizeof(headerdef_t))
+    return 0;
   else
-    status = -1;
-
-  return status;
+    return -1;
 };
 
-/*********************************************************************************************************************/
+/*******************************************************************************
+   WRITE DATA
+   returns 0 on success
+ *******************************************************************************/
 int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_t nsamples, byte *buffer) {
-  int status = 0;
-  datadef_t *dat;
-  messagedef_t *request, *response;
+  int status;
+  messagedef_t *request  = NULL;
+  messagedef_t *response = NULL;
+  datadef_t    *data   = NULL;
 
-  request = (messagedef_t *)(put_dat + 0);
-  request->bufsize = htonl(sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype]);
+#ifdef DEBUG
+  Serial.println("fieldtrip_write_data");
+#endif
 
-  dat = (datadef_t *)(put_dat + 8); // the first 8 bytes are version, command and bufsize
-  dat->nchans     = htonl(nchans);
-  dat->nsamples   = htonl(nsamples);
-  dat->data_type  = htonl(datatype);
-  dat->bufsize    = htonl(nchans * nsamples * wordsize_from_type[datatype]);
+  byte msg[24];
+  for (int i = 0; i < 32; i++)
+    msg[i] = 0;
 
-  Serial.print("put_dat =  ");
-  for (int i = 0; i < sizeof(put_dat); i++) {
-    Serial.print(put_dat[i]);
+  request = (messagedef_t *)(msg + 0);
+  request->version = VERSION;
+  request->command = PUT_DAT_NORESPONSE;
+  request->bufsize = sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype];
+
+  data = (datadef_t *)(msg + sizeof(messagedef_t)); // the first 8 bytes are version, command and bufsize
+  data->nchans     = nchans;
+  data->nsamples   = nsamples;
+  data->data_type  = datatype;
+  data->bufsize    = nchans * nsamples * wordsize_from_type[datatype];
+
+#ifdef DEBUG
+  Serial.print("msg =  ");
+  for (int i = 0; i < sizeof(messagedef_t) + sizeof(datadef_t); i++) {
+    Serial.print(msg[i]);
     Serial.print(" ");
   }
   Serial.println();
+#endif
 
   int n = 0;
-  n += client.write(put_dat, sizeof(put_dat));
+  n += client.write(msg, sizeof(messagedef_t) + sizeof(datadef_t));
+  client.flush();
   n += client.write(buffer, nchans * nsamples * wordsize_from_type[datatype]);
+  client.flush();
 
+#ifdef DEBUG
   Serial.print("Wrote ");
   Serial.print(n);
   Serial.println(" bytes");
+#endif
 
-  // wait for the response to become available
-  int timeout = 0;
-  while ((client.available() < 8) && (++timeout) < 200)
-    delay(10);
-  if (timeout == 200)
-    Serial.println("Timeout");
-
-  // get the general messagedef_t section
-  byte buf[8];
-  for (int i = 0; i < 8; i++) {
-    buf[i] = client.read();
-  }
-
-  Serial.print("response =  ");
-  for (int i = 0; i < sizeof(buf); i++) {
-    Serial.print(buf[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
-
-  response = (messagedef_t *)buf;
-  uint16_t version = ntohs(response->version);
-  uint16_t command = ntohs(response->command);
-  uint32_t bufsize = ntohl(response->bufsize);
-
-  Serial.print("server returned ");
-  Serial.print(version);
-  Serial.print(" ");
-  Serial.print(command);
-  Serial.print(" ");
-  Serial.println(bufsize);
-
-  if ((n == (sizeof(put_dat) + nchans * nsamples * wordsize_from_type[datatype])) && (command == PUT_OK))
-    status = 0;
+  if (n == sizeof(messagedef_t) + sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype])
+    return 0;
   else
-    status = -1;
-
-  return status;
-}
+    return -1;
+};

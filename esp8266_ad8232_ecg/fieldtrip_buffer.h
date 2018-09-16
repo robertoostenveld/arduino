@@ -17,27 +17,31 @@ int fieldtrip_wait_data(int server, uint32_t nsamples, uint32_t nevents, uint32_
 #define VERSION    (uint16_t)0x0001
 
 // these define the commands that can be used, which are split over the two available bytes
-#define PUT_HDR    (uint16_t)0x0101
-#define PUT_DAT    (uint16_t)0x0102
-#define PUT_EVT    (uint16_t)0x0103
-#define PUT_OK     (uint16_t)0x0104
-#define PUT_ERR    (uint16_t)0x0105
+#define PUT_HDR    (uint16_t)0x0101 /* decimal 257 */
+#define PUT_DAT    (uint16_t)0x0102 /* decimal 258 */
+#define PUT_EVT    (uint16_t)0x0103 /* decimal 259 */
+#define PUT_OK     (uint16_t)0x0104 /* decimal 260 */
+#define PUT_ERR    (uint16_t)0x0105 /* decimal 261 */
 
-#define GET_HDR    (uint16_t)0x0201
-#define GET_DAT    (uint16_t)0x0202
-#define GET_EVT    (uint16_t)0x0203
-#define GET_OK     (uint16_t)0x0204
-#define GET_ERR    (uint16_t)0x0205
+#define GET_HDR    (uint16_t)0x0201 /* decimal 513 */
+#define GET_DAT    (uint16_t)0x0202 /* decimal 514 */
+#define GET_EVT    (uint16_t)0x0203 /* decimal 515 */
+#define GET_OK     (uint16_t)0x0204 /* decimal 516 */
+#define GET_ERR    (uint16_t)0x0205 /* decimal 517 */
 
-#define FLUSH_HDR  (uint16_t)0x0301
-#define FLUSH_DAT  (uint16_t)0x0302
-#define FLUSH_EVT  (uint16_t)0x0303
-#define FLUSH_OK   (uint16_t)0x0304
-#define FLUSH_ERR  (uint16_t)0x0305
+#define FLUSH_HDR  (uint16_t)0x0301 /* decimal 769 */
+#define FLUSH_DAT  (uint16_t)0x0302 /* decimal 770 */
+#define FLUSH_EVT  (uint16_t)0x0303 /* decimal 771 */
+#define FLUSH_OK   (uint16_t)0x0304 /* decimal 772 */
+#define FLUSH_ERR  (uint16_t)0x0305 /* decimal 773 */
 
-#define WAIT_DAT   (uint16_t)0x0402
-#define WAIT_OK    (uint16_t)0x0404
-#define WAIT_ERR   (uint16_t)0x0405
+#define WAIT_DAT   (uint16_t)0x0402 /* decimal 1026 */
+#define WAIT_OK    (uint16_t)0x0404 /* decimal 1027 */
+#define WAIT_ERR   (uint16_t)0x0405 /* decimal 1028 */
+
+#define PUT_HDR_NORESPONSE (uint16_t)0x0501 /* decimal 1281 */
+#define PUT_DAT_NORESPONSE (uint16_t)0x0502 /* decimal 1282 */
+#define PUT_EVT_NORESPONSE (uint16_t)0x0503 /* decimal 1283 */
 
 // these are used in the data_t and event_t structure
 #define DATATYPE_CHAR    (uint32_t)0
@@ -53,23 +57,6 @@ int fieldtrip_wait_data(int server, uint32_t nsamples, uint32_t nevents, uint32_
 #define DATATYPE_FLOAT64 (uint32_t)10
 
 uint32_t wordsize_from_type[] = { 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8};
-
-// the following is a collection of macro's to deal with converting the byte sequences
-#define convert_uint32(x) (((uint32_t)(x)[0]<<24) | ((uint32_t)(x)[1]<<16) | ((uint32_t)(x)[2]<<8) | ((uint32_t)(x)[3]))
-#define convert_uint16(x) (((uint16_t)(x)[0]<< 8) | ((uint16_t)(x)[1]))
-#define convert_uint8(x)  (((uint8_t) (x)[0]))
-
-// keep the following unsigned, otherwise the sign bit gets messed up
-#define convert_int32(x)  (((uint32_t)(x)[0]<<24) | ((uint32_t)(x)[1]<<16) | ((uint32_t)(x)[2]<<8) | ((uint32_t)(x)[3]))
-#define convert_int16(x)  (((uint16_t)(x)[0]<< 8) | ((uint16_t)(x)[1]))
-#define convert_int8(x)   (((uint8_t) (x)[0]))
-
-#define uint32_byte0(x) ((x & 0xff000000)>>24)  // MSB
-#define uint32_byte1(x) ((x & 0x00ff0000)>>16)
-#define uint32_byte2(x) ((x & 0x0000ff00)>>8 )
-#define uint32_byte3(x) ((x & 0x000000ff)    )  // LSB
-
-#define sqr(x) ((float)x*(float)x)
 
 // a packet that is sent over the network should contain the following
 typedef struct {
@@ -99,10 +86,16 @@ typedef struct {
 }
 datadef_t; // 16 bytes
 
-union {
-  byte  bval[4];
-  float fval;
-}
-single; // for conversion between bytes and float
+// the event definition is fixed, it should be followed by additional data
+typedef struct {
+  uint32_t type_type;   /* usual would be DATATYPE_CHAR */
+  uint32_t type_numel;  /* length of the type string */
+  uint32_t value_type;
+  uint32_t value_numel;
+  int32_t  sample;
+  int32_t  offset;
+  int32_t  duration;
+  uint32_t bufsize;     /* size of the buffer in bytes */
+} eventdef_t; // 64 bytes
 
 #endif _BUFFER_H_
