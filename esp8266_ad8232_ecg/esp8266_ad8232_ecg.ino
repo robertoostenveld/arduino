@@ -1,66 +1,88 @@
 /*
-  This sketch is for an ESP8266 connected to the Polar WearLink+
-  receiver that comes with the Adafruit Polar T34 starter pack
-  https://www.adafruit.com/product/1077.
+  This sketch is for an ESP8266 connected to an AD8232 module to record the ECG
+  and to send the continuous signal with the Fieldtrip buffer protocol to a server.
 
   It uses WIFiManager for initial configuration and includes a web-interface
   that allows to monitor and change parameters.
 
   The status of the wifi connection, http server and received data
-  is indicated by an RDB led that blinks Red, Green or Blue.
+  is indicated by the builtin LED.
 */
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Redis.h>               // https://github.com/remicaumette/esp8266-redis
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <WiFiClient.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 #include <WiFiUDP.h>
+#include <Ticker.h>
 #include <FS.h>
 
 #include "setup_ota.h"
-#include "rgb_led.h"
+#include "blink_led.h"
+#include "fieldtrip_buffer.h"
 
 // this allows some sections of the code to be disabled for debugging purposes
 #define ENABLE_WEBINTERFACE
 #define ENABLE_MDNS
-#define ENABLE_REDIS
-#define ENABLE_INTERRUPT
+#define ENABLE_BUFFER
 
-// pointer to object is needed because the initialization is delayed
-Redis *redis_p = NULL;
-
-// this port and address are not used, they are taken from the config instead
-#define REDIS_ADDR      "127.0.0.1"
-#define REDIS_PORT      6379
-#define REDIS_PASSWORD  ""
-
-Config config;
-ESP8266WebServer server(80);
-const char* host = "POLAR-WEARLINK";
+const char* host = "AD8232-ECG";
 const char* version = __DATE__ " / " __TIME__;
 
-// keep track of the timing of the web interface
+ESP8266WebServer server(80);
+Config config;
+Ticker sampler;
+
+#define NCHANS    1
+#define FSAMPLE   200
+#define BLOCKSIZE (FSAMPLE/10)
+#define LO1 D6 // Lead-off detection
+#define LO2 D7 // Lead-off detection
+
 long tic_web = 0;
-long tic_redis = 0;
-long tic_heartbeat = 0;
-
-bool pulse = 0;
-float bpm = 0;
-
-#define INTERRUPT_PIN       13  // GPIO13 maps to pin D7
-#define INTERRUPT_DEBOUNCE  200 // milliseconds
-volatile byte interruptCounter = 0;
+int sample = 0, block = 0;
+bool flush0 = false, flush1 = false;
+uint16_t block0[BLOCKSIZE], block1[BLOCKSIZE];
+int ftserver = 0, status;
+int lo1 = 0, lo2 = 0;
 
 /************************************************************************************************/
 
-void interruptHandler() {
-  // prevent roll-around
-  if (interruptCounter < 255)
-    interruptCounter++;
+void getSample() {
+  if (sample == BLOCKSIZE) {
+    // switch to the start of the other block
+    switch (block) {
+      case 0:
+        sample = 0;
+        flush0 = true;
+        block = 1;
+        break;
+      case 1:
+        sample = 0;
+        flush1 = true;
+        block = 0;
+        break;
+    }
+    // sample the lead-off detection every block
+    // they don't behave as they should
+    lo1 = digitalRead(LO1);
+    lo2 = digitalRead(LO2);
+  }
+
+  // get the current ECG value, it is from a 10-bits ADC, value between 0 and 1023
+  uint16_t value = analogRead(A0);
+
+  // store it in the active block
+  switch (block) {
+    case 0:
+      block0[sample++] = value;
+      break;
+    case 1:
+      block1[sample++] = value;
+      break;
+  }
 }
 
 /************************************************************************************************/
@@ -71,33 +93,36 @@ void setup() {
     ;
   }
 
-  Serial.print("\n[esp8266_polar_wearlink / ");
+  Serial.print("\n[esp8266_ad8232 / ");
   Serial.print(__DATE__ " / " __TIME__);
   Serial.println("]");
+
+  pinMode(LO1, INPUT); // Setup for leads off detection LO +
+  pinMode(LO2, INPUT); // Setup for leads off detection LO -
+
+  ledInit();
+  initialConfig();
+  Serial.println(config.address);
+  Serial.println(config.port);
 
   WiFi.hostname(host);
   WiFi.begin();
 
   SPIFFS.begin();
 
-  ledInit();
-
-#ifdef ENABLE_INTERRUPT
-  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), interruptHandler, RISING);
-#endif
-
   if (loadConfig()) {
-    ledYellow();
+    ledSlow();
     delay(1000);
   }
   else {
-    ledRed();
+    ledFast();
     delay(1000);
   }
+  Serial.println(config.address);
+  Serial.println(config.port);
 
   if (WiFi.status() != WL_CONNECTED)
-    ledRed();
+    ledFast();
 
   WiFiManager wifiManager;
   // wifiManager.resetSettings();  // this is only needed when flashing a completely new ESP8266
@@ -106,7 +131,7 @@ void setup() {
   Serial.println("Connected to WiFi");
 
   if (WiFi.status() == WL_CONNECTED)
-    ledGreen();
+    ledSlow();
 
 #ifdef ENABLE_WEBINTERFACE
   // this serves all URIs that cannot be resolved to a file on the SPIFFS filesystem
@@ -127,7 +152,7 @@ void setup() {
     Serial.println("handleDefaults");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    ledRed();
+    ledFast();
     initialConfig();
     saveConfig();
     WiFiManager wifiManager;
@@ -141,13 +166,13 @@ void setup() {
     Serial.println("handleReconnect");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    ledRed();
+    ledFast();
     WiFiManager wifiManager;
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
     if (WiFi.status() == WL_CONNECTED)
-      ledGreen();
+      ledSlow();
   });
 
   server.on("/reset", HTTP_GET, []() {
@@ -155,7 +180,7 @@ void setup() {
     Serial.println("handleReset");
     handleStaticFile("/reload_success.html");
     delay(2000);
-    ledRed();
+    ledFast();
     ESP.restart();
   });
 
@@ -193,11 +218,8 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    S_CONFIG_TO_JSON(redis, "redis");
     CONFIG_TO_JSON(port, "port");
-    CONFIG_TO_JSON(duration, "duration");
 
-    root["heartrate"] = bpm;
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     String str;
@@ -222,103 +244,71 @@ void setup() {
   MDNS.addService("http", "tcp", 80);
 #endif
 
-#ifdef ENABLE_REDIS
-  // pointer to object is needed because the initialization is delayed
-  Serial.print("redis = ");
-  Serial.println(config.redis);
-  Serial.print("port = ");
+#ifdef ENABLE_BUFFER
+  Serial.print("Connecting to ");
+  Serial.print(config.address);
+  Serial.print(" on port ");
   Serial.println(config.port);
-  Serial.print("duration = ");
-  Serial.println(config.duration);
 
-  Redis redis(config.redis, config.port);
-  redis.setNoDelay(false);
-  redis.setTimeout(100);
+  ftserver = fieldtrip_open_connection(config.address, config.port);
+  if (ftserver > 0) {
+    Serial.println("Connection opened");
+    status = fieldtrip_write_header(ftserver, DATATYPE_UINT16, NCHANS, FSAMPLE);
+    if (status == 0) {
+      Serial.println("Wrote header");
+    }
+    status = fieldtrip_close_connection(ftserver);
+    if (status == 0)
+      Serial.println("Connection closed");
+  }
 
-  if (redis.begin(REDIS_PASSWORD)) {
-    Serial.println("Connected to the Redis server!");
-    redis_p = &redis;
-  }
-  else {
-    Serial.println("Failed to connect to the Redis server!");
-    redis_p = NULL;
-  }
 #endif
+
+  // start sampling the ECG
+  sampler.attach_ms(1000 / FSAMPLE, getSample);
 
   Serial.println("====================================================");
   Serial.println("Setup done");
   Serial.println("====================================================");
 
-  while (true) {
-    // somehow the redis connection fails when control moves from setup() to loop()
-    // hence remain in the setup() function
-    loop();
-  }
-}
+  return;
+} // setup
 
 /************************************************************************************************/
 
 void loop() {
+
 #ifdef ENABLE_WEBINTERFACE
   server.handleClient();
 #endif
 
-#ifdef ENABLE_REDIS
-  if ((millis() - tic_redis) > 5000) {
-    tic_redis = millis();
-    String str(tic_redis);
-    char buf[32];
-    str.toCharArray(buf, 32);
+#ifdef ENABLE_BUFFER
+  byte *ptr = NULL;
 
-    if (redis_p != NULL)
-      redis_p->set("polar.millis", buf);
+  if (flush0) {
+    ptr = (byte *)block0;
+    flush0 = false;
   }
-#endif
+  else if (flush1) {
+    ptr = (byte *)block1;
+    flush1 = false;
+  }
 
-#ifdef ENABLE_INTERRUPT
-  if (interruptCounter) {
-    if ((millis() - tic_heartbeat) > INTERRUPT_DEBOUNCE) {
-      long now = millis();
-      ledMagenta();
-      // skip the first beat, since the BPM cannot be computed
-      if (tic_heartbeat > 0) {
-        bpm = 60000. / (now - tic_heartbeat);
-        String str(bpm);
-        char buf[32];
-        str.toCharArray(buf, 32);
-
-        if (redis_p != NULL) {
-          redis_p->publish("polar.heartbeat", buf);
-          redis_p->set("polar.heartrate", buf);
-          redis_p->set("polar.heartbeat", "1");
-          pulse = 1;
-        }
-      }
-      Serial.print("Heartbeat, BPM = ");
-      Serial.println(bpm);
-      tic_heartbeat = now;
-    } // if debounce
-    interruptCounter = 0;
-  } // if interruptCounter
-
-  if (pulse && ((millis() - tic_heartbeat) > config.duration)) {
-    pulse = 0;
-    if (redis_p != NULL) {
-      redis_p->set("polar.heartbeat", "0");
+  if (ptr) {
+    ftserver = fieldtrip_open_connection(config.address, config.port);
+    if (ftserver > 0) {
+      Serial.println("Connection opened");
+      status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, ptr);
+      if (status == 0)
+        Serial.println("Wrote data");
+      status = fieldtrip_close_connection(ftserver);
+      if (status == 0)
+        Serial.println("Connection closed");
     }
   }
 
-  if ((millis() - tic_heartbeat) > 100) {
-    // switch the LED back to the normal status color
-    if ((millis() - tic_web) < 5000)
-      ledBlue();
-    else if ((WiFi.status() == WL_CONNECTED) && (redis_p != NULL))
-      ledGreen();
-    else if ((WiFi.status() == WL_CONNECTED) && (redis_p == NULL))
-      ledCyan();
-    else
-      ledRed();
-  }
 #endif
 
-}
+  delay(10);
+  return;
+} // loop

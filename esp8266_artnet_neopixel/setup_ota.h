@@ -41,7 +41,7 @@ struct Config {
   int mode;
   int reverse;
   int speed;
-  int position;
+  int split;
 };
 
 #endif // _SETUP_OTA_H_

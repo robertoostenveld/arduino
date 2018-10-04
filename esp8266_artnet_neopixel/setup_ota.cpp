@@ -40,7 +40,7 @@ bool initialConfig() {
   config.mode = 1;
   config.reverse = 0;
   config.speed = 8;
-  config.position = 1;
+  config.split = 1;
   return true;
 }
 
@@ -81,7 +81,7 @@ bool loadConfig() {
   JSON_TO_CONFIG(mode, "mode");
   JSON_TO_CONFIG(reverse, "reverse");
   JSON_TO_CONFIG(speed, "speed");
-  JSON_TO_CONFIG(position, "position");
+  JSON_TO_CONFIG(split, "split");
 
   return true;
 }
@@ -101,7 +101,7 @@ bool saveConfig() {
   CONFIG_TO_JSON(mode, "mode");
   CONFIG_TO_JSON(reverse, "reverse");
   CONFIG_TO_JSON(speed, "speed");
-  CONFIG_TO_JSON(position, "position");
+  CONFIG_TO_JSON(split, "split");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -254,7 +254,7 @@ void handleJSON() {
     JSON_TO_CONFIG(mode, "mode");
     JSON_TO_CONFIG(reverse, "reverse");
     JSON_TO_CONFIG(speed, "speed");
-    JSON_TO_CONFIG(position, "position");
+    JSON_TO_CONFIG(split, "split");
     handleStaticFile("/reload_success.html");
   }
   else {
@@ -269,7 +269,7 @@ void handleJSON() {
     KEYVAL_TO_CONFIG(mode, "mode");
     KEYVAL_TO_CONFIG(reverse, "reverse");
     KEYVAL_TO_CONFIG(speed, "speed");
-    KEYVAL_TO_CONFIG(position, "position");
+    KEYVAL_TO_CONFIG(split, "split");
     handleStaticFile("/reload_success.html");
   }
   saveConfig();

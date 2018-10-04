@@ -1,8 +1,8 @@
 #include "setup_ota.h"
+#include "blink_led.h"
 
 extern ESP8266WebServer server;
 extern Config config;
-extern unsigned long packetCounter;
 
 /***************************************************************************/
 
@@ -29,11 +29,10 @@ static String getContentType(const String& path) {
 /***************************************************************************/
 
 bool initialConfig() {
-  config.sensors = 1;
-  config.decimate = 1;
-  config.ahrs = 0;
-  strncpy(config.destination, "192.168.1.144", 32);
-  config.port = 8000;
+  Serial.println("initialConfig");
+  
+  strncpy(config.address, "192.168.1.182", 32);
+  config.port = 1972;
   return true;
 }
 
@@ -64,10 +63,7 @@ bool loadConfig() {
     return false;
   }
 
-  JSON_TO_CONFIG(sensors, "sensors");
-  JSON_TO_CONFIG(decimate, "decimate");
-  JSON_TO_CONFIG(ahrs, "ahrs");
-  S_JSON_TO_CONFIG(destination, "destination");
+  S_JSON_TO_CONFIG(address, "address");
   JSON_TO_CONFIG(port, "port");
 
   return true;
@@ -75,13 +71,11 @@ bool loadConfig() {
 
 bool saveConfig() {
   Serial.println("saveConfig");
+  
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
-  CONFIG_TO_JSON(sensors, "sensors");
-  CONFIG_TO_JSON(decimate, "decimate");
-  CONFIG_TO_JSON(ahrs, "ahrs");
-  S_CONFIG_TO_JSON(destination, "destination");
+  S_CONFIG_TO_JSON(address, "address");
   CONFIG_TO_JSON(port, "port");
 
   File configFile = SPIFFS.open("/config.json", "w");
@@ -218,31 +212,26 @@ void handleJSON() {
       handleStaticFile("/reload_failed.html");
       return;
     }
-    JSON_TO_CONFIG(sensors, "sensors");
-    JSON_TO_CONFIG(decimate, "decimate");
-    JSON_TO_CONFIG(ahrs, "ahrs");
-    S_JSON_TO_CONFIG(destination, "destination");
+    S_JSON_TO_CONFIG(address, "address");
     JSON_TO_CONFIG(port, "port");
+
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
-    KEYVAL_TO_CONFIG(sensors, "sensors");
-    KEYVAL_TO_CONFIG(decimate, "decimate");
-    KEYVAL_TO_CONFIG(ahrs, "ahrs");
-    S_KEYVAL_TO_CONFIG(destination, "destination");
+    S_KEYVAL_TO_CONFIG(address, "address");
     KEYVAL_TO_CONFIG(port, "port");
+
     handleStaticFile("/reload_success.html");
   }
   saveConfig();
   // blink five times
   for (int i = 0; i < 5; i++) {
-    ledRed();
+    ledOn();
     delay(200);
-    ledBlack();
+    ledOff();
     delay(200);
   }
   // some of the settings require re-initialization
   ESP.restart();
 }
-

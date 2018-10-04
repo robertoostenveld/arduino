@@ -217,7 +217,7 @@ void setup() {
     CONFIG_TO_JSON(mode, "mode");
     CONFIG_TO_JSON(reverse, "reverse");
     CONFIG_TO_JSON(speed, "speed");
-    CONFIG_TO_JSON(position, "position");
+    CONFIG_TO_JSON(split, "split");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["packets"] = packetCounter;

@@ -26,8 +26,8 @@ void handleDirList(void);
 void handleNotFound(void);
 void handleRedirect(String);
 void handleRedirect(const char *);
-void handleStaticFile(String);
-void handleStaticFile(const char *);
+bool handleStaticFile(String);
+bool handleStaticFile(const char *);
 void handleJSON();
 
 struct Config {

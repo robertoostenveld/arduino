@@ -1,6 +1,7 @@
 #include "neopixel_mode.h"
 #include "setup_ota.h"
 #include "colorspace.h"
+#include "font8x8_basic.h"
 
 extern Config config;
 extern Adafruit_NeoPixel strip;
@@ -192,13 +193,13 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
   float intensity, speed, ramp, duty, phase, balance;
   if (universe != config.universe)
     return;
-  if (RGB && (length - config.offset) < (3 + 4) * config.position)
+  if (RGB && (length - config.offset) < (3 + 4) * config.split)
     return;
-  if (RGBW && (length - config.offset) < (4 + 4) * config.position)
+  if (RGBW && (length - config.offset) < (4 + 4) * config.split)
     return;
 
   // the code that takes care of the blinking repeats for each of the segments
-  for (int segment = 0; segment < config.position; segment++) {
+  for (int segment = 0; segment < config.split; segment++) {
     r         = data[config.offset + i++];
     g         = data[config.offset + i++];
     b         = data[config.offset + i++];
@@ -223,7 +224,7 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
 
     // prevent rolling back
     // only feasible with a single segment
-    if (config.position == 1 && WRAP180(phase - prev) < 0)
+    if (config.split == 1 && WRAP180(phase - prev) < 0)
       phase = prev;
     else
       prev = phase;
@@ -250,8 +251,8 @@ void mode3(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     b *= balance;
     w *= balance;
 
-    int begpixel = MAX((segment + 0) * strip.numPixels() / config.position, 0);
-    int endpixel = MIN((segment + 1) * strip.numPixels() / config.position, strip.numPixels());
+    int begpixel = MAX((segment + 0) * strip.numPixels() / config.split, 0);
+    int endpixel = MIN((segment + 1) * strip.numPixels() / config.split, strip.numPixels());
     for (int pixel = begpixel; pixel < endpixel; pixel++) {
       if (RGB)
         strip.setPixelColor(pixel, r, g, b);
@@ -407,7 +408,7 @@ void mode5(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     int flip = (config.reverse ? -1 : 1);
     float phase, balance;
 
-    phase = WRAP180((360. * flip * pixel / strip.numPixels()) * config.position - position);
+    phase = WRAP180((360. * flip * pixel / strip.numPixels()) * config.split - position);
     phase = ABS(phase);
 
     if (width == 0)
@@ -483,7 +484,7 @@ void mode6(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     int flip = (config.reverse ? -1 : 1);
     float phase, balance;
 
-    phase = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.position - position);
+    phase = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.split - position);
     phase = ABS(phase);
 
     if (width == 0)
@@ -552,7 +553,7 @@ void mode7(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     int flip = (config.reverse ? -1 : 1);
     float phase, balance;
 
-    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - position);
+    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.split - position);
     phase = ABS(phase);
 
     if (width == 0)
@@ -628,7 +629,7 @@ void mode8(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     int flip = (config.reverse ? -1 : 1);
     float phase, balance;
 
-    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - position);
+    phase = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.split - position);
     phase = ABS(phase);
 
     if (width == 0)
@@ -708,7 +709,7 @@ void mode9(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data)
     int flip = (config.reverse ? -1 : 1);
     float position, balance;
 
-    position = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.position - phase);
+    position = WRAP180(360. * flip * pixel / (strip.numPixels() - 1) * config.split - phase);
     position = ABS(position);
 
     if (width == 0)
@@ -793,7 +794,7 @@ void mode10(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
     int flip = (config.reverse ? -1 : 1);
     float position, balance;
 
-    position = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.position - phase);
+    position = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * config.split - phase);
     position = ABS(position);
 
     if (width == 0)
@@ -835,7 +836,7 @@ void mode11(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     int flip = (config.reverse ? -1 : 1);
-    float phase = WRAP360((360. * flip * pixel / strip.numPixels()) * config.position - position);
+    float phase = WRAP360((360. * flip * pixel / strip.numPixels()) * config.split - position);
 
     int r, g, b;
     r = phase;           // hue, between 0-360
@@ -879,7 +880,7 @@ void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
     int flip = (config.reverse ? -1 : 1);
-    float position = WRAP360((360. * flip * pixel / strip.numPixels()) * config.position - phase);
+    float position = WRAP360((360. * flip * pixel / strip.numPixels()) * config.split - phase);
 
     int r, g, b;
     r = position;        // hue, between 0-360
@@ -893,12 +894,85 @@ void mode12(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data
   strip.show();
 };
 
+/*
+  mode 13: dual color letter for 8x8 RGBW neopixel array
+  channel 1  = color 1 red
+  channel 2  = color 1 green
+  channel 3  = color 1 blue
+  channel 4  = color 1 white
+  channel 5  = color 2 red
+  channel 6  = color 2 green
+  channel 7  = color 2 blue
+  channel 8  = color 2 white
+  channel 9  = intensity
+  channel 10 = ASCII code
+*/
+
+void mode13(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {
+  int i = 0, r1, g1, b1, w1, r2, g2, b2, w2;
+  byte glyph;
+  float intensity;
+  if (universe != config.universe)
+    return;
+  if (RGB && (length - config.offset) < 3 + 1)
+    return;
+  if (RGBW && (length - config.offset) < 4 + 1)
+    return;
+  r1         = data[config.offset + i++];
+  g1         = data[config.offset + i++];
+  b1         = data[config.offset + i++];
+  if (RGBW)
+    w1       = data[config.offset + i++];
+  r2         = data[config.offset + i++];
+  g2         = data[config.offset + i++];
+  b2         = data[config.offset + i++];
+  if (RGBW)
+    w2       = data[config.offset + i++];
+
+  intensity = 1. * data[config.offset + i++] / 255.;
+  glyph     =      data[config.offset + i++];
+
+  if (glyph > 127)
+    return;
+
+  if (config.hsv) {
+    map_hsv_to_rgb(&r1, &g1, &b1);
+    map_hsv_to_rgb(&r2, &g2, &b2);
+  }
+
+  // scale with the intensity
+  r1 = intensity * r1;
+  g1 = intensity * g1;
+  b1 = intensity * b1;
+  w1 = intensity * w1;
+  r2 = intensity * r2;
+  g2 = intensity * g2;
+  b2 = intensity * b2;
+  w2 = intensity * w2;
+
+  int pixel = 0;
+  for (int row = 0; row < 8; row++) {
+    for (int col = 0; col < 8; col++) {
+      bool toggle = font8x8_basic[glyph][row] & (0x01 << col);
+      if (RGB && toggle)
+        strip.setPixelColor(pixel, r1, g1, b1);
+      else if (RGBW && toggle)
+        strip.setPixelColor(pixel, r1, g1, b1, w1);
+      else if (RGB && !toggle)
+        strip.setPixelColor(pixel, r2, g2, b2);
+      else if (RGBW && !toggle)
+        strip.setPixelColor(pixel, r2, g2, b2, w2);
+      pixel++;
+    }
+    yield();
+  }
+  strip.show();
+};
 
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
 
-void mode13(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode14(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode15(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};
 void mode16(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t * data) {};

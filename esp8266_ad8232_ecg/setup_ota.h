@@ -31,9 +31,8 @@ bool handleStaticFile(const char *);
 void handleJSON();
 
 struct Config {
-  char redis[32];
+  char address[32];
   int port;
-  int duration; // in milliseconds
 };
 
 #endif
