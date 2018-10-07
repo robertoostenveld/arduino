@@ -20,13 +20,15 @@
 
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
+#include <PubSubClient.h>     // https://github.com/knolleary/pubsubclient
 #include <dsmr.h>             // https://github.com/matthijskooijman/arduino-dsmr
 #include "secret.h"
 
 /* these are defined in secret.h
-   const char* SSID   = "XXXXXXXXXXXXXXXX";
-   const char* PASS   = "XXXXXXXXXXXXXXXX";
-   const char* APIKEY = "XXXXXXXXXXXXXXXX"; // Write API Key for my ThingSpeak Channel
+  #define SSID    "XXXXXXXXXXXXXXXX"
+  #define PASS    "XXXXXXXXXXXXXXXX"
+  #define CHANNEL "XXXXXXXXXXXXXXXX"
+  #define APIKEY  "XXXXXXXXXXXXXXXX"
 */
 
 const char* version    = __DATE__ " / " __TIME__;
@@ -34,15 +36,21 @@ const byte rxPin = D2;
 const byte requestPin = D1;
 
 #define BUFSIZE 1024
+#define USE_MQTT
 
 SoftwareSerial MySerial (rxPin, -1, true, BUFSIZE);
 P1Reader reader(&MySerial, requestPin);
 WiFiClient client;
+PubSubClient mqtt_client(client);
 
 const char* server = "api.thingspeak.com";
+const int port = 80;
+const char* mqtt_server = "mqtt.thingspeak.com";
+const int mqtt_port = 1883;
+
 const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
-unsigned long resetCounter = 0, lastTime = 0;
-unsigned long lastLed = 0, durationLed = 1000;
+const unsigned long durationLed = 1000;       // the status LED remains on for 1 second
+unsigned long resetCounter = 0, lastLed = 0, lastTime = 0;
 
 using MyData = ParsedData <
                //             /* String */ identification,
@@ -147,6 +155,10 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
+#ifdef USE_MQTT
+  mqtt_client.setServer(mqtt_server, mqtt_port);
+#endif
+
   //Upon restart, fire off a one-off reading
   reader.enable(true);
   lastTime = millis();
@@ -157,6 +169,9 @@ void setup() {
 void loop () {
   // Allow the reader to check the serial buffer regularly
   reader.loop();
+
+  // Allow the MQTT client to do its things
+  mqtt_client.loop();
 
   // Every now and then, fire off a one-off reading
   unsigned long now = millis();
@@ -181,7 +196,11 @@ void loop () {
       // Parse succesful, print result
       Serial.println("---parse succesful---------------------------------------------");
       data.applyEach(Printer());
-      sendThingspeak();
+#ifdef USE_MQTT
+      sendThingspeakMQTT();
+#else
+      sendThingspeakREST();
+#endif
     } else {
       // Parser error, print error
       Serial.println("---parse error-------------------------------------------------");
@@ -192,12 +211,46 @@ void loop () {
 
 /*****************************************************************************/
 
-void sendThingspeak() {
-  if (client.connect(server, 80)) {
+void sendThingspeakMQTT() {
+  if (mqtt_client.connect("esp2866_p1_thingspeak")) {
     digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
     lastLed = millis();
 
-    // Construct API request body
+    // Construct MQTT message
+    String body = "field1=";
+    body += String(data.power_delivered);
+    body += String("&field2=");
+    body += String(data.power_returned);
+    body += String("&field3=");
+    body += String(data.gas_delivered);
+    body += String("&field4=");
+    body += String(data.energy_delivered_tariff1);
+    body += String("&field5=");
+    body += String(data.energy_delivered_tariff2);
+
+    Serial.println("---mqtt message------------------------------------------------");
+    Serial.println(body);
+    mqtt_client.publish("channels/" CHANNEL "/publish/" APIKEY, body.c_str());
+  }
+  else {
+    Serial.println("MQTT connection Failed.");
+    Serial.println();
+
+    resetCounter++;
+    if (resetCounter >= 5 ) {
+      ESP.restart();
+    }
+  }
+} // sendThingspeakMQTT
+
+/*****************************************************************************/
+
+void sendThingspeakREST() {
+  if (client.connect(server, port)) {
+    digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
+    lastLed = millis();
+
+    // Construct request body
     String body = "field1=";
     body += String(data.power_delivered);
     body += String("&field2=");
@@ -233,7 +286,7 @@ void sendThingspeak() {
     resetCounter = 0;
   }
   else {
-    Serial.println("Connection Failed.");
+    Serial.println("REST connection Failed.");
     Serial.println();
 
     resetCounter++;
@@ -241,4 +294,4 @@ void sendThingspeak() {
       ESP.restart();
     }
   }
-}
+} // sendThingspeakREST
