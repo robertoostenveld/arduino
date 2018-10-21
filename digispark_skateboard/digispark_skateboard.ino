@@ -19,7 +19,7 @@ uint8_t specification3[] = {0, 0, 255, 255, 0, 0, 2};
 uint8_t specification4[] = {255, 0, 0, 0, 255, 0, 2};
 uint8_t specification5[] = {0, 255, 0, 0, 0, 255, 2};
 uint8_t specification6[] = {0, 0, 255, 255, 0, 0, 2};
-uint8_t specification7[] = {220, 255, 2};
+uint8_t specification7[] = {220, 255, 1};
 
 unsigned long previous = 0, now;
 
