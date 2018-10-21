@@ -1,230 +1,123 @@
 /*
-    This is a subset and simplified version of the color modes supported by my esp8266_artnet_neopixel sketch, see
+    This is a subset of the color modes supported by my esp8266_artnet_neopixel sketch, see
     https://github.com/robertoostenveld/arduino/tree/master/esp8266_artnet_neopixel
+
+    The functions have the same name and more or less similar functionality, but have been
+    simplified to save memory.
 */
 
 #include "neopixel_mode.h"
 #include "colorspace.h"
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, PIN, NEO_GRB);
-long tic_frame;
-float prev;
 
-/*
-  mode 1: single uniform color
-  channel 1 = red
-  channel 2 = green
-  channel 3 = blue
-  channel 4 = intensity
-*/
+#define ENABLE_MODE1
+#define ENABLE_MODE4
+#define ENABLE_MODE10
+#define ENABLE_MODE12
+
+/************************************************************************************/
 
 void mode1(uint8_t * data) {
-  int i = 0, r, g, b;
-  float intensity;
-  
-  r         = data[i++];
-  g         = data[i++];
-  b         = data[i++];
-  intensity = 1. * data[i++] / 255.;
+#ifdef ENABLE_MODE1
+  int r, g, b;
 
-  if (CONFIG_HSV)
-    map_hsv_to_rgb(&r, &g, &b);
+  r = data[0];
+  g = data[1];
+  b = data[2];
 
-  // scale with the intensity
-  r = intensity * r;
-  g = intensity * g;
-  b = intensity * b;
-
-  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++)
     strip.setPixelColor(pixel, r, g, b);
-  }
   strip.show();
+#endif
 }
 
-/*
-  mode 4: uniform color, blinking between color 1 and color 2
-  channel 1  = color 1 red
-  channel 2  = color 1 green
-  channel 3  = color 1 blue
-  channel 4  = color 2 red
-  channel 5  = color 2 green
-  channel 6  = color 2 blue
-  channel 7  = intensity
-  channel 8  = speed
-  channel 9  = ramp
-  channel 10 = duty cycle
-*/
+/************************************************************************************/
 
 void mode4(uint8_t * data) {
-  int i = 0, r, g, b, r2, g2, b2;
-  float intensity, speed, ramp, duty, phase, balance;
-  
-  r         = data[i++];
-  g         = data[i++];
-  b         = data[i++];
-  r2        = data[i++];
-  g2        = data[i++];
-  b2        = data[i++];
-  intensity = 1. * data[i++] / 255.;
-  speed     = 1. * data[i++] / CONFIG_SPEED;
-  ramp      = 1. * data[i++] * 360. / 255.;
-  duty      = 1. * data[i++] * 360. / 255.;
-
-  if (CONFIG_HSV) {
-    map_hsv_to_rgb(&r, &g, &b);
-    map_hsv_to_rgb(&r2, &g2, &b2);
-  }
-
-  // the ramp cannot be too wide
-  if (duty < 180)
-    ramp = (ramp < duty ? ramp : duty);
-  else
-    ramp = (ramp < (360 - duty) ? ramp : (360 - duty));
+#ifdef ENABLE_MODE4
+  int r, g, b;
 
   // determine the current phase in the temporal cycle
-  phase = (speed * millis()) * 360. / 1000.;
+  float phase = CONFIG_SPEED * data[6] * millis() * 0.360;
+  phase = WRAP360(phase);
 
-  // prevent rolling back
-  if (WRAP180(phase - prev) < 0)
-    phase = prev;
-  else
-    prev = phase;
-
-  phase = WRAP180(phase);
-  phase = ABS(phase);
-
-  if (phase <= (duty / 2 - ramp / 4))
-    balance = 1;
-  else if (phase >= (duty / 2 + ramp / 4))
-    balance = 0;
-  else if (ramp > 0)
-    balance = ((duty / 2 + ramp / 4) - phase) / ( ramp / 2 );
-
-  // apply the balance between the two colors
-  r = BALANCE(balance, r, r2);
-  g = BALANCE(balance, g, g2);
-  b = BALANCE(balance, b, b2);
-
-  // scale with the intensity
-  r = intensity * r;
-  g = intensity * g;
-  b = intensity * b;
-
-  for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    strip.setPixelColor(pixel, r, g, b);
+  // pick between the two colors
+  if (phase < 180) {
+    r = data[0];
+    g = data[1];
+    b = data[2];
   }
+  else {
+    r = data[3];
+    g = data[4];
+    b = data[5];
+  }
+
+  for (int pixel = 0; pixel < strip.numPixels(); pixel++)
+    strip.setPixelColor(pixel, r, g, b);
   strip.show();
+#endif
 }
 
-/*
-  mode 10: spinning color wheel with color background
-  channel 1  = color 1 red
-  channel 2  = color 1 green
-  channel 3  = color 1 blue
-  channel 4  = color 2 red
-  channel 5  = color 2 green
-  channel 6  = color 2 blue
-  channel 7  = intensity
-  channel 8  = speed
-  channel 9  = width
-  channel 10 = ramp
-*/
+/************************************************************************************/
 
 void mode10(uint8_t * data) {
-  int i = 0, r, g, b, r2, g2, b2;
-  float intensity, speed, width, ramp, phase;
-
-  r         = data[i++];
-  g         = data[i++];
-  b         = data[i++];
-  r2        = data[i++];
-  g2        = data[i++];
-  b2        = data[i++];
-  intensity = 1. * data[i++] / 255.;
-  speed     = 1. * data[i++] / CONFIG_SPEED;
-  width     = 1. * data[i++] * 360. / 255.;
-  ramp      = 1. * data[i++] * 360. / 255.;
-
-  if (CONFIG_HSV) {
-    map_hsv_to_rgb(&r, &g, &b);
-    map_hsv_to_rgb(&r2, &g2, &b2);
-  }
-
-  // the ramp cannot be too wide
-  if (width < 180)
-    ramp = (ramp < width ? ramp : width);
-  else
-    ramp = (ramp < (360 - width) ? ramp : (360 - width));
+#ifdef ENABLE_MODE10
+  int r, g, b;
 
   // determine the current phase in the temporal cycle
-  phase = (speed * millis()) * 360. / 1000.;
-
-  // prevent rolling back
-  if (WRAP180(phase - prev) < 0)
-    phase = prev;
-  else
-    prev = phase;
+  float phase = CONFIG_SPEED * data[6] * millis() * 0.360;
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    int flip = (CONFIG_REVERSE ? -1 : 1);
-    float position, balance;
+    float position = (360. * pixel / (strip.numPixels() - 1)) * CONFIG_SPLIT - phase;
+    position = WRAP360(position);
 
-    position = WRAP180((360. * flip * pixel / (strip.numPixels() - 1)) * CONFIG_SPLIT - phase);
-    position = ABS(position);
+    if (position < 180) {
+      r = data[0];
+      g = data[1];
+      b = data[2];
+    }
+    else {
+      r = data[3];
+      g = data[4];
+      b = data[5];
+    }
 
-    if (width == 0)
-      balance = 0;
-    else if (position < (width / 2. - ramp / 2.))
-      balance = 1;
-    else if (position > (width / 2. + ramp / 2.))
-      balance = 0;
-    else if (position > 0)
-      balance = ((width / 2. + ramp / 2.) - position) / ramp;
-
-    strip.setPixelColor(pixel, intensity * BALANCE(balance, r, r2), intensity * BALANCE(balance, g, g2), intensity * BALANCE(balance, b, b2));
+    strip.setPixelColor(pixel, r, g, b);
   }
   strip.show();
+#endif
 };
 
-/*
-  mode 12: rainbow spinner
-  channel 1 = saturation
-  channel 2 = value
-  channel 3 = speed
-*/
+/************************************************************************************/
 
 void mode12(uint8_t * data) {
-  int i = 0;
-  float saturation, value, speed, phase;
+#ifdef ENABLE_MODE12
 
-  saturation = 1. * data[i++];
-  value      = 1. * data[i++] ;
-  speed      = 1. * data[i++] / CONFIG_SPEED;
+  float saturation = 1. * data[0];
+  float value      = 1. * data[1] ;
+  float speed      = CONFIG_SPEED * data[2];
 
   // determine the current phase in the temporal cycle
-  phase = (speed * millis()) * 360. / 1000.;
-
-  // prevent rolling back
-  if (WRAP180(phase - prev) < 0)
-    phase = prev;
-  else
-    prev = phase;
+  float phase = (speed * millis()) * 0.360;
 
   for (int pixel = 0; pixel < strip.numPixels(); pixel++) {
-    int flip = (CONFIG_REVERSE ? -1 : 1);
-    float hue = WRAP360((360. * flip * pixel / strip.numPixels()) * CONFIG_SPLIT - phase);
+    float hue = (360. * pixel / strip.numPixels()) * CONFIG_SPLIT - phase;
+    hue = WRAP360(hue);
 
-    int r, g, b;
-    r = hue;             // hue, between 0-360
-    g = saturation;      // saturation, between 0-255
-    b = value;           // value, between 0-255
+    int r = hue;             // hue, between 0-360
+    int g = saturation;      // saturation, between 0-255
+    int b = value;           // value, between 0-255
     map_hsv_to_rgb(&r, &g, &b);
 
     strip.setPixelColor(pixel, r, g, b);
   }
   strip.show();
+#endif
 };
 
+/************************************************************************************/
 
 void map_hsv_to_rgb(int *r, int *g, int *b) {
   hsv in;

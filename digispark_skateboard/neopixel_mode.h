@@ -1,18 +1,14 @@
 #ifndef _NEOPIXEL_MODE_H_
 #define _NEOPIXEL_MODE_H_
 
-#include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
 #define PIN            0
 #define NUMPIXELS      60
 
 // in the original version these can be configured dynamically
-#define CONFIG_SPEED   1
-#define CONFIG_FLIP    0
-#define CONFIG_REVERSE 0
+#define CONFIG_SPEED   1.0
 #define CONFIG_SPLIT   1
-#define CONFIG_HSV     0
 
 #define ROUND(x)   (int(x + 0.5))
 #define ABS(x)     (x * (x < 0 ? -1 : 1))
@@ -23,14 +19,13 @@
 #define BALANCE(l, x1, x2)  ((x1) * (1. - l) + (x2) * l)
 
 extern Adafruit_NeoPixel strip;
-extern long tic_frame;
-
-void map_hsv_to_rgb(int *, int *, int *);
 
 // the naming of these modes corresponds to my ESP8266 Artnet Neopixel module
 void mode1(uint8_t *);
 void mode4(uint8_t *);
 void mode10(uint8_t *);
 void mode12(uint8_t *);
+
+void map_hsv_to_rgb(int *, int *, int *);
 
 #endif
