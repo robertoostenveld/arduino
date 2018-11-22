@@ -218,6 +218,7 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
+    S_CONFIG_TO_JSON(address, "address");
     CONFIG_TO_JSON(port, "port");
 
     root["version"] = version;
