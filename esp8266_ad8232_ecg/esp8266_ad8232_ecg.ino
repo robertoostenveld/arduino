@@ -45,7 +45,7 @@ long tic_web = 0;
 int sample = 0, block = 0;
 bool flush0 = false, flush1 = false;
 uint16_t block0[BLOCKSIZE], block1[BLOCKSIZE];
-int ftserver = 0, status;
+int ftserver = 0, status = 0;
 int lo1 = 0, lo2 = 0;
 
 /************************************************************************************************/
@@ -296,15 +296,25 @@ void loop() {
   }
 
   if (ptr) {
-    ftserver = fieldtrip_open_connection(config.address, config.port);
+    if (ftserver == 0) {
+      ftserver = fieldtrip_open_connection(config.address, config.port);
+      if (ftserver > 0)
+        Serial.println("Connection opened");
+    }
+
     if (ftserver > 0) {
-      Serial.println("Connection opened");
       status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, ptr);
       if (status == 0)
         Serial.println("Wrote data");
-      status = fieldtrip_close_connection(ftserver);
-      if (status == 0)
-        Serial.println("Connection closed");
+      else {
+        Serial.println("Failed writing data");
+        status = fieldtrip_close_connection(ftserver);
+        if (status == 0)
+          Serial.println("Connection closed");
+        else
+          Serial.println("Failed closing connection");
+        ftserver = 0;
+      }
     }
   }
 

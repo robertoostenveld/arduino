@@ -48,7 +48,7 @@ int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float
 
   request = (messagedef_t *)(msg + 0);
   request->version = VERSION;
-  request->command = PUT_HDR_NORESPONSE;
+  request->command = PUT_HDR;
   request->bufsize = sizeof(headerdef_t);
 
   header = (headerdef_t *)(msg + sizeof(messagedef_t)); // the first 8 bytes are version, command and bufsize
@@ -78,10 +78,14 @@ int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float
   Serial.println(" bytes");
 #endif
 
-  if (n == sizeof(messagedef_t) + sizeof(headerdef_t))
-    return 0;
-  else
-    return -1;
+  if (n != sizeof(messagedef_t) + sizeof(headerdef_t))
+    status++;
+
+  // read and ignore whatever response we get
+  while (client.available())
+    client.read();
+
+  return status;
 };
 
 /*******************************************************************************
@@ -89,7 +93,7 @@ int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float
    returns 0 on success
  *******************************************************************************/
 int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_t nsamples, byte *buffer) {
-  int status;
+  int status = 0;
   messagedef_t *request  = NULL;
   messagedef_t *response = NULL;
   datadef_t    *data   = NULL;
@@ -99,12 +103,12 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
 #endif
 
   byte msg[24];
-  for (int i = 0; i < 32; i++)
+  for (int i = 0; i < 24; i++)
     msg[i] = 0;
 
   request = (messagedef_t *)(msg + 0);
   request->version = VERSION;
-  request->command = PUT_DAT_NORESPONSE;
+  request->command = PUT_DAT;
   request->bufsize = sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype];
 
   data = (datadef_t *)(msg + sizeof(messagedef_t)); // the first 8 bytes are version, command and bufsize
@@ -134,8 +138,12 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
   Serial.println(" bytes");
 #endif
 
-  if (n == sizeof(messagedef_t) + sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype])
-    return 0;
-  else
-    return -1;
+  if (n != sizeof(messagedef_t) + sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype])
+    status++;
+
+  // read and ignore whatever response we get
+  while (client.available())
+    client.read();
+
+  return status;
 };
