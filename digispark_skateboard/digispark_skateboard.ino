@@ -6,20 +6,23 @@
 #define BUTTON0     2
 #define BUTTON1     3
 #define BUTTON2     4
+#define BRIGHTNESS  128  // can be up to 255
 
 // mode1  details are specified as r, g, b
 // mode4  details are specified as r1, g1, b1, r2, g2, b2, speed
 // mode10 details are specified as r1, g1, b1, r2, g2, b2, speed
 // mode12 details are specified as saturation, value, speed
 
-uint8_t specification0[] = {255, 255, 255};
-uint8_t specification1[] = {255, 0, 0, 0, 255, 0, 2};
-uint8_t specification2[] = {0, 255, 0, 0, 0, 255, 2};
-uint8_t specification3[] = {0, 0, 255, 255, 0, 0, 2};
-uint8_t specification4[] = {255, 0, 0, 0, 255, 0, 2};
-uint8_t specification5[] = {0, 255, 0, 0, 0, 255, 2};
-uint8_t specification6[] = {0, 0, 255, 255, 0, 0, 2};
-uint8_t specification7[] = {220, 255, 1};
+
+
+uint8_t specification0[] = {BRIGHTNESS, BRIGHTNESS, BRIGHTNESS};    // mode1
+uint8_t specification1[] = {BRIGHTNESS, 0, 0, 0, BRIGHTNESS, 0, 2}; // mode4
+uint8_t specification2[] = {0, BRIGHTNESS, 0, 0, 0, BRIGHTNESS, 2}; // mode4
+uint8_t specification3[] = {0, 0, BRIGHTNESS, BRIGHTNESS, 0, 0, 2}; // mode4
+uint8_t specification4[] = {BRIGHTNESS, 0, 0, 0, BRIGHTNESS, 0, 2}; // mode10
+uint8_t specification5[] = {0, BRIGHTNESS, 0, 0, 0, BRIGHTNESS, 2}; // mode10
+uint8_t specification6[] = {0, 0, BRIGHTNESS, BRIGHTNESS, 0, 0, 2}; // mode10
+uint8_t specification7[] = {220, BRIGHTNESS, 1};                    // mode12
 
 unsigned long previous = 0, now;
 
