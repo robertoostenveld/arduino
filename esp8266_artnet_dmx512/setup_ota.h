@@ -3,7 +3,6 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <String.h>
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
 #include <FS.h>
@@ -37,4 +36,3 @@ struct Config {
 };
 
 #endif // _SETUP_OTA_H_
-
