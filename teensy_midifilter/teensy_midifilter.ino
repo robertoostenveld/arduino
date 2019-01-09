@@ -5,7 +5,7 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, inMIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, outMIDI);
 
 // #define DEBUG_NOTE
-// #define DEBUG_SERIAL
+#define DEBUG_SERIAL
 
 /************************************************************************************************************/
 
@@ -113,10 +113,10 @@ void setup() {
   inMIDI.setHandleSongPosition(handleSongPosition);
   inMIDI.setHandleSongSelect(handleSongSelect);
   inMIDI.setHandleTuneRequest(handleTuneRequest);
-  //inMIDI.setHandleClock(handleClock);
-  inMIDI.setHandleStart(handleStart);
-  inMIDI.setHandleContinue(handleContinue);
-  inMIDI.setHandleStop(handleStop);
+  inMIDI.setHandleClock(handleClock);
+  //inMIDI.setHandleStart(handleStart);
+  //inMIDI.setHandleContinue(handleContinue);
+  //inMIDI.setHandleStop(handleStop);
   inMIDI.setHandleActiveSensing(handleActiveSensing);
   inMIDI.setHandleSystemReset(handleSystemReset);
 }
@@ -126,8 +126,8 @@ void setup() {
 void loop() {
 
   if ((millis() - prev) > 1000) {
+    // blink every second
     digitalWrite(led, !digitalRead(led));
-
 #ifdef DEBUG_NOTE
     // send a MIDI note every second
     outMIDI.sendNoteOn(note, velocity, channel);
