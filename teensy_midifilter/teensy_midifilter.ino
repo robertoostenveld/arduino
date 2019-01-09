@@ -5,16 +5,16 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, inMIDI);
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, outMIDI);
 
 // #define DEBUG_NOTE
-#define DEBUG_SERIAL
+// #define DEBUG_SERIAL
 
 /************************************************************************************************************/
 
 void handleNoteOff(byte Channel, byte NoteNumber, byte Velocity) {
-  outMIDI.sendNoteOn(NoteNumber, Velocity, Channel);
+  outMIDI.sendNoteOff(NoteNumber, Velocity, Channel);
 };
 
 void handleNoteOn(byte Channel, byte NoteNumber, byte Velocity) {
-  outMIDI.sendNoteOff(NoteNumber, Velocity, Channel);
+  outMIDI.sendNoteOn(NoteNumber, Velocity, Channel);
 };
 
 void handleAfterTouchPoly(byte Channel, byte NoteNumber, byte Pressure) {
@@ -95,7 +95,13 @@ const int velocity = 127;
 /************************************************************************************************************/
 
 void setup() {
-
+  
+  Serial.print("\n[teensy_midifilter / ");
+  Serial.print(__DATE__);
+  Serial.print(" / ");
+  Serial.print(__TIME__);
+  Serial.println("]");
+    
   pinMode(led, OUTPUT);
 
   outMIDI.begin(MIDI_CHANNEL_OMNI);
