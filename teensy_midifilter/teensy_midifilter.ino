@@ -1,118 +1,124 @@
 #include <MIDI.h>
 
 // select "tools"->"usb type"->"serial + MIDI" to instantiate the usbMIDI device
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, serial1MIDI);
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, serial2MIDI);
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, inMIDI);
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial2, outMIDI);
+
+// #define DEBUG_NOTE
+// #define DEBUG_SERIAL
 
 /************************************************************************************************************/
 
 void handleNoteOff(byte Channel, byte NoteNumber, byte Velocity) {
-  serial2MIDI.sendNoteOn (NoteNumber, Velocity, Channel);
+  outMIDI.sendNoteOn(NoteNumber, Velocity, Channel);
 };
 
 void handleNoteOn(byte Channel, byte NoteNumber, byte Velocity) {
-  serial2MIDI.sendNoteOff(NoteNumber, Velocity, Channel);
+  outMIDI.sendNoteOff(NoteNumber, Velocity, Channel);
 };
 
 void handleAfterTouchPoly(byte Channel, byte NoteNumber, byte Pressure) {
-  serial2MIDI.sendPolyPressure(NoteNumber, Pressure, Channel);
+  outMIDI.sendPolyPressure(NoteNumber, Pressure, Channel);
 };
 
 void handleControlChange(byte Channel, byte ControlNumber, byte ControlValue) {
-  serial2MIDI.sendControlChange(ControlNumber, ControlValue, Channel);
+  outMIDI.sendControlChange(ControlNumber, ControlValue, Channel);
 };
 
 void handleProgramChange(byte Channel, byte ProgramNumber) {
-  serial2MIDI.sendProgramChange(ProgramNumber, Channel);
+  outMIDI.sendProgramChange(ProgramNumber, Channel);
 };
 
 void handleAfterTouchChannel(byte Channel, byte Pressure) {
-  serial2MIDI.sendAfterTouch(Pressure, Channel);
+  outMIDI.sendAfterTouch(Pressure, Channel);
 };
 
 void handlePitchBend(byte Channel, int PitchValue) {
-  serial2MIDI.sendPitchBend (PitchValue, Channel);
+  outMIDI.sendPitchBend(PitchValue, Channel);
 };
 
 void handleSystemExclusive(byte* Array, unsigned Size) {
-  serial2MIDI.sendSysEx (Size, Array);
+  outMIDI.sendSysEx(Size, Array);
 };
 
 void handleTimeCodeQuarterFrame(byte Data) {
-  serial2MIDI.sendTimeCodeQuarterFrame(Data);
+  outMIDI.sendTimeCodeQuarterFrame(Data);
 };
 
 void handleSongPosition(unsigned int Beats) {
-  serial2MIDI.sendSongPosition (Beats);
+  outMIDI.sendSongPosition(Beats);
 };
 
 void handleSongSelect(byte SongNumber) {
-  serial2MIDI.sendSongSelect(SongNumber);
+  outMIDI.sendSongSelect(SongNumber);
 };
 
 void handleTuneRequest(void) {
-  serial2MIDI.sendTuneRequest ();
+  outMIDI.sendTuneRequest();
 };
 
 void handleClock(void) {
-  serial2MIDI.sendRealTime(midi::Clock);
+  outMIDI.sendRealTime(midi::Clock);
 };
 
 void handleStart(void) {
-  serial2MIDI.sendRealTime(midi::Start);
+  outMIDI.sendRealTime(midi::Start);
 };
 
 void handleContinue(void) {
-  serial2MIDI.sendRealTime(midi::Continue);
+  outMIDI.sendRealTime(midi::Continue);
 };
 
 void handleStop(void) {
-  serial2MIDI.sendRealTime(midi::Stop);
+  outMIDI.sendRealTime(midi::Stop);
 };
 
 void handleActiveSensing(void) {
-  serial2MIDI.sendRealTime(midi::ActiveSensing);
+  outMIDI.sendRealTime(midi::ActiveSensing);
 };
 
 void handleSystemReset(void) {
-  serial2MIDI.sendRealTime(midi::SystemReset);
+  outMIDI.sendRealTime(midi::SystemReset);
 };
 
 /************************************************************************************************************/
 
-const int channel = 1;
-int cable = 0;
-int note = 42;
-int velocity = 127;
 long prev = 0;
-int led = 13;
+const int led = 13;
+
+#ifdef DEBUG_NOTE
+const int channel = 1;
+const int note = 42;
+const int velocity = 127;
+#endif
 
 /************************************************************************************************************/
 
 void setup() {
 
   pinMode(led, OUTPUT);
-  serial1MIDI.begin();
-  serial2MIDI.begin();
 
-  serial1MIDI.setHandleNoteOff(handleNoteOff);
-  serial1MIDI.setHandleNoteOn(handleNoteOn);
-  serial1MIDI.setHandleAfterTouchPoly(handleAfterTouchPoly);
-  serial1MIDI.setHandleControlChange(handleControlChange);
-  serial1MIDI.setHandleProgramChange(handleProgramChange);
-  serial1MIDI.setHandleAfterTouchChannel(handleAfterTouchChannel);
-  serial1MIDI.setHandlePitchBend(handlePitchBend);
-  serial1MIDI.setHandleSystemExclusive(handleSystemExclusive);
-  serial1MIDI.setHandleTimeCodeQuarterFrame(handleTimeCodeQuarterFrame);
-  serial1MIDI.setHandleSongPosition(handleSongPosition);
-  serial1MIDI.setHandleSongSelect(handleSongSelect);
-  serial1MIDI.setHandleTuneRequest(handleTuneRequest);
-  serial1MIDI.setHandleClock(handleClock);
-  serial1MIDI.setHandleStart(handleStart);
-  serial1MIDI.setHandleContinue(handleContinue);
-  serial1MIDI.setHandleStop(handleStop);
-  serial1MIDI.setHandleActiveSensing(handleActiveSensing);
-  serial1MIDI.setHandleSystemReset(handleSystemReset);
+  outMIDI.begin(MIDI_CHANNEL_OMNI);
+  inMIDI.begin(MIDI_CHANNEL_OMNI);
+
+  inMIDI.setHandleNoteOff(handleNoteOff);
+  inMIDI.setHandleNoteOn(handleNoteOn);
+  inMIDI.setHandleAfterTouchPoly(handleAfterTouchPoly);
+  inMIDI.setHandleControlChange(handleControlChange);
+  inMIDI.setHandleProgramChange(handleProgramChange);
+  inMIDI.setHandleAfterTouchChannel(handleAfterTouchChannel);
+  inMIDI.setHandlePitchBend(handlePitchBend);
+  inMIDI.setHandleSystemExclusive(handleSystemExclusive);
+  inMIDI.setHandleTimeCodeQuarterFrame(handleTimeCodeQuarterFrame);
+  inMIDI.setHandleSongPosition(handleSongPosition);
+  inMIDI.setHandleSongSelect(handleSongSelect);
+  inMIDI.setHandleTuneRequest(handleTuneRequest);
+  //inMIDI.setHandleClock(handleClock);
+  inMIDI.setHandleStart(handleStart);
+  inMIDI.setHandleContinue(handleContinue);
+  inMIDI.setHandleStop(handleStop);
+  inMIDI.setHandleActiveSensing(handleActiveSensing);
+  inMIDI.setHandleSystemReset(handleSystemReset);
 }
 
 /************************************************************************************************************/
@@ -120,17 +126,81 @@ void setup() {
 void loop() {
 
   if ((millis() - prev) > 1000) {
-    digitalWrite(led, HIGH);
-    serial2MIDI.sendNoteOn(note, velocity, channel);
-    usbMIDI.sendNoteOn(note, velocity, channel);
-    Serial.println("note");
-    prev = millis();
+    digitalWrite(led, !digitalRead(led));
 
-    delay(100);
-    digitalWrite(led, LOW);
+#ifdef DEBUG_NOTE
+    // send a MIDI note every second
+    outMIDI.sendNoteOn(note, velocity, channel);
+    usbMIDI.sendNoteOn(note, velocity, channel);
+#endif
+    prev = millis();
   }
 
-  while (serial1MIDI.read()) {
-    // ignore incoming messages
+  while (inMIDI.read()) {
+#ifdef DEBUG_SERIAL
+    Serial.print(inMIDI.getType());
+    Serial.print(" ");
+    switch (inMIDI.getType()) {
+      case midi::ActiveSensing:
+        Serial.println("ActiveSensing");
+        break;
+      case midi::AfterTouchChannel:
+        Serial.println("AfterTouchChannel");
+        break;
+      case midi::AfterTouchPoly:
+        Serial.println("AfterTouchPoly");
+        break;
+      case midi::Clock:
+        Serial.println("Clock");
+        break;
+      case midi::Continue:
+        Serial.println("Continue");
+        break;
+      case midi::ControlChange:
+        Serial.println("ControlChange");
+        break;
+      case midi::InvalidType:
+        Serial.println("InvalidType");
+        break;
+      case midi::NoteOff:
+        Serial.println("NoteOff");
+        break;
+      case midi::NoteOn:
+        Serial.println("NoteOn");
+        break;
+      case midi::PitchBend:
+        Serial.println("PitchBend");
+        break;
+      case midi::ProgramChange:
+        Serial.println("ProgramChange");
+        break;
+      case midi::SongPosition:
+        Serial.println("SongPosition");
+        break;
+      case midi::SongSelect:
+        Serial.println("SongSelect");
+        break;
+      case midi::Start:
+        Serial.println("Start");
+        break;
+      case midi::Stop:
+        Serial.println("Stop");
+        break;
+      case midi::SystemExclusive:
+        Serial.println("SystemExclusive");
+        break;
+      case midi::SystemReset:
+        Serial.println("SystemReset");
+        break;
+      case midi::TimeCodeQuarterFrame:
+        Serial.println("TimeCodeQuarterFrame");
+        break;
+      case midi::TuneRequest:
+        Serial.println("TuneRequest");
+      default:
+        Serial.println("Other");
+        break;
+    }
+#endif
   }
 }
