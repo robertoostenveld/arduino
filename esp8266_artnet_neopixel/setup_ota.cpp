@@ -196,28 +196,21 @@ void handleRedirect(const char * filename) {
   server.send(302, "text/plain", "");
 }
 
-void handleStaticFile(String filename) {
-  char buf[64];
-  filename.toCharArray(buf, 64);
-  handleStaticFile(buf);
+bool handleStaticFile(String path) {
+  Serial.println("handleStaticFile");
+  String contentType = getContentType(path);            // Get the MIME type
+  if (SPIFFS.exists(path)) {                            // If the file exists
+    File file = SPIFFS.open(path, "r");                 // Open it
+    size_t sent = server.streamFile(file, contentType); // And send it to the client
+    file.close();                                       // Then close the file again
+    return true;
+  }
+  Serial.println("\tFile Not Found");
+  return false;                                         // If the file doesn't exist, return false
 }
 
-void handleStaticFile(const char * filename) {
-  Serial.println("handleStaticFile");
-  File f = SPIFFS.open(filename, "r");
-  Serial.print("Opening file ");
-  Serial.print(filename);
-  if (!f) {
-    Serial.println("  FAILED");
-    server.send(500, "text/html", "File not found");
-  } else {
-    Serial.println("  OK");
-    String content = f.readString();
-    f.close();
-    server.sendHeader("Connection", "close");
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, getContentType(String(filename)), content);
-  }
+bool handleStaticFile(const char * path) {
+  return handleStaticFile((String)path);
 }
 
 void handleJSON() {
@@ -274,4 +267,3 @@ void handleJSON() {
   }
   saveConfig();
 }
-
