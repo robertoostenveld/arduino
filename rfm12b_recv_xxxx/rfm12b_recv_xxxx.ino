@@ -25,7 +25,7 @@ typedef struct payload_t {
 
 payload_t payload;
 
-/*****************************************************************************/
+/*******************************************************************************************************************/
 
 void setup () {
 #ifdef BLIP_DEBUG
@@ -44,7 +44,7 @@ void setup () {
   rf12_initialize(BLIP_NODE, RF12_868MHZ, BLIP_GRP);
 }
 
-/*****************************************************************************/
+/*******************************************************************************************************************/
 
 void loop () {
 
@@ -54,22 +54,22 @@ void loop () {
   // volatile byte rf12_crc  - CRC of the received packet, zero indicates correct reception. If != 0 then rf12_hdr, rf12_len, and rf12_data should not be relied upon.
 
   if (rf12_recvDone()) {
-    if(RF12_WANTS_ACK){
-      rf12_sendStart(RF12_ACK_REPLY,0,0);
+    if (RF12_WANTS_ACK) {
+      rf12_sendStart(RF12_ACK_REPLY, 0, 0);
     }
 
-    if (rf12_crc!=0) {
+    if (rf12_crc != 0) {
       Serial.println("Invalid crc");
     }
-    else if (rf12_len!=sizeof payload) {
+    else if (rf12_len != sizeof payload) {
       Serial.println("Invalid len");
     }
     else {
       memcpy(&payload, (void *)rf12_data, sizeof payload);
 
       unsigned long check = crc_buf((char *)&payload, sizeof(payload_t) - sizeof(unsigned long));
-      if (payload.crc==check) {
-
+      
+      if (payload.crc == check) {
         write_i2c((byte *)&payload.id,      sizeof(unsigned long));
         write_i2c((byte *)&payload.counter, sizeof(unsigned long));
         write_i2c((byte *)&payload.value1,  sizeof(float));
@@ -106,39 +106,15 @@ void loop () {
   }
 } // loop
 
-/*****************************************************************************/
-
-void transmitfloat(float x) {
-  byte *b = (byte *)&x; 
-  Wire.beginTransmission(9); // transmit to device #9
-  Wire.write(b[0]);
-  Wire.write(b[1]);
-  Wire.write(b[2]);
-  Wire.write(b[3]);
-  Wire.endTransmission();    // stop transmitting
-  delay(5); // otherwise transmission hangs
-}
-
-void transmitlong(long x) {
-  byte *b = (byte *)&x; 
-  Wire.beginTransmission(9); // transmit to device #9
-  Wire.write(b[0]);
-  Wire.write(b[1]);
-  Wire.write(b[2]);
-  Wire.write(b[3]);
-  Wire.endTransmission();    // stop transmitting
-  delay(5); // otherwise transmission hangs
-}
+/*******************************************************************************************************************/
 
 void write_i2c(byte *b, int n) {
   Wire.beginTransmission(9); // transmit to device #9
-  Wire.write(b[0]);
-  Wire.write(b[1]);
-  Wire.write(b[2]);
-  Wire.write(b[3]);
+  for (i = 0; i < n; i++)
+    Wire.write(b[i]);
   Wire.endTransmission();    // stop transmitting
   delay(5); // otherwise the next transmission hangs
-} 
+}
 
 /*******************************************************************************************************************/
 
@@ -162,7 +138,7 @@ unsigned long crc_update(unsigned long crc, byte data)
 unsigned long crc_buf(char *b, long l)
 {
   unsigned long crc = ~0L;
-  for (unsigned long i=0; i<l; i++)
+  for (unsigned long i = 0; i < l; i++)
     crc = crc_update(crc, ((char *)b)[i]);
   crc = ~crc;
   return crc;
@@ -176,11 +152,3 @@ unsigned long crc_string(char *s)
   crc = ~crc;
   return crc;
 }
-
-
-
-
-
-
-
-

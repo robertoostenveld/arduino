@@ -6,37 +6,8 @@
 #include <Ethernet.h>
 #include <Wire.h>
 #include <String.h>
-#include <Syslog.h>
-#include <MemoryFree.h>
+
 #include "secret.h"
-
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINT2(x, y)
-#define DEBUG_PRINTLN(x)
-
-/*
-  #define DEBUG_PRINT(x)     Serial.print (x)
-  #define DEBUG_PRINT2(x, y) Serial.print (x, y)
-  #define DEBUG_PRINTLN(x)   Serial.println (x)
-*/
-
-/*
-  #define DEBUG_PRINT(x)        Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
-  #define DEBUG_PRINT2(x, y)    Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
-  #define DEBUG_PRINTLN(x)      Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
-*/
-
-byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
-byte loghost[] = { 192, 168, 1, 7 };
-
-
-byte buf[32]; // ring buffer
-unsigned int bufptr = 0; // pointer into ring buffer
-unsigned int bufblk = 0; // boolean to block buffer updates
-
-// ThingSpeak Settings
-IPAddress server(184, 106, 153, 149);          // IP Address for the ThingSpeak API
-EthernetClient client;
 
 /*
     The write API keys for ThingSpeak are defined in secret.h like this
@@ -48,6 +19,34 @@ EthernetClient client;
    #define APIKeyChannel6 "XXXXXXXXXXXXXXXX"
 
 */
+
+#ifndef DEBUG
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINT2(x, y)
+#define DEBUG_PRINTLN(x)
+#elif DEBUG == SERIAL
+#define DEBUG_PRINT(x)     Serial.print (x)
+#define DEBUG_PRINT2(x, y) Serial.print (x, y)
+#define DEBUG_PRINTLN(x)   Serial.println (x)
+#elif DEBUG == LOGGER
+#include <Syslog.h>
+#define DEBUG_PRINT(x)        Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+#define DEBUG_PRINT2(x, y)    Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+#define DEBUG_PRINTLN(x)      Syslog.logger(1, 6, "rfm12b_thingspeak:", "", x);
+#else
+#error "Unexpected value of DEBUG."
+#endif
+
+byte buf[32]; // ring buffer
+unsigned int bufptr = 0; // pointer into ring buffer
+unsigned int bufblk = 0; // boolean to block buffer updates
+
+// ThingSpeak Settings
+IPAddress server(184, 106, 153, 149);          // IP Address for the ThingSpeak API
+EthernetClient client;
+
+byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x2A, 0x4A };
+byte loghost[] = { 192, 168, 1, 7 };
 
 typedef struct message_t {
   unsigned long id;
@@ -64,9 +63,6 @@ typedef struct message_t {
 unsigned long lastConnectionTime = 0;
 boolean       lastConnectionStatus = false;
 unsigned int  resetCounter = 0;
-unsigned int  keepalive_count = 0;
-unsigned int  keepalive_time = 0;
-
 
 /*******************************************************************************************************************/
 
@@ -99,8 +95,10 @@ void setup() {
   Wire.begin(9);                // Start I2C Bus as a Slave (Device Number 9)
   Wire.onReceive(receiveEvent); // register event
 
+#if defined(DEBUG) && DEBUG == LOGGER
   Syslog.setLoghost(loghost);
   Syslog.logger(1, 5, "", "rfm12b_thingspeak:", "setup finished");
+#endif
 
 } // setup
 
@@ -118,41 +116,30 @@ void loop() {
     resetCounter = 0;
   }
 
-  if ((millis() - keepalive_time) > 30000) {
-    keepalive_count++;
-    keepalive_time = millis();
-    String postString = "&field1=" + String(keepalive_count) + "&field2=" + String(int(keepalive_time / 1000));
-    // updateThingSpeak(postString, APIKeyChannel1);
-    Serial.println(postString);
-  }
-
   if (bufblk) {
     // the I2C buffer is full and needs to be processed
     message_t *message = (message_t *)buf;
 
-    //    DEBUG_PRINTLN("packet received");
-    //    DEBUG_PRINT(message->id);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT(message->counter);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT2(message->value1, 2);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT2(message->value2, 2);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT2(message->value3, 2);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT2(message->value4, 2);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINT2(message->value5, 2);
-    //    DEBUG_PRINT(",\t");
-    //    DEBUG_PRINTLN(message->crc);
+    DEBUG_PRINTLN("packet received");
+    DEBUG_PRINT(message->id);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT(message->counter);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value1, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value2, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value3, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value4, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINT2(message->value5, 2);
+    DEBUG_PRINT(",\t");
+    DEBUG_PRINTLN(message->crc);
 
     if (message->crc == crc_buf((char *)message, sizeof(message_t) - sizeof(unsigned long))) {
 
       DEBUG_PRINTLN("CRC valid.");
-
-      // String postString = "id=" + String(message->id) + " counter=" + String(message->counter);
-      // DEBUG_PRINTLN(postString);
 
       String postString = "&field1=" + String(message->value1) + "&field2=" + String(message->value2) + "&field3=" + String(message->value3) + "&field4=" + String(message->value4) + "&field5=" + String(message->value5) + "&field6=" + String(message->counter);
       DEBUG_PRINTLN(postString);
@@ -160,7 +147,7 @@ void loop() {
       // connect to ThingSpeak and forward the received message
       switch (message->id) {
         case 1:
-          // node 1 is the receiving node, which does not have sensors
+          updateThingSpeak(postString, APIKeyChannel1);
           break;
         case 2:
           updateThingSpeak(postString, APIKeyChannel2);
