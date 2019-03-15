@@ -5,7 +5,7 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <Wire.h>
-#include <String.h>
+#include <string.h>
 
 #include "secret.h"
 

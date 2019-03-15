@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <String.h>
+#include <string.h>
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
 #include <FS.h>

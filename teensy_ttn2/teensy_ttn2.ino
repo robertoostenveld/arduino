@@ -3,7 +3,7 @@
 #include <SPI.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <String.h>
+#include <string.h>
 
 // the LoRa keys and IDs are secret and should not be disclosed
 #include "secret.h"
