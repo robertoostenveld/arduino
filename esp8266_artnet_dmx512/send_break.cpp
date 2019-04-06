@@ -9,7 +9,7 @@
 // https://erg.abdn.ac.uk/users/gorry/eg3576/DMX-frame.html
 
 // there are two different implementations, both should work
-#define SERIAL_BREAK
+#define USE_SERIAL_BREAK
 
 /* UART for DMX output */
 #define SEROUT_UART 1
@@ -19,7 +19,7 @@
 #define DMX_MAB 12
 
 void sendBreak() {
-#ifdef SERIAL_BREAK
+#ifdef USE_SERIAL_BREAK
   // switch to another baud rate, see https://forum.arduino.cc/index.php?topic=382040.0
   Serial1.flush();
   Serial1.begin(90000, SERIAL_8N2);
