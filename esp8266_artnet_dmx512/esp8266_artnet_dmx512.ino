@@ -20,7 +20,6 @@
 #define MIN(x,y) (x<y ? x : y)
 #define ENABLE_MDNS
 #define ENABLE_WEBINTERFACE
-#define SERIAL_BREAK
 // #define COMMON_ANODE
 
 Config config;
@@ -266,14 +265,7 @@ void loop() {
       tic_loop = millis();
       frameCounter++;
 
-#ifdef SERIAL_BREAK
-      Serial1.begin(56700, SERIAL_8N2);
-      Serial1.write(0);
-      Serial1.begin(250000, SERIAL_8N2);
-#else
-      // Send "break" using low-level code
       sendBreak();
-#endif
 
       Serial1.write(0); // Start-Byte
       // send out the value of the selected channels (up to 512)
