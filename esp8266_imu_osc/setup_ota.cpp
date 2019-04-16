@@ -1,4 +1,5 @@
 #include "setup_ota.h"
+#include "rgb_led.h"
 
 extern ESP8266WebServer server;
 extern Config config;
@@ -245,4 +246,3 @@ void handleJSON() {
   // some of the settings require re-initialization
   ESP.restart();
 }
-

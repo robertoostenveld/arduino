@@ -15,7 +15,6 @@
 */
 
 #include <Arduino.h>
-#include <Wire.h>
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>

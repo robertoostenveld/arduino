@@ -5,11 +5,14 @@
 #ifndef __AHRS_H_
 #define __AHRS_H_
 
+#include <Arduino.h>
+#include <math.h>
+
 class ahrs {
   public:
     ahrs(void);
     ~ahrs(void);
-    byte begin(void);
+    uint8_t begin(void);
     void update(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float);
     float pitch, yaw, roll;
 

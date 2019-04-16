@@ -5,6 +5,9 @@
 #ifndef __MPU9250_H_
 #define __MPU9250_H_
 
+#include <Arduino.h>
+#include <Wire.h>
+
 #define MPU9250_CALIBRATE_MAG  false 
 
 #define MPU9250_ADDRESS 0x68      // MPU9250 address when ADO = 1

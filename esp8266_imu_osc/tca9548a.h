@@ -1,6 +1,9 @@
 #ifndef __TCA9548A_H_
 #define __TCA9548A_H_
 
+#include <Arduino.h>
+#include <Wire.h>
+
 #define TCA9548A_ADDRESS    0x70
 
 class tca9548a {
@@ -15,4 +18,3 @@ class tca9548a {
 }; // class
 
 #endif
-

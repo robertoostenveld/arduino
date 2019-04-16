@@ -13,7 +13,7 @@ ahrs::~ahrs(void) {
 }
 
 
-byte ahrs::begin(void) {
+uint8_t ahrs::begin(void) {
   return 0;
 }
 
@@ -261,4 +261,3 @@ void ahrs::update(float ax, float ay, float az, float gx, float gy, float gz, fl
   lin_ay = ay + a32;
   lin_az = az - a33;
 }
-

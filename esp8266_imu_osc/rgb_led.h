@@ -1,6 +1,8 @@
 #ifndef _RGB_LED_H_
 #define _RGB_LED_H_
 
+#include <Arduino.h>
+
 #define LED_R D5
 #define LED_G D6
 #define LED_B D7
@@ -20,4 +22,3 @@ void ledCyan();
 void ledBlack();
 
 #endif
-
