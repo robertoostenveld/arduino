@@ -84,9 +84,9 @@ switched off.
 
 ## References
 
-You can find the conceptual design and some photos on my [home page](http://robertoostenveld.nl/?p=835&preview=true).
+You can find the conceptual design and some photos on my [home page](http://robertoostenveld.nl/?p=835).
 
-The IMU and AHRS code is mostly based on https://github.com/kriswiner/MPU9250.
+The IMU and AHRS code is mostly based on https://github.com/kriswiner/MPU9250, but uses the modified version from https://github.com/sparkfun/SparkFun_MPU-9250_Breakout_Arduino_Library (which wraps it in an object), to which I made further modifications in https://github.com/robertoostenveld/SparkFun_MPU-9250_Breakout_Arduino_Library (which implements continuous calibration).
 
 The interface for the wifi configuration is based on https://github.com/tzapu/WiFiManager.
 
