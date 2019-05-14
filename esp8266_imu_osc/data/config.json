@@ -1,7 +1,10 @@
 {
-	"sensors": 1,
+	"sensors": 8,
 	"decimate": 1,
+	"calibrate": 0,
 	"ahrs": 0,
-	"destination": "192.168.1.144",
+	"quaternion": 0,
+	"termperature": 0,
+	"destination": "192.168.1.182",
 	"port": 8000
 }

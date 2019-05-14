@@ -24,11 +24,14 @@
 #include <OSCBundle.h>
 #include <FS.h>
 
+// from https://github.com/sparkfun/SparkFun_MPU-9250_Breakout_Arduino_Library
+#include <MPU9250.h>
+#include <quaternionFilters.h>
+
 #include "tca9548a.h"
-#include "mpu9250.h"
-#include "ahrs.h"
 #include "setup_ota.h"
 #include "rgb_led.h"
+#include "I2Cscan.h"
 
 #define debugLevel 1          // 0 = silent, 1 = blink led, 2 = print on serial console
 #define maxSensors 8
@@ -38,14 +41,17 @@
 #define ENABLE_MDNS
 #define ENABLE_IMU
 
+// Use either of these to select which I2C address your device is using
+#define MPU9250_ADDRESS MPU9250_ADDRESS_AD0
+// #define MPU9250_ADDRESS MPU9250_ADDRESS_AD1
+
 Config config;
 ESP8266WebServer server(80);
 const char* host = "IMU-OSC";
 const char* version = __DATE__ " / " __TIME__;
 
 tca9548a tca;
-mpu9250 mpu[maxSensors];
-ahrs ahrs[maxSensors];
+MPU9250 mpu[maxSensors];
 String id[maxSensors] = {"imu1", "imu2", "imu3", "imu4", "imu5", "imu6", "imu7", "imu8"};
 
 // UDP destination address, these will be changed according to the configuration
@@ -53,8 +59,8 @@ IPAddress outIp(192, 168, 1, 100);
 const unsigned int inPort = 9000, outPort = 8000;
 WiFiUDP Udp;
 
-float deltat = 0.0f, sum = 0.0f;          // integration interval for both filter schemes
 float rate = 0.0f;
+float deltat = 0.0f, sum = 0.0f;          // integration interval for both filter schemes
 uint32_t Now = 0, Last[maxSensors];       // used to calculate integration interval
 uint32_t lastDisplay = 0, lastTemperature = 0, lastTransmit = 0;
 unsigned int debugCount = 0, measurementCount = 0;
@@ -77,6 +83,11 @@ void setup() {
 
   Wire.begin(5, 4);  // SDA=D1=5, SCL=D2=4
   Wire.setClock(400000L);
+
+  pinMode(0, OUTPUT);    // RESET=D3=0
+  digitalWrite(0, LOW);  // reset on
+  delay(10);
+  digitalWrite(0, HIGH);  // reset off
 
   SPIFFS.begin();
 
@@ -193,7 +204,10 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     CONFIG_TO_JSON(sensors, "sensors");
     CONFIG_TO_JSON(decimate, "decimate");
+    CONFIG_TO_JSON(calibrate, "calibrate");
     CONFIG_TO_JSON(ahrs, "ahrs");
+    CONFIG_TO_JSON(quaternion, "quaternion");
+    CONFIG_TO_JSON(temperature, "temperature");
     S_CONFIG_TO_JSON(destination, "destination");
     CONFIG_TO_JSON(port, "port");
     root["version"] = version;
@@ -225,20 +239,107 @@ void setup() {
   // Look for I2C devices on the bus
   I2Cscan();
 
+  byte status = 0;
   for (int i = 0; i < config.sensors; i++) {
-    byte status = 0;
     Serial.println("====================================================");
     Serial.println(String("initializing " + id[i]));
     tca.select(i);
-    status += mpu[i].begin();
-    status += ahrs[i].begin();
+
+    // Read the WHO_AM_I register, this is a good test of communication
+    byte c = mpu[i].readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
+    Serial.print(F("MPU9250 I AM 0x"));
+    Serial.print(c, HEX);
+    Serial.print(F(" I should be 0x"));
+    Serial.println(0x71, HEX);
+
+    // WHO_AM_I should be 0x71 for MPU9250 or 0x73 for MPU9255
+    if ((c == 0x71) || (c == 0x73)) {
+      Serial.println(F("MPU9250 is online..."));
+
+      // Start by performing self test and reporting values
+      mpu[i].MPU9250SelfTest(mpu[i].selfTest);
+      Serial.print(F("x-axis self test: acceleration trim within : "));
+      Serial.print(mpu[i].selfTest[0], 1); Serial.println("% of factory value");
+      Serial.print(F("y-axis self test: acceleration trim within : "));
+      Serial.print(mpu[i].selfTest[1], 1); Serial.println("% of factory value");
+      Serial.print(F("z-axis self test: acceleration trim within : "));
+      Serial.print(mpu[i].selfTest[2], 1); Serial.println("% of factory value");
+      Serial.print(F("x-axis self test: gyration trim within : "));
+      Serial.print(mpu[i].selfTest[3], 1); Serial.println("% of factory value");
+      Serial.print(F("y-axis self test: gyration trim within : "));
+      Serial.print(mpu[i].selfTest[4], 1); Serial.println("% of factory value");
+      Serial.print(F("z-axis self test: gyration trim within : "));
+      Serial.print(mpu[i].selfTest[5], 1); Serial.println("% of factory value");
+
+      // Calibrate gyro and accelerometers, load biases in bias registers
+      mpu[i].calibrateMPU9250(mpu[i].gyroBias, mpu[i].accelBias);
+
+      mpu[i].initMPU9250();
+      // Initialize device for active mode read of acclerometer, gyroscope, and temperature
+      Serial.println("MPU9250 initialized for active data mode....");
+
+      // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
+      byte d = mpu[i].readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
+      Serial.print("AK8963 ");
+      Serial.print("I AM 0x");
+      Serial.print(d, HEX);
+      Serial.print(" I should be 0x");
+      Serial.println(0x48, HEX);
+
+      if (d != 0x48) {
+        status++;
+      }
+
+//      mpu[i].Gscale = MPU9250::GFS_2000DPS;
+//      mpu[i].Ascale = MPU9250::AFS_2G;
+//      mpu[i].Mmode = MPU9250::M_100HZ;
+
+      // Get magnetometer calibration from AK8963 ROM
+      mpu[i].initAK8963(mpu[i].factoryMagCalibration);
+      // Initialize device for active mode read of magnetometer
+      Serial.println("AK8963 initialized for active data mode....");
+
+      //  Serial.println("Calibration values: ");
+      Serial.print("X-Axis factory magnetometer adjustment value ");
+      Serial.println(mpu[i].factoryMagCalibration[0], 2);
+      Serial.print("Y-Axis factory magnetometer adjustment value ");
+      Serial.println(mpu[i].factoryMagCalibration[1], 2);
+      Serial.print("Z-Axis factory magnetometer adjustment value ");
+      Serial.println(mpu[i].factoryMagCalibration[2], 2);
+
+      // Get sensor resolutions, only need to do this once
+      mpu[i].getAres();
+      mpu[i].getGres();
+      mpu[i].getMres();
+
+      if (config.calibrate == 1) {
+        // The next call delays for 4 seconds, and then records about 15 seconds of
+        // data to calculate bias and scale.
+        mpu[i].magCalMPU9250(mpu[i].magBias, mpu[i].magScale);
+
+        Serial.println("AK8963 mag biases (mG)");
+        Serial.println(mpu[i].magBias[0]);
+        Serial.println(mpu[i].magBias[1]);
+        Serial.println(mpu[i].magBias[2]);
+
+        Serial.println("AK8963 mag scale (mG)");
+        Serial.println(mpu[i].magScale[0]);
+        Serial.println(mpu[i].magScale[1]);
+        Serial.println(mpu[i].magScale[2]);
+      }
+
+    } // if (c == 0x71)
+    else {
+      status++;
+    }
+
     if (status) {
-      Serial.println("failed");
+      Serial.println("not present");
       config.sensors = i;  // the index starts at 0
       break;
     }
-    Serial.println("====================================================");
-  }
+  } // for each sensor
+  Serial.println("====================================================");
 #endif
 
   Serial.println("====================================================");
@@ -249,10 +350,7 @@ void setup() {
 void loop() {
   OSCBundle bundle;
   char msgId[16];
-  // variables to hold latest MPU9250 sensor data values
-  float roll, yaw, pitch;
-  float ax, ay, az, gx, gy, gz, mx, my, mz;
-  float temp = 20;
+  const float *q;
 
 #ifdef ENABLE_WEBINTERFACE
   server.handleClient();
@@ -270,103 +368,199 @@ void loop() {
 #ifdef ENABLE_IMU
   for (int i = 0; i < config.sensors; i++) {
     tca.select(i);
-    while (mpu[i].newData() == 0)
+
+    while (!(mpu[i].readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01))
       delay(1);
 
-    Now = micros();
-    deltat = ((Now - Last[i]) / 1000000.0f); // set integration time by time elapsed since last filter update
+    mpu[i].readAccelData(mpu[i].accelCount);  // Read the x/y/z adc values
+    // Now we'll calculate the accleration value into actual g's
+    // This depends on scale being set
+    mpu[i].ax = (float)mpu[i].accelCount[0] * mpu[i].aRes; // - mpu[i].accelBias[0];
+    mpu[i].ay = (float)mpu[i].accelCount[1] * mpu[i].aRes; // - mpu[i].accelBias[1];
+    mpu[i].az = (float)mpu[i].accelCount[2] * mpu[i].aRes; // - mpu[i].accelBias[2];
 
-    mpu[i].readAccelData(&ax, &ay, &az);
-    mpu[i].readGyroData(&gx, &gy, &gz);
-    mpu[i].readMagData(&mx, &my, &mz);
+    mpu[i].readGyroData(mpu[i].gyroCount);  // Read the x/y/z adc values
+    // Calculate the gyro value into actual degrees per second
+    // This depends on scale being set
+    mpu[i].gx = (float)mpu[i].gyroCount[0] * mpu[i].gRes; // - mpu[i].gyroBias[0];
+    mpu[i].gy = (float)mpu[i].gyroCount[1] * mpu[i].gRes; // - mpu[i].gyroBias[1];
+    mpu[i].gz = (float)mpu[i].gyroCount[2] * mpu[i].gRes; // - mpu[i].gyroBias[2];
 
-    String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(ax).add(ay).add(az);
-    String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(gx).add(gy).add(gz);
-    String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mx).add(my).add(mz);
+    mpu[i].readMagData(mpu[i].magCount);  // Read the x/y/z adc values
+    // Calculate the magnetometer values in milliGauss
+    // Get actual magnetometer value, this depends on scale being set
+    // Include factory calibration per data sheet and user environmental corrections
+    mpu[i].mx = (float)mpu[i].magCount[0] * mpu[i].mRes * mpu[i].factoryMagCalibration[0] - mpu[i].magBias[0];
+    mpu[i].my = (float)mpu[i].magCount[1] * mpu[i].mRes * mpu[i].factoryMagCalibration[1] - mpu[i].magBias[1];
+    mpu[i].mz = (float)mpu[i].magCount[2] * mpu[i].mRes * mpu[i].factoryMagCalibration[2] - mpu[i].magBias[2];
 
-    if (config.ahrs) {
-      ahrs[i].update(ax, ay, az, gx, gy, gz, my, mx, mz, deltat);
-      roll = ahrs[i].roll;
-      yaw = ahrs[i].yaw;
-      pitch = ahrs[i].pitch;
-      String(id[i] + "/roll").toCharArray(msgId, 16); bundle.add(msgId).add(roll);
-      String(id[i] + "/yaw").toCharArray(msgId, 16); bundle.add(msgId).add(yaw);
-      String(id[i] + "/pitch").toCharArray(msgId, 16); bundle.add(msgId).add(pitch);
+    String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].ax).add(mpu[i].ay).add(mpu[i].az);
+    String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].gx).add(mpu[i].gy).add(mpu[i].gz);
+    String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].mx).add(mpu[i].my).add(mpu[i].mz);
+
+    if (config.calibrate == 2) {
+      mpu[i].magContinuousCalMPU9250(mpu[i].magCount, mpu[i].magBias, mpu[i].magScale);
     }
 
-    String(id[i] + "/rate").toCharArray(msgId, 16); bundle.add(msgId).add(1000000.0f / (Now - Last[i]));
+    if (config.ahrs || config.quaternion) {
+      // Must be called before updating quaternions!
+      mpu[i].updateTime();
+
+      // Sensors x (y)-axis of the accelerometer is aligned with the y (x)-axis of
+      // the magnetometer; the magnetometer z-axis (+ down) is opposite to z-axis
+      // (+ up) of accelerometer and gyro! We have to make some allowance for this
+      // orientationmismatch in feeding the output to the quaternion filter. For the
+      // MPU-9250, we have chosen a magnetic rotation that keeps the sensor forward
+      // along the x-axis just like in the LSM9DS0 sensor. This rotation can be
+      // modified to allow any convenient orientation convention. This is ok by
+      // aircraft orientation standards! Pass gyro rate as rad/s
+
+      // MadgwickQuaternionUpdate(mpu[i].ax, mpu[i].ay, mpu[i].az, mpu[i].gx * DEG_TO_RAD, mpu[i].gy * DEG_TO_RAD, mpu[i].gz * DEG_TO_RAD, mpu[i].my, mpu[i].mx, -mpu[i].mz, mpu[i].deltat);
+      MahonyQuaternionUpdate(mpu[i].ax, mpu[i].ay, mpu[i].az, mpu[i].gx * DEG_TO_RAD, mpu[i].gy * DEG_TO_RAD, mpu[i].gz * DEG_TO_RAD, mpu[i].my, mpu[i].mx, -mpu[i].mz, mpu[i].deltat);
+
+      // Define output variables from updated quaternion---these are Tait-Bryan
+      // angles, commonly used in aircraft orientation. In this coordinate system,
+      // the positive z-axis is down toward Earth. Yaw is the angle between Sensor
+      // x-axis and Earth magnetic North (or true North if corrected for local
+      // declination, looking down on the sensor positive yaw is counterclockwise.
+      // Pitch is angle between sensor x-axis and Earth ground plane, toward the
+      // Earth is positive, up toward the sky is negative. Roll is angle between
+      // sensor y-axis and Earth ground plane, y-axis up is positive roll. These
+      // arise from the definition of the homogeneous rotation matrix constructed
+      // from quaternions. Tait-Bryan angles as well as Euler angles are
+      // non-commutative; that is, the get the correct orientation the rotations
+      // must be applied in the correct order which for this configuration is yaw,
+      // pitch, and then roll.
+      // For more see
+      // http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+      // which has additional links.
+
+      q = getQ();
+      mpu[i].yaw    = atan2(2.0f * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3]);
+      mpu[i].pitch  = -asin(2.0f * (q[1] * q[3] - q[0] * q[2]));
+      mpu[i].roll   = atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
+      mpu[i].yaw   *= RAD_TO_DEG;
+      mpu[i].pitch *= RAD_TO_DEG;
+      mpu[i].roll  *= RAD_TO_DEG;
+
+      // See http://www.ngdc.noaa.gov/geomag-web/#declination
+      // Declination of SparkFun Electronics (40°05'26.6"N 105°11'05.9"W) is 8° 30' E  ± 0° 21' (or 8.5°) on 2016-07-19
+      // mpu[i].yaw  -= 8.5;
+      // Declination at Nijmegen, NL is 1 degrees 31 minutes and 00 seconds on 2017-12-16
+      mpu[i].yaw  -= 1.5167;
+
+      if (config.ahrs) {
+        String(id[i] + "/roll").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].roll);
+        String(id[i] + "/yaw").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].yaw);
+        String(id[i] + "/pitch").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].pitch);
+      }
+      if (config.quaternion) {
+        String(id[i] + "/q").toCharArray(msgId, 16); bundle.add(msgId).add(q[0]).add(q[1]).add(q[2]).add(q[3]);
+      }
+    } // if ahrs or quaternion
+
+    if (config.temperature) {
+      mpu[i].tempCount = mpu[i].readTempData();  // Read the adc values
+      mpu[i].temperature = ((float) mpu[i].tempCount) / 333.87 + 21.0;  // Temperature in degrees Centigrade
+      String(id[i] + "/temp").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].temperature);
+    }
+
+    // this section is in micros
+    Now = millis();
+    rate = 1000000.0f / (Now - Last[i]);
+    String(id[i] + "/rate").toCharArray(msgId, 16); bundle.add(msgId).add(rate);
     String(id[i] + "/time").toCharArray(msgId, 16); bundle.add(msgId).add(Now / 1000000.0f);
-
-    // the temperature does not change very rapidly
-    if ((Now - lastTemperature) > 1000000) {
-      mpu[i].readTempData(&temp);
-      String(id[i] + "/temp").toCharArray(msgId, 16); bundle.add(msgId).add(temp);
-      // only update the last measurement time for the last sensor
-      if (i == (config.sensors - 1))
-        lastTemperature = Now;
-    }
-
     Last[i] = Now;
-  } // for loop over the IMUs
 
-  // the previous section was in micros, the following section in millis
-  Now = millis();
+    // the previous section was in micros, the following section in millis
+    Now = millis();
 
-  measurementCount++;
-  if ((measurementCount % config.decimate) == 0) {
-    // only send every Nth measurement
-    outIp.fromString(config.destination);
-    Udp.beginPacket(outIp, config.port);
-    bundle.send(Udp);
-    Udp.endPacket();
-    bundle.empty();
-    lastTransmit = Now;
-    measurementCount = 0;
-  }
-
-  debugCount++;
-  if ((debugLevel>0) && (Now - lastDisplay) > 1000) {
-    // Update the debug information every second, independent of data rates
-    long elapsedTime = Now - lastDisplay;
-    rate = 1000.0f * debugCount / elapsedTime, 2;
-
-    if (debugLevel>1) {
-      Serial.println("===============================================");
-      Serial.println("MPU9250: ");
-      Serial.println("===============================================");
-      Serial.print("ax = ");  Serial.print((int)1000 * ax);
-      Serial.print(" ay = "); Serial.print((int)1000 * ay);
-      Serial.print(" az = "); Serial.print((int)1000 * az); Serial.println(" mg");
-      Serial.print("gx = ");  Serial.print( gx, 2);
-      Serial.print(" gy = "); Serial.print( gy, 2);
-      Serial.print(" gz = "); Serial.print( gz, 2); Serial.println(" deg/s");
-      Serial.print("mx = ");  Serial.print( (int)mx );
-      Serial.print(" my = "); Serial.print( (int)my );
-      Serial.print(" mz = "); Serial.print( (int)mz ); Serial.println(" mG");
-
-      Serial.print("Gyro temperature = ");
-      Serial.print(temp, 1);
-      Serial.println(" degrees C"); // Print T values to tenths of degree C
-
-      Serial.print("sensors = "); Serial.println(config.sensors);
-      Serial.print("decimate = "); Serial.println(config.decimate);
-      Serial.print("ahrs = "); Serial.println(config.ahrs);
-      Serial.print("rate = "); Serial.print(rate); Serial.println(" Hz");
-      Serial.print("count = "); Serial.println(debugCount);
-      Serial.print("elapsedTime = "); Serial.print(elapsedTime); Serial.println(" ms");
+    measurementCount++;
+    if ((measurementCount % config.decimate) == 0) {
+      // only send every Nth measurement
+      outIp.fromString(config.destination);
+      Udp.beginPacket(outIp, config.port);
+      bundle.send(Udp);
+      Udp.endPacket();
+      bundle.empty();
+      lastTransmit = Now;
+      measurementCount = 0;
     }
 
-    // the following causes the green LED to blink on and off every second
-    if (digitalRead(LED_G)) {
-      ledBlack();
-    }
-    else {
-      ledGreen();
-    }
+    debugCount++;
+    if ((debugLevel > 0) && (Now - lastDisplay) > 1000) {
+      // Update the debug information every second, independent of data rates
+      long elapsedTime = Now - lastDisplay;
+      rate = 1000.0f * debugCount / elapsedTime, 2;
 
-    lastDisplay = millis();
-    debugCount = 0;
-  }
+      if (debugLevel > 1) {
+        // Print acceleration values in milligs!
+        Serial.print("X-acceleration: "); Serial.print(1000 * mpu[i].ax);
+        Serial.print(" mg ");
+        Serial.print("Y-acceleration: "); Serial.print(1000 * mpu[i].ay);
+        Serial.print(" mg ");
+        Serial.print("Z-acceleration: "); Serial.print(1000 * mpu[i].az);
+        Serial.println(" mg ");
+
+        // Print gyro values in degree/sec
+        Serial.print("X-gyro rate: "); Serial.print(mpu[i].gx, 3);
+        Serial.print(" degrees/sec ");
+        Serial.print("Y-gyro rate: "); Serial.print(mpu[i].gy, 3);
+        Serial.print(" degrees/sec ");
+        Serial.print("Z-gyro rate: "); Serial.print(mpu[i].gz, 3);
+        Serial.println(" degrees/sec");
+
+        // Print mag values in milliGauss
+        Serial.print("X-mag field: "); Serial.print(mpu[i].mx);
+        Serial.print(" mG ");
+        Serial.print("Y-mag field: "); Serial.print(mpu[i].my);
+        Serial.print(" mG ");
+        Serial.print("Z-mag field: "); Serial.print(mpu[i].mz);
+        Serial.println(" mG");
+
+        if (config.ahrs) {
+          // Print AHRS values in degrees
+          Serial.print("Yaw, Pitch, Roll: ");
+          Serial.print(mpu[i].yaw, 2);
+          Serial.print(", ");
+          Serial.print(mpu[i].pitch, 2);
+          Serial.print(", ");
+          Serial.print(mpu[i].roll, 2);
+          Serial.println(" degrees");
+        } // if (config.ahrs)
+
+        if (config.quaternion) {
+          // Print quaternion values
+          Serial.print("Quaternion: ");
+          Serial.print(q[0], 4);
+          Serial.print(", ");
+          Serial.print(q[1], 4);
+          Serial.print(", ");
+          Serial.print(q[2], 4);
+          Serial.print(", ");
+          Serial.print(q[3], 4);
+          Serial.println("");
+        } // if (config.ahrs)
+
+        if (config.temperature) {
+          Serial.print("Temperature: ");
+          Serial.print(mpu[i].temperature, 1);
+          Serial.println(" degrees C");
+        }
+      } // if debugLevel>1
+
+      // the following causes the green LED to blink on and off every second
+      if (digitalRead(LED_G)) {
+        ledBlack();
+      }
+      else {
+        ledGreen();
+      }
+
+      lastDisplay = millis();
+      debugCount = 0;
+    } // if debugLevel>0
+  } // for each sensor
 #endif
 
 } // loop

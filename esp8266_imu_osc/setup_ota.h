@@ -33,7 +33,10 @@ void handleJSON();
 struct Config {
   int sensors;
   int decimate;
+  int calibrate;
   int ahrs;
+  int quaternion;
+  int temperature;
   char destination[32];
   int port;
 };

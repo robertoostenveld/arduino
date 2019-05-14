@@ -16,6 +16,30 @@ using the Open Sound Control (OSC) format.
 The sampling rate that can be achieved with one sensor is around
 200 Hz, the sampling rate for 8 sensors is around 60 Hz.
 
+## Hardware connections
+
+The ESP8266 is connected to a TCA9548a I2C multiplexer as follows:
+
+- SDA=D1=5
+- SCL=D2=4
+- RESET=D3=0
+- VCC
+- GND
+
+The multiplexer is in turn connected to eight MPU9250 sensors with the I2C connections:
+
+- SDA
+- SCL
+- VCC
+- GND
+
+Furthermore, the ESP8266 is connected (over some resistors) to a common cathode RGB LED as follows:
+
+- LED_R=D5
+- LED_G=D6
+- LED_B=D7
+- GND
+
 ## Configuration
 
 Once connected to your local network, you can configure some settings
@@ -31,7 +55,7 @@ The following settings can be configured
 
 ## Status LED
 
-The device has a RGB led to indicate the status:
+The device has a RGB LED to indicate the status:
   * yellow - initial configuration (should be short)
   * red - failed to connect to WiFi network, access point started
   * constant green - setting up all sensors (should be relatively short)
@@ -41,7 +65,7 @@ The device has a RGB led to indicate the status:
 ## Decimation
 
 The device will sample as fast as possible and send all data in UDP
-packets. The amount of network trafick can get very large and in
+packets. The amount of network traffic can get very large and in
 my experience this can clog up your network. You can specify a
 decimation factor, which specifies that only every Nth measurement
 is to be transmitted.
