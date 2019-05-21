@@ -34,6 +34,7 @@ struct Config {
   int sensors;
   int decimate;
   int calibrate;
+  int raw;
   int ahrs;
   int quaternion;
   int temperature;

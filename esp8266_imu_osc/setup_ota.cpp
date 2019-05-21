@@ -33,6 +33,7 @@ bool initialConfig() {
   config.sensors = 8;
   config.decimate = 1;
   config.calibrate = 0;
+  config.raw = 1;
   config.ahrs = 0;
   config.quaternion = 0;
   config.temperature = 0;
@@ -71,6 +72,7 @@ bool loadConfig() {
   JSON_TO_CONFIG(sensors, "sensors");
   JSON_TO_CONFIG(decimate, "decimate");
   JSON_TO_CONFIG(calibrate, "calibrate");
+  JSON_TO_CONFIG(raw, "raw");
   JSON_TO_CONFIG(ahrs, "ahrs");
   JSON_TO_CONFIG(quaternion, "quaternion");
   JSON_TO_CONFIG(temperature, "temperature");
@@ -88,9 +90,10 @@ bool saveConfig() {
   CONFIG_TO_JSON(sensors, "sensors");
   CONFIG_TO_JSON(decimate, "decimate");
   CONFIG_TO_JSON(calibrate, "calibrate");
+  CONFIG_TO_JSON(raw, "raw");
   CONFIG_TO_JSON(ahrs, "ahrs");
   CONFIG_TO_JSON(quaternion, "quaternion");
-  CONFIG_TO_JSON(temperature, "temperatures");
+  CONFIG_TO_JSON(temperature, "temperature");
   S_CONFIG_TO_JSON(destination, "destination");
   CONFIG_TO_JSON(port, "port");
 
@@ -231,6 +234,7 @@ void handleJSON() {
     JSON_TO_CONFIG(sensors, "sensors");
     JSON_TO_CONFIG(decimate, "decimate");
     JSON_TO_CONFIG(calibrate, "calibrate");
+    JSON_TO_CONFIG(raw, "raw");
     JSON_TO_CONFIG(ahrs, "ahrs");
     JSON_TO_CONFIG(quaternion, "quaternion");
     JSON_TO_CONFIG(temperature, "temperature");
@@ -243,6 +247,7 @@ void handleJSON() {
     KEYVAL_TO_CONFIG(sensors, "sensors");
     KEYVAL_TO_CONFIG(decimate, "decimate");
     KEYVAL_TO_CONFIG(calibrate, "calibrate");
+    KEYVAL_TO_CONFIG(raw, "raw");
     KEYVAL_TO_CONFIG(ahrs, "ahrs");
     KEYVAL_TO_CONFIG(quaternion, "quaternion");
     KEYVAL_TO_CONFIG(temperature, "temperature");
@@ -251,7 +256,7 @@ void handleJSON() {
     handleStaticFile("/reload_success.html");
   }
   saveConfig();
-  // blink five times
+  // blink five times, this takes 2 seconds
   for (int i = 0; i < 5; i++) {
     ledRed();
     delay(200);
