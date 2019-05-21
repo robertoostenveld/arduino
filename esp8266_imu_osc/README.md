@@ -49,7 +49,11 @@ or (for Windows) to the IP address of the device.
 The following settings can be configured
   * number of IMU sensors, the maxiumum is 8 (number)
   * decimation factor (number, see below)
-  * whether pitch, roll and yaw are to be computed in the AHRS reference frame (boolean)
+  * calibration 0=off, 1=startup, 2=continuous
+  * whether raw accelerometer, gyro and magnetometer data are to be sent over OSC
+  * whether pitch, roll and yaw are to be sent over OSC
+  * whether quaternion values are to be sent over OSC
+  * whether temperature is to sent over OSC
   * destimation IP address (xxx.xxx.xxx.xxx)
   * destination port (number, the default for OSC is to listen on 8000)
 
