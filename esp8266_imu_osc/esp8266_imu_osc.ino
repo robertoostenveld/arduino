@@ -81,13 +81,13 @@ void setup() {
   WiFi.hostname(host);
   WiFi.begin();
 
-  Wire.begin(5, 4);  // SDA=D1=5, SCL=D2=4
-  Wire.setClock(400000L);
-
-  pinMode(0, OUTPUT);    // RESET=D3=0
-  digitalWrite(0, LOW);  // reset on
+  pinMode(0, OUTPUT);     // RESET=D3=0
+  digitalWrite(0, LOW);   // reset on
   delay(10);
   digitalWrite(0, HIGH);  // reset off
+
+  Wire.begin(5, 4);       // SDA=D1=5, SCL=D2=4
+  Wire.setClock(400000L);
 
   SPIFFS.begin();
 
@@ -205,6 +205,7 @@ void setup() {
     CONFIG_TO_JSON(sensors, "sensors");
     CONFIG_TO_JSON(decimate, "decimate");
     CONFIG_TO_JSON(calibrate, "calibrate");
+    CONFIG_TO_JSON(raw, "raw");
     CONFIG_TO_JSON(ahrs, "ahrs");
     CONFIG_TO_JSON(quaternion, "quaternion");
     CONFIG_TO_JSON(temperature, "temperature");
@@ -247,7 +248,7 @@ void setup() {
 
     // Read the WHO_AM_I register, this is a good test of communication
     byte c = mpu[i].readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);
-    Serial.print(F("MPU9250 I AM 0x"));
+    Serial.print(F("MPU9250 I am 0x"));
     Serial.print(c, HEX);
     Serial.print(F(" I should be 0x"));
     Serial.println(0x71, HEX);
@@ -281,7 +282,7 @@ void setup() {
       // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
       byte d = mpu[i].readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);
       Serial.print("AK8963 ");
-      Serial.print("I AM 0x");
+      Serial.print("I am 0x");
       Serial.print(d, HEX);
       Serial.print(" I should be 0x");
       Serial.println(0x48, HEX);
@@ -289,10 +290,6 @@ void setup() {
       if (d != 0x48) {
         status++;
       }
-
-//      mpu[i].Gscale = MPU9250::GFS_2000DPS;
-//      mpu[i].Ascale = MPU9250::AFS_2G;
-//      mpu[i].Mmode = MPU9250::M_100HZ;
 
       // Get magnetometer calibration from AK8963 ROM
       mpu[i].initAK8963(mpu[i].factoryMagCalibration);
@@ -313,8 +310,7 @@ void setup() {
       mpu[i].getMres();
 
       if (config.calibrate == 1) {
-        // The next call delays for 4 seconds, and then records about 15 seconds of
-        // data to calculate bias and scale.
+        // The next call delays for 4 seconds, and then records about 15 seconds of data to calculate bias and scale.
         mpu[i].magCalMPU9250(mpu[i].magBias, mpu[i].magScale);
 
         Serial.println("AK8963 mag biases (mG)");
@@ -359,7 +355,7 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     ledRed();
   }
-  else if ((millis() - tic_web) < 5000) {
+  else if ((millis() - tic_web) < 3000) {
     // serving content on the http interface takes a lot of resources and
     // messes up the regular timing of the acquisition and transmission
     ledBlue();
@@ -394,9 +390,11 @@ void loop() {
     mpu[i].my = (float)mpu[i].magCount[1] * mpu[i].mRes * mpu[i].factoryMagCalibration[1] - mpu[i].magBias[1];
     mpu[i].mz = (float)mpu[i].magCount[2] * mpu[i].mRes * mpu[i].factoryMagCalibration[2] - mpu[i].magBias[2];
 
-    String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].ax).add(mpu[i].ay).add(mpu[i].az);
-    String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].gx).add(mpu[i].gy).add(mpu[i].gz);
-    String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].mx).add(mpu[i].my).add(mpu[i].mz);
+    if (config.raw) {
+      String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].ax).add(mpu[i].ay).add(mpu[i].az);
+      String(id[i] + "/g").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].gx).add(mpu[i].gy).add(mpu[i].gz);
+      String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].mx).add(mpu[i].my).add(mpu[i].mz);
+    }
 
     if (config.calibrate == 2) {
       mpu[i].magContinuousCalMPU9250(mpu[i].magCount, mpu[i].magBias, mpu[i].magScale);
@@ -466,7 +464,7 @@ void loop() {
     }
 
     // this section is in micros
-    Now = millis();
+    Now = micros();
     rate = 1000000.0f / (Now - Last[i]);
     String(id[i] + "/rate").toCharArray(msgId, 16); bundle.add(msgId).add(rate);
     String(id[i] + "/time").toCharArray(msgId, 16); bundle.add(msgId).add(Now / 1000000.0f);
