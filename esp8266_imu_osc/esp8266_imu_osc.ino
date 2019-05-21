@@ -24,7 +24,7 @@
 #include <OSCBundle.h>
 #include <FS.h>
 
-// from https://github.com/sparkfun/SparkFun_MPU-9250_Breakout_Arduino_Library
+// from https://github.com/robertoostenveld/SparkFun_MPU-9250_Breakout_Arduino_Library
 #include <MPU9250.h>
 #include <quaternionFilters.h>
 
