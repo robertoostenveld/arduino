@@ -2,6 +2,7 @@
 	"sensors": 8,
 	"decimate": 1,
 	"calibrate": 0,
+	"raw": 1,
 	"ahrs": 0,
 	"quaternion": 0,
 	"termperature": 0,
