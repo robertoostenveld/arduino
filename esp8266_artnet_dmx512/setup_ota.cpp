@@ -55,10 +55,10 @@ bool loadConfig() {
   configFile.readBytes(buf.get(), size);
   configFile.close();
 
-  StaticJsonBuffer<300> jsonBuffer;
-  JsonObject& root = jsonBuffer.parseObject(buf.get());
-
-  if (!root.success()) {
+  StaticJsonDocument<300> jsonBuffer;
+  DynamicJsonDocument root(1024);
+  DeserializationError error = deserializeJson(root, buf.get());
+  if (error) {
     Serial.println("Failed to parse config file");
     return false;
   }
@@ -72,8 +72,7 @@ bool loadConfig() {
 
 bool saveConfig() {
   Serial.println("saveConfig");
-  StaticJsonBuffer<300> jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
+  DynamicJsonDocument root(300);
 
   CONFIG_TO_JSON(universe, "universe");
   CONFIG_TO_JSON(channels, "channels");
@@ -86,7 +85,7 @@ bool saveConfig() {
   }
   else {
     Serial.println("Writing to config file");
-    root.printTo(configFile);
+    serializeJson(root, configFile);
     configFile.close();
     return true;
   }
@@ -205,11 +204,11 @@ void handleJSON() {
   Serial.println(message);
 
   // this gets called in response to either a PUT or a POST
-  if (server.hasArg("plain")) {
+  if (server.args() == 1 && server.hasArg("plain")) {
     // parse it as JSON object
-    StaticJsonBuffer<300> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
-    if (!root.success()) {
+    DynamicJsonDocument root(300);
+    DeserializationError error = deserializeJson(root, server.arg("plain"));
+    if (error) {
       handleStaticFile("/reload_failed.html");
       return;
     }
