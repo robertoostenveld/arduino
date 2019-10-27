@@ -202,8 +202,7 @@ void setup() {
 
   server.on("/json", HTTP_GET, [] {
     tic_web = millis();
-    StaticJsonBuffer<300> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
+    DynamicJsonDocument root(300);
     CONFIG_TO_JSON(universe, "universe");
     CONFIG_TO_JSON(channels, "channels");
     CONFIG_TO_JSON(delay, "delay");
@@ -212,7 +211,7 @@ void setup() {
     root["packets"] = packetCounter;
     root["fps"]     = fps;
     String str;
-    root.printTo(str);
+    serializeJson(root, str);
     server.send(200, "application/json", str);
   });
 

@@ -8,7 +8,7 @@
 #include <FS.h>
 
 #define JSON_TO_CONFIG(x, y)   { if (root.containsKey(y)) { config.x = root[y]; } }
-#define CONFIG_TO_JSON(x, y)   { root.set(y, config.x); }
+#define CONFIG_TO_JSON(x, y)   { root[y] = config.x; }
 #define KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); config.x = str.toInt(); } }
 
 #define S_JSON_TO_CONFIG(x, y)   { if (root.containsKey(y)) { strcpy(config.x, root[y]); } }

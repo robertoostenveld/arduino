@@ -137,6 +137,11 @@ void setup() {
     handleStaticFile("/index.html");
   });
 
+  server.on("/version", HTTP_GET, []() {
+    Serial.println("version");
+    server.send(200, "text/plain", version);
+  });
+  
   server.on("/defaults", HTTP_GET, []() {
     tic_web = millis();
     Serial.println("handleDefaults");
