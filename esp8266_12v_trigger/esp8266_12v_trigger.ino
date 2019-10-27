@@ -5,6 +5,8 @@
  *  The GPOI output of pin D5 is used to switch a PC900v optocoupler. Its output voltage can be 
  *  toggled between 0 and 5 volt, which is is enough to trigger the amplifier.
  *
+ *  See https://robertoostenveld.nl/12-volt-trigger-for-nad-d3020-amplifier/
+ *
  *  Valid HTTP calls are
  *    http://nad-d3020.local/on
  *    http://nad-d3020.local/off
