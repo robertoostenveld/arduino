@@ -97,10 +97,10 @@ void setup(void) {
 
   server.on("/status", []() {
     Serial.println("/status");
-    if (digitalRead(PINOUT))
-      server.send(200, "text/plain", "on");
-    else
+    if (digitalRead(PINOUT)) // note that the logic is inverted
       server.send(200, "text/plain", "off");
+    else
+      server.send(200, "text/plain", "on");
   });
 
   server.on("/version", []() {
