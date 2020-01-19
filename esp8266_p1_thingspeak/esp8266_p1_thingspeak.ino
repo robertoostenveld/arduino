@@ -6,6 +6,9 @@
    Pin 5 appears to behave as an https://en.wikipedia.org/wiki/Open_collector and
    hence requires to be connected over a ~1kOhm resistor  to VCC of the ESP8266.
 
+   See http://domoticx.com/p1-poort-slimme-meter-hardware/ and
+   http://domoticx.com/p1-poort-slimme-meter-hardware/
+
    The schematic below shows how I wired the 6 pins of the RJ12 connector to
    the Wemos D1 mini.
 
@@ -19,7 +22,7 @@
 */
 
 #include <ESP8266WiFi.h>
-#include <SoftwareSerial.h>
+#include <SoftwareSerial.h>   // https://github.com/plerup/espsoftwareserial/
 #include <PubSubClient.h>     // https://github.com/knolleary/pubsubclient
 #include <dsmr.h>             // https://github.com/matthijskooijman/arduino-dsmr
 #include "secret.h"
@@ -32,13 +35,14 @@
 */
 
 const char* version    = __DATE__ " / " __TIME__;
-const byte rxPin = D2;
-const byte requestPin = D1;
+const int8_t rxPin = D2;
+const int8_t txPin = -1;
+const int8_t requestPin = D1;
 
 #define BUFSIZE 1024
 #define USE_MQTT
 
-SoftwareSerial MySerial (rxPin, -1, true, BUFSIZE);
+SoftwareSerial MySerial;
 P1Reader reader(&MySerial, requestPin);
 WiFiClient client;
 PubSubClient mqtt_client(client);
@@ -128,7 +132,7 @@ struct Printer {
 
 void setup() {
   Serial.begin(115200);
-  MySerial.begin(115200);
+  MySerial.begin(115200, SWSERIAL_8N1, rxPin, txPin, true, BUFSIZE); 
 
   pinMode(LED_BUILTIN, OUTPUT);
 
