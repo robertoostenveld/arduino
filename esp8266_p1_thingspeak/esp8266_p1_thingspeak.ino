@@ -40,7 +40,7 @@ const int8_t txPin = -1;
 const int8_t requestPin = D1;
 
 #define BUFSIZE 1024
-#define USE_MQTT
+#define USE_MQTT // or USE_REST 
 
 SoftwareSerial MySerial;
 P1Reader reader(&MySerial, requestPin);
@@ -57,7 +57,7 @@ const unsigned long durationLed = 1000;       // the status LED remains on for 1
 unsigned long resetCounter = 0, lastLed = 0, lastTime = 0;
 
 using MyData = ParsedData <
-               //             /* String */ identification,
+               /* String */ identification,
                /* String */ p1_version,
                /* String */ timestamp,
                /* String */ equipment_id,
@@ -72,7 +72,7 @@ using MyData = ParsedData <
                /* uint8_t */ electricity_switch_position,
                /* uint32_t */ electricity_failures,
                /* uint32_t */ electricity_long_failures,
-               //             /* String */ electricity_failure_log,
+               /* String */ electricity_failure_log,
                /* uint32_t */ electricity_sags_l1,
                /* uint32_t */ electricity_sags_l2,
                /* uint32_t */ electricity_sags_l3,
@@ -111,7 +111,7 @@ using MyData = ParsedData <
                /* TimestampedFixedValue */ slave_delivered
                >;
 
-MyData data;
+MyData *globaldata;
 
 /*****************************************************************************/
 
@@ -171,13 +171,18 @@ void setup() {
 /*****************************************************************************/
 
 void loop () {
+  // this object should be recreated on every call, otherwise the parsing fails
+  MyData localdata;
+  // share a pointer to the object to the sendThingspeak functions
+  globaldata = &localdata;
+
   // Allow the reader to check the serial buffer regularly
   reader.loop();
 
   // Allow the MQTT client to do its things
   mqtt_client.loop();
 
-  // Every now and then, fire off a one-off reading
+  // Fire off a one-off reading if there is no message for some time
   unsigned long now = millis();
   if (now - lastTime > intervalTime) {
     reader.enable(true);
@@ -194,15 +199,16 @@ void loop () {
     // A complete telegram has arrived
     Serial.println("---raw telegram-------------------------------------------------");
     Serial.println(reader.raw());
+    lastTime = now;
 
     String err;
-    if (reader.parse(&data, &err)) {
+    if (reader.parse(&localdata, &err)) {
       // Parse succesful, print result
       Serial.println("---parse succesful---------------------------------------------");
-      data.applyEach(Printer());
+      localdata.applyEach(Printer());
 #ifdef USE_MQTT
       sendThingspeakMQTT();
-#else
+#elif USE_REST
       sendThingspeakREST();
 #endif
     } else {
@@ -222,15 +228,15 @@ void sendThingspeakMQTT() {
 
     // Construct MQTT message
     String body = "field1=";
-    body += String(data.power_delivered);
+    body += String(globaldata->power_delivered);
     body += String("&field2=");
-    body += String(data.power_returned);
+    body += String(globaldata->power_returned);
     body += String("&field3=");
-    body += String(data.gas_delivered);
+    body += String(globaldata->gas_delivered);
     body += String("&field4=");
-    body += String(data.energy_delivered_tariff1);
+    body += String(globaldata->energy_delivered_tariff1);
     body += String("&field5=");
-    body += String(data.energy_delivered_tariff2);
+    body += String(globaldata->energy_delivered_tariff2);
 
     Serial.println("---mqtt message------------------------------------------------");
     Serial.println(body);
@@ -256,15 +262,15 @@ void sendThingspeakREST() {
 
     // Construct request body
     String body = "field1=";
-    body += String(data.power_delivered);
+    body += String(globaldata->power_delivered);
     body += String("&field2=");
-    body += String(data.power_returned);
+    body += String(globaldata->power_returned);
     body += String("&field3=");
-    body += String(data.gas_delivered);
+    body += String(globaldata->gas_delivered);
     body += String("&field4=");
-    body += String(data.energy_delivered_tariff1);
+    body += String(globaldata->energy_delivered_tariff1);
     body += String("&field5=");
-    body += String(data.energy_delivered_tariff2);
+    body += String(globaldata->energy_delivered_tariff2);
 
     Serial.println("---post url----------------------------------------------------");
     Serial.println(body);
