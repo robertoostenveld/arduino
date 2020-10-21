@@ -3,7 +3,7 @@
  * connected to a SPH0645 I2S microphone
  * 
  * See https://diyi0t.com/i2s-sound-tutorial-for-esp32/
- *
+ * and https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html
  *
  */
 
