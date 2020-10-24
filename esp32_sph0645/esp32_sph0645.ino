@@ -9,13 +9,21 @@
 
 #include <WiFi.h>
 #include <driver/i2s.h>
+#include <endian.h>
 #include "secret.h"
-
-const i2s_port_t I2S_PORT = I2S_NUM_0;
 
 long lastBlink = 0;
 bool connected = false;
-const unsigned int sampleRate = 16000;
+const unsigned int sampleRate = 22050;
+uint32_t buffer[360], count = 0;
+
+struct message_t {
+  uint32_t version = 1;
+  uint32_t samples;
+  uint8_t data[360 * 4]; // this can hold up to 360 uint32 samples, or more with compression
+} message __attribute__((packed));
+
+const i2s_port_t I2S_PORT = I2S_NUM_0;
 
 WiFiUDP udp;
 
@@ -25,7 +33,8 @@ void WiFiEvent(WiFiEvent_t event) {
       Serial.println("");
       Serial.println("WiFi connected.");
       Serial.println("IP address: ");
-      Serial.println(WiFi.localIP());      udp.begin(WiFi.localIP(), udpPort);
+      Serial.println(WiFi.localIP());
+      udp.begin(WiFi.localIP(), udpPort);
       connected = true;
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
@@ -37,8 +46,9 @@ void WiFiEvent(WiFiEvent_t event) {
 }
 
 void setup() {
-  Serial.begin(115200);
   esp_err_t err;
+
+  Serial.begin(115200);
 
   // initialize status LED
   pinMode(LED_BUILTIN, OUTPUT);
@@ -114,28 +124,72 @@ void setup() {
     while (true);
   }
   Serial.println("I2S pins set.");
-}
+} // setup
 
 void loop() {
+  uint32_t bytes_read;
+  esp_err_t err;
 
   if ((millis() - lastBlink) > 2000) {
     digitalWrite(LED_BUILTIN, LOW);
     lastBlink = millis();
-    if (connected) {
-      udp.beginPacket(udpAddress, udpPort);
-      udp.printf("Seconds since boot: %lu\n", millis() / 1000);
-      udp.endPacket();
-    }
   }
   else if ((millis() - lastBlink) > 1000) {
     digitalWrite(LED_BUILTIN, HIGH);
   }
 
-  // Read a single sample and log it for the Serial Plotter.
-  uint32_t sample = 0;
-  int bytes_read = i2s_pop_sample(I2S_PORT, (char *)&sample, portMAX_DELAY); // no timeout
-  if (bytes_read > 0) {
-    Serial.println(sample);
+  // The Data Format is I2S, 24 bit, 2’s compliment, MSB first. The Data Precision is 18 bits, unused bits are zeros.
+  err = i2s_read(I2S_PORT, buffer, 360 * 4, &bytes_read, portMAX_DELAY);
+
+  if (err != ESP_OK) {
+    Serial.printf("Failed reading from I2S: %d\n", err);
+  }
+  else {
+    count++;
+
+    for (int i; i < bytes_read / 4; i++) {
+      buffer[i] = (buffer[i] >> 14) << 14; // the ESP32 is little-endian, the I2S data stream is big-endian
+    }
+
+    /*
+        Serial.println(buffer[0]);
+        uint32_t tmp = buffer[0];
+        for (int i = 0; i < 32; i++) {
+          Serial.print(tmp >> 31);
+          tmp = tmp << 1;
+        }
+        Serial.println();
+    */
+
+    message.samples = bytes_read / 4;
+    compress(buffer, message.samples, message.data);
+
+    if (connected) {
+      udp.beginPacket(udpAddress, udpPort);
+      udp.write((uint8_t *)(&message), sizeof(message));
+      udp.endPacket();
+    }
   }
 
-}
+} // loop
+
+uint32_t compress(uint32_t *data, uint32_t nsamples, uint8_t *dest) {
+  uint32_t nbytes = 0;
+  uint32_t *ptr = (uint32_t *)dest;
+  for (int i; i < nsamples; i++) {
+    ptr[i] = data[i];
+    nbytes += 4;
+  }
+  return nbytes;
+} // compress
+
+
+uint32_t decompress(uint32_t *dest, uint32_t nsamples, uint8_t *data) {
+  uint32_t nbytes = 0;
+  uint32_t *ptr = (uint32_t *)data;
+  for (int i; i < nsamples; i++) {
+    dest[i] = ptr[i];
+    nbytes += 4;
+  }
+  return nbytes;
+} // decompress
