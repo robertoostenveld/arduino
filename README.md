@@ -1,3 +1,7 @@
 # Arduino electronics hacking
 
 Most of the code here corresponds to electronics hardware that is documented on http://robertoostenveld.nl/category/arduino/
+
+The code that I wrote and/or collected in this repository is mostly a mash-up of Arduino code snippets and examples that I found at various places on the internet. There are pieces where I am not even sure if I could be considered the original author. For the pieces of code here in which I invested more substantial (creative) efforts, I am happy to share back to the community without restrictions. So unless otherwise stated, please consider the code here to be in the public domain, i.e. you can do with it what you want. See https://fairuse.stanford.edu/overview/public-domain/welcome/
+
+Please let me know if you see code here for which you consider yourself to be the creator and for which I have not properly credited you, for example through an issue or pull request.
