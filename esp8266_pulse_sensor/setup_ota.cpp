@@ -209,7 +209,7 @@ void handleJSON() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      handleStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failure.html");
       return;
     }
     S_JSON_TO_CONFIG(address, "address");

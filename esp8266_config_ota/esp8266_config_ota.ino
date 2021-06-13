@@ -200,7 +200,7 @@ void handleSettings() {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      handleStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failure.html");
       return;
     }
     if (root.containsKey("var1"))

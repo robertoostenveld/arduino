@@ -209,7 +209,7 @@ void handleJSON() {
     DynamicJsonDocument root(300);
     DeserializationError error = deserializeJson(root, server.arg("plain"));
     if (error) {
-      handleStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failure.html");
       return;
     }
     JSON_TO_CONFIG(universe, "universe");
