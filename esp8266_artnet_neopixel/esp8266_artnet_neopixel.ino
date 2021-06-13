@@ -199,16 +199,19 @@ void setup() {
   });
 
   server.on("/json", HTTP_PUT, [] {
+    Serial.println("HTTP_PUT /json");
     tic_web = millis();
     handleJSON();
   });
 
   server.on("/json", HTTP_POST, [] {
+    Serial.println("HTTP_POST /json");
     tic_web = millis();
     handleJSON();
   });
 
   server.on("/json", HTTP_GET, [] {
+    Serial.println("HTTP_GET /json");
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();

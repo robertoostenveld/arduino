@@ -164,7 +164,8 @@ void handleDirList() {
 }
 
 void handleNotFound() {
-  Serial.println("handleNotFound");
+  Serial.print("handleNotFound: ");
+  Serial.println(server.uri());
   if (SPIFFS.exists(server.uri())) {
     handleStaticFile(server.uri());
   }
@@ -191,13 +192,15 @@ void handleRedirect(String filename) {
 }
 
 void handleRedirect(const char * filename) {
-  Serial.println("handleRedirect");
+  Serial.print("handleRedirect: ");
+  Serial.println(filename);
   server.sendHeader("Location", String(filename), true);
   server.send(302, "text/plain", "");
 }
 
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile");
+  Serial.print("handleStaticFile: ");
+  Serial.println(path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
@@ -234,7 +237,7 @@ void handleJSON() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      handleStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failure.html");
       return;
     }
     JSON_TO_CONFIG(universe, "universe");
