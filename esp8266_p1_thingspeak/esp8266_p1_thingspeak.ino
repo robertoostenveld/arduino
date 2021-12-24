@@ -49,7 +49,7 @@ PubSubClient mqtt_client(client);
 
 const char* server = "api.thingspeak.com";
 const int port = 80;
-const char* mqtt_server = "mqtt.thingspeak.com";
+const char* mqtt_server = "mqtt3.thingspeak.com";
 const int mqtt_port = 1883;
 
 const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
