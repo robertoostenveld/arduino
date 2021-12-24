@@ -27,11 +27,16 @@
 #include <dsmr.h>             // https://github.com/matthijskooijman/arduino-dsmr
 #include "secret.h"
 
-/* these are defined in secret.h
-  #define SSID    "XXXXXXXXXXXXXXXX"
-  #define PASS    "XXXXXXXXXXXXXXXX"
-  #define CHANNEL "XXXXXXXXXXXXXXXX"
-  #define APIKEY  "XXXXXXXXXXXXXXXX"
+/* these are defined in secret.h for the wifi
+    #define SSID    "XXXXXXXXXXXXXXXX"
+    #define PASS    "XXXXXXXXXXXXXXXX"
+  for thingspeak
+    #define CHANNEL "XXXXXXXXXXXXXXXX"
+    #define APIKEY  "XXXXXXXXXXXXXXXX"
+  and for MQTT3
+    #define CLIENTID "XXXXXXXXXXXXXXXX"
+    #define USERNAME "XXXXXXXXXXXXXXXX"
+    #define PASSWORD "XXXXXXXXXXXXXXXX"
 */
 
 const char* version    = __DATE__ " / " __TIME__;
@@ -49,7 +54,7 @@ PubSubClient mqtt_client(client);
 
 const char* server = "api.thingspeak.com";
 const int port = 80;
-const char* mqtt_server = "mqtt3.thingspeak.com";
+const char* mqtt_server = "mqtt.thingspeak.com";
 const int mqtt_port = 1883;
 
 const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
@@ -161,6 +166,7 @@ void setup() {
 
 #ifdef USE_MQTT
   mqtt_client.setServer(mqtt_server, mqtt_port);
+  mqtt_client.connect(CLIENTID, USERNAME, PASSWORD);
 #endif
 
   //Upon restart, fire off a one-off reading
