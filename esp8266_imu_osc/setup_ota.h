@@ -29,6 +29,7 @@ void handleRedirect(const char *);
 bool handleStaticFile(String);
 bool handleStaticFile(const char *);
 void handleJSON();
+void handleFileUpload();    // https://tttapa.github.io/ESP8266/Chap12%20-%20Uploading%20to%20Server.html
 
 struct Config {
   int sensors;

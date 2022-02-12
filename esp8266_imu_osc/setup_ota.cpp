@@ -228,7 +228,7 @@ void handleJSON() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
-      handleStaticFile("/reload_failed.html");
+      handleStaticFile("/reload_failure.html");
       return;
     }
     JSON_TO_CONFIG(sensors, "sensors");
@@ -265,4 +265,29 @@ void handleJSON() {
   }
   // some of the settings require re-initialization
   ESP.restart();
+}
+
+
+void handleFileUpload() { // upload a new file to the SPIFFS
+  File fsUploadFile;  // a File object to temporarily store the received file
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    String filename = upload.filename;
+    if (!filename.startsWith("/")) filename = "/" + filename;
+    Serial.print("handleFileUpload Name: "); Serial.println(filename);
+    fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
+    filename = String();
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (fsUploadFile)
+      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (fsUploadFile) {                                   // If the file was successfully created
+      fsUploadFile.close();                               // Close the file again
+      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
+      server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
+      server.send(303);
+    } else {
+      server.send(500, "text/plain", "500: couldn't create file");
+    }
+  }
 }

@@ -33,13 +33,16 @@
 #include "rgb_led.h"
 #include "I2Cscan.h"
 
-#define debugLevel 1          // 0 = silent, 1 = blink led, 2 = print on serial console
+#define debugLevel 2          // 0 = silent, 1 = blink led, 2 = print on serial console
 #define maxSensors 8
 
 // this allows some sections of the code to be disabled for debugging purposes
 #define ENABLE_WEBINTERFACE
 #define ENABLE_MDNS
 #define ENABLE_IMU
+
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
+#define MAX(x,y) ((x) > (y) ? (x) : (y))
 
 // Use either of these to select which I2C address your device is using
 #define MPU9250_ADDRESS MPU9250_ADDRESS_AD0
@@ -64,6 +67,11 @@ float deltat = 0.0f, sum = 0.0f;          // integration interval for both filte
 uint32_t Now = 0, Last[maxSensors];       // used to calculate integration interval
 uint32_t lastDisplay = 0, lastTemperature = 0, lastTransmit = 0;
 unsigned int debugCount = 0, measurementCount = 0;
+
+// For continous calibration
+float mag_min[3] = { -1e6, -1e6, -1e6};
+float mag_max[3] = {1e6, 1e6, 1e6};
+float mag_scale[3] = {1, 1, 1};
 
 // keep track of the timing of the web interface
 long tic_web = 0;
@@ -237,6 +245,8 @@ void setup() {
 #endif
 
 #ifdef ENABLE_IMU
+  ledMagenta();
+
   // Look for I2C devices on the bus
   I2Cscan();
 
@@ -346,7 +356,6 @@ void setup() {
 void loop() {
   OSCBundle bundle;
   char msgId[16];
-  const float *q;
 
 #ifdef ENABLE_WEBINTERFACE
   server.handleClient();
@@ -363,6 +372,7 @@ void loop() {
 
 #ifdef ENABLE_IMU
   for (int i = 0; i < config.sensors; i++) {
+    const float *q;
     tca.select(i);
 
     while (!(mpu[i].readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01))
@@ -386,9 +396,9 @@ void loop() {
     // Calculate the magnetometer values in milliGauss
     // Get actual magnetometer value, this depends on scale being set
     // Include factory calibration per data sheet and user environmental corrections
-    mpu[i].mx = (float)mpu[i].magCount[0] * mpu[i].mRes * mpu[i].factoryMagCalibration[0] - mpu[i].magBias[0];
-    mpu[i].my = (float)mpu[i].magCount[1] * mpu[i].mRes * mpu[i].factoryMagCalibration[1] - mpu[i].magBias[1];
-    mpu[i].mz = (float)mpu[i].magCount[2] * mpu[i].mRes * mpu[i].factoryMagCalibration[2] - mpu[i].magBias[2];
+    mpu[i].mx = (float)mpu[i].magCount[0] * mpu[i].mRes * mpu[i].factoryMagCalibration[0] * mpu[i].magScale[0] - mpu[i].magBias[0];
+    mpu[i].my = (float)mpu[i].magCount[1] * mpu[i].mRes * mpu[i].factoryMagCalibration[1] * mpu[i].magScale[1] - mpu[i].magBias[1];
+    mpu[i].mz = (float)mpu[i].magCount[2] * mpu[i].mRes * mpu[i].factoryMagCalibration[2] * mpu[i].magScale[2] - mpu[i].magBias[2];
 
     if (config.raw) {
       String(id[i] + "/a").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].ax).add(mpu[i].ay).add(mpu[i].az);
@@ -396,8 +406,27 @@ void loop() {
       String(id[i] + "/m").toCharArray(msgId, 16); bundle.add(msgId).add(mpu[i].mx).add(mpu[i].my).add(mpu[i].mz);
     }
 
-    if (config.calibrate == 2) {
-      mpu[i].magContinuousCalMPU9250(mpu[i].magCount, mpu[i].magBias, mpu[i].magScale);
+    if (config.calibrate > 1) {
+      // calibrate==2 means only for the first 30 seconds
+      // calibrate==3 means continuous
+      // the min value is negative, the max value is positive
+      mag_min[0] = MIN(mpu[i].mx, mag_min[0]);
+      mag_min[1] = MIN(mpu[i].my, mag_min[1]);
+      mag_min[2] = MIN(mpu[i].mz, mag_min[2]);
+      mag_max[0] = MAX(mpu[i].mx, mag_max[0]);
+      mag_max[1] = MAX(mpu[i].my, mag_max[1]);
+      mag_max[2] = MAX(mpu[i].mz, mag_max[2]);
+      // the sum of the min and max should be zero
+      mpu[i].magBias[0] = (mag_max[0] + mag_min[0]) / 2;
+      mpu[i].magBias[1] = (mag_max[1] + mag_min[1]) / 2;
+      mpu[i].magBias[2] = (mag_max[2] + mag_min[2]) / 2;
+      // the min and max themselves should be one
+      mag_scale[0] = (mag_max[0] - mag_min[0]) / 2;
+      mag_scale[1] = (mag_max[1] - mag_min[1]) / 2;
+      mag_scale[2] = (mag_max[2] - mag_min[2]) / 2;
+      mpu[i].magScale[0] = 3 * mag_scale[0] / (mag_scale[0] + mag_scale[1] + mag_scale[2]);
+      mpu[i].magScale[1] = 3 * mag_scale[1] / (mag_scale[0] + mag_scale[1] + mag_scale[2]);
+      mpu[i].magScale[2] = 3 * mag_scale[2] / (mag_scale[0] + mag_scale[1] + mag_scale[2]);
     }
 
     if (config.ahrs || config.quaternion) {
@@ -470,28 +499,24 @@ void loop() {
     String(id[i] + "/time").toCharArray(msgId, 16); bundle.add(msgId).add(Now / 1000000.0f);
     Last[i] = Now;
 
-    // the previous section was in micros, the following section in millis
-    Now = millis();
+  } // for each sensor
 
-    measurementCount++;
-    if ((measurementCount % config.decimate) == 0) {
-      // only send every Nth measurement
-      outIp.fromString(config.destination);
-      Udp.beginPacket(outIp, config.port);
-      bundle.send(Udp);
-      Udp.endPacket();
-      bundle.empty();
-      lastTransmit = Now;
-      measurementCount = 0;
+  // the previous section was in micros, the following section is in millis
+  Now = millis();
+
+  // Update the debug information every second, independent of data rates
+  if ((debugLevel > 0) && (Now - lastDisplay) > 1000) {
+
+    // blink green LED on and off every second
+    if (digitalRead(LED_G)) {
+      ledBlack();
+    }
+    else {
+      ledGreen();
     }
 
-    debugCount++;
-    if ((debugLevel > 0) && (Now - lastDisplay) > 1000) {
-      // Update the debug information every second, independent of data rates
-      long elapsedTime = Now - lastDisplay;
-      rate = 1000.0f * debugCount / elapsedTime, 2;
-
-      if (debugLevel > 1) {
+    if (debugLevel > 1) {
+      for (int i = 0; i < 1; i++) {
         // Print acceleration values in milligs!
         Serial.print("X-acceleration: "); Serial.print(1000 * mpu[i].ax);
         Serial.print(" mg ");
@@ -527,38 +552,29 @@ void loop() {
           Serial.println(" degrees");
         } // if (config.ahrs)
 
-        if (config.quaternion) {
-          // Print quaternion values
-          Serial.print("Quaternion: ");
-          Serial.print(q[0], 4);
-          Serial.print(", ");
-          Serial.print(q[1], 4);
-          Serial.print(", ");
-          Serial.print(q[2], 4);
-          Serial.print(", ");
-          Serial.print(q[3], 4);
-          Serial.println("");
-        } // if (config.ahrs)
-
         if (config.temperature) {
           Serial.print("Temperature: ");
           Serial.print(mpu[i].temperature, 1);
           Serial.println(" degrees C");
         }
-      } // if debugLevel>1
-
-      // the following causes the green LED to blink on and off every second
-      if (digitalRead(LED_G)) {
-        ledBlack();
       }
-      else {
-        ledGreen();
-      }
+    } // if debugLevel>1
 
-      lastDisplay = millis();
-      debugCount = 0;
-    } // if debugLevel>0
-  } // for each sensor
+    lastDisplay = millis();
+  } // if debugLevel>0
+
+  measurementCount++;
+  if ((measurementCount % config.decimate) == 0) {
+    // only send every Nth measurement
+    outIp.fromString(config.destination);
+    Udp.beginPacket(outIp, config.port);
+    bundle.send(Udp);
+    Udp.endPacket();
+    bundle.empty();
+    lastTransmit = Now;
+    measurementCount = 0;
+  }
+
 #endif
 
 } // loop
