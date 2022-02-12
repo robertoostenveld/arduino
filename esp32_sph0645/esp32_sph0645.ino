@@ -8,24 +8,76 @@
 */
 
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <driver/i2s.h>
 #include <endian.h>
-#include "secret.h"
+#include <math.h>
 
-long lastBlink = 0;
+#include "secret.h"
+#include "RunningStat.h"
+
+#ifndef htonl
+#define htonl htobe32
+#endif
+
+#ifndef htons
+#define htons htobe16
+#endif
+
+#ifndef ntohl
+#define htons be32toh
+#endif
+
+#ifndef ntohs
+#define htons be16toh
+#endif
+
+#define USE_DHCP
+
+#ifdef USE_DHCP
+IPAddress localAddress(192, 168, 1, 100);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 0, 0);
+IPAddress primaryDNS(8, 8, 8, 8);   //optional
+IPAddress secondaryDNS(8, 8, 4, 4); //optional
+#endif
+
+// this is for the remote UDP server
+IPAddress sendAddress(192, 168, 1, 21);
+const unsigned int sendPort = 4000;
+
+// this is for the local UDP server
+WiFiUDP Udp;
+const unsigned int recvPort = 4001;
+
+const unsigned int nMessage = 720;
+const unsigned int nBuffer = 64;
+const float decay = 0.1;
+unsigned long lastBlink = 0;
+unsigned long failedPackets = 0;
+unsigned long previous = 0;
 bool connected = false;
 const unsigned int sampleRate = 22050;
-uint32_t buffer[360], count = 0;
+float runningMean = -1;
 
 struct message_t {
   uint32_t version = 1;
+  uint32_t id = 0;
+  uint32_t counter;
   uint32_t samples;
-  uint8_t data[360 * 4]; // this can hold up to 360 uint32 samples, or more with compression
+  int16_t data[nMessage];
 } message __attribute__((packed));
+
+struct response_t {
+  uint32_t version = 1;
+  uint32_t id = 0;
+  uint32_t counter;
+} response __attribute__((packed));
 
 const i2s_port_t I2S_PORT = I2S_NUM_0;
 
-WiFiUDP udp;
+RunningStat shortstat;
+RunningStat longstat;
 
 void WiFiEvent(WiFiEvent_t event) {
   switch (event) {
@@ -34,7 +86,7 @@ void WiFiEvent(WiFiEvent_t event) {
       Serial.println("WiFi connected.");
       Serial.println("IP address: ");
       Serial.println(WiFi.localIP());
-      udp.begin(WiFi.localIP(), udpPort);
+      Udp.begin(WiFi.localIP(), recvPort);
       connected = true;
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
@@ -43,6 +95,29 @@ void WiFiEvent(WiFiEvent_t event) {
       break;
     default: break;
   }
+}
+
+void print_binary(uint32_t val) {
+  for (int l = 31; l >= 24; l--) {
+    uint8_t b = (val >> l) & 0x01;
+    Serial.print(b);
+  }
+  Serial.print(' ');
+  for (int l = 23; l >= 16; l--) {
+    uint8_t b = (val >> l) & 0x01;
+    Serial.print(b);
+  }
+  Serial.print(' ');
+  for (int l = 15; l >= 8; l--) {
+    uint8_t b = (val >> l) & 0x01;
+    Serial.print(b);
+  }
+  Serial.print(' ');
+  for (int l = 7; l >= 0; l--) {
+    uint8_t b = (val >> l) & 0x01;
+    Serial.print(b);
+  }
+  Serial.println();
 }
 
 void setup() {
@@ -60,10 +135,12 @@ void setup() {
   //register event handler
   WiFi.onEvent(WiFiEvent);
 
+#ifndef USE_DHCP
   if (!WiFi.config(localAddress, gateway, subnet, primaryDNS, secondaryDNS)) {
     Serial.println("STA Failed to configure");
     while (true);
   }
+#endif
 
   //Initiate connection
   Serial.println("Connecting to WiFi network: " + String(ssid));
@@ -89,8 +166,8 @@ void setup() {
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,        // channel to use
     .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,           // interrupt level 1
-    .dma_buf_count = 4,                                 // number of buffers
-    .dma_buf_len = 32                                   // samples per buffer (minimum is 8)
+    .dma_buf_count = 16,                                // number of buffers, 128 max.
+    .dma_buf_len = nBuffer                              // samples per buffer (minimum is 8)
   };
 
   // setup for the NODEMCU32
@@ -118,17 +195,22 @@ void setup() {
   }
   Serial.println("I2S driver installed.");
 
-  err = i2s_set_pin(I2S_PORT, &HUZZAH32_pin_config);
+  err = i2s_set_pin(I2S_PORT, &NODEMCU32_pin_config);
   if (err != ESP_OK) {
     Serial.printf("Failed setting pin: %d\n", err);
     while (true);
   }
   Serial.println("I2S pins set.");
+
+  // use the last digit of the IP address as identifier
+  message.id = WiFi.localIP()[3];
+
 } // setup
 
 void loop() {
-  uint32_t bytes_read;
   esp_err_t err;
+  uint32_t bytes_read;
+  uint32_t buffer[nBuffer];
 
   if ((millis() - lastBlink) > 2000) {
     digitalWrite(LED_BUILTIN, LOW);
@@ -138,58 +220,81 @@ void loop() {
     digitalWrite(LED_BUILTIN, HIGH);
   }
 
-  // The Data Format is I2S, 24 bit, 2’s compliment, MSB first. The Data Precision is 18 bits, unused bits are zeros.
-  err = i2s_read(I2S_PORT, buffer, 360 * 4, &bytes_read, portMAX_DELAY);
+  size_t samples = nMessage - message.samples;
 
-  if (err != ESP_OK) {
-    Serial.printf("Failed reading from I2S: %d\n", err);
+  if (samples > nBuffer) {
+    // do not read more than nBuffer at a time
+    samples = nBuffer;
   }
-  else {
-    count++;
 
-    for (int i; i < bytes_read / 4; i++) {
-      buffer[i] = (buffer[i] >> 14) << 14; // the ESP32 is little-endian, the I2S data stream is big-endian
+  err = i2s_read(I2S_PORT, buffer, samples * 4, &bytes_read, 0);
+
+  if (err == ESP_OK) {
+    for (unsigned int sample; sample < bytes_read / 4; sample++) {
+
+      uint32_t value = buffer[sample];
+      value = value >> 14;  // convert to 18 bit
+      value = value >> 3;   // convert to 15 bit
+
+      if (runningMean < 0) {
+        runningMean = value;
+      }
+      else {
+        runningMean = decay * value + (1 - decay) * runningMean;
+      }
+
+      int16_t demeaned = ((float)value - (float)runningMean);
+
+      message.data[message.samples] = htons(demeaned);
+      message.samples++;
+
+      shortstat.Push(demeaned);
+      longstat.Push(demeaned);
     }
 
-    /*
-        Serial.println(buffer[0]);
-        uint32_t tmp = buffer[0];
-        for (int i = 0; i < 32; i++) {
-          Serial.print(tmp >> 31);
-          tmp = tmp << 1;
-        }
+    if (message.samples == nMessage) {
+
+      /*
+        Serial.print(message.version); Serial.print(", ");
+        Serial.print(message.counter); Serial.print(", ");
+        Serial.print(message.samples); Serial.print(", ");
+        Serial.print(ntohs(message.data[0])); Serial.println();
+
+        Serial.print(shortstat.Min());
+        Serial.print(", ");
+        Serial.print(shortstat.Mean());
+        Serial.print(", ");
+        Serial.println(shortstat.Max());
+      */
+
+      if (connected) {
+        Udp.beginPacket(sendAddress, sendPort);
+        Udp.write((uint8_t *)(&message), sizeof(message));
+        Udp.endPacket();
+      }
+
+      shortstat.Clear();
+      message.counter++;
+      message.samples = 0;
+    }
+  }
+
+  // receive incoming UDP packets
+  int packetSize = Udp.parsePacket();
+  if (packetSize) {
+    // Serial.printf("Received %d bytes from %s, port %d\n", packetSize, Udp.remoteIP().toString().c_str(), Udp.remotePort());
+    int len = Udp.read((char *) &response, sizeof(response));
+    if (len == sizeof(response)) {
+      if (response.counter != previous+1) {
+        failedPackets++;
+        Serial.print("missing response: ");
+        Serial.print(previous);
+        Serial.print(", ");
+        Serial.print(response.counter);
         Serial.println();
-    */
-
-    message.samples = bytes_read / 4;
-    compress(buffer, message.samples, message.data);
-
-    if (connected) {
-      udp.beginPacket(udpAddress, udpPort);
-      udp.write((uint8_t *)(&message), sizeof(message));
-      udp.endPacket();
+      }
+      previous = response.counter;
     }
   }
 
 } // loop
-
-uint32_t compress(uint32_t *data, uint32_t nsamples, uint8_t *dest) {
-  uint32_t nbytes = 0;
-  uint32_t *ptr = (uint32_t *)dest;
-  for (int i; i < nsamples; i++) {
-    ptr[i] = data[i];
-    nbytes += 4;
-  }
-  return nbytes;
-} // compress
-
-
-uint32_t decompress(uint32_t *dest, uint32_t nsamples, uint8_t *data) {
-  uint32_t nbytes = 0;
-  uint32_t *ptr = (uint32_t *)data;
-  for (int i; i < nsamples; i++) {
-    dest[i] = ptr[i];
-    nbytes += 4;
-  }
-  return nbytes;
-} // decompress
