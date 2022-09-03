@@ -1,0 +1,3 @@
+[submodule "esp8266_artnet_dmx512"]
+	path = esp8266_artnet_dmx512
+	url = git@github.com:robertoostenveld/esp8266_artnet_dmx512.git
