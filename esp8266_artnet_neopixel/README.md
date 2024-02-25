@@ -1,3 +1,5 @@
+# Overview
+
 Updating the firmware on the Wemos D1 mini board using the Arduino IDE requires that you install the drivers from https://www.wemos.cc/downloads.
 
 The Neopixel and Art-Net settings can be updated on the fly like this
@@ -147,3 +149,12 @@ curl -X PUT -d '{"universe":1,"offset":0,"pixels":24,"leds":4,"white":0,"brightn
   channel 9  = intensity
   channel 10 = ASCII code
 
+## SPIFFS for static files
+
+You should not only write the firmware to the ESP8266 module, but also the static content for the web interface. The html, css and javascript files located in the data directory should be written to the SPIFS filesystem on the ESP8266. See for example http://esp8266.github.io/Arduino/versions/2.0.0/doc/filesystem.html and https://www.instructables.com/id/Using-ESP8266-SPIFFS for instructions.
+
+You will get a "file not found" error if the firmware cannot access the data files.
+
+## Arduino ESP8266 filesystem uploader
+
+This Arduino sketch includes a `data` directory with a number of files that should be uploaded to the ESP8266 using the [SPIFFS filesystem uploader](https://github.com/esp8266/arduino-esp8266fs-plugin) tool. At the moment (Feb 2024) the Arduino 2.x IDE does *not* support the SPIFFS filesystem uploader plugin. You have to use the Arduino 1.8.x IDE (recommended), or the command line utilities for uploading the data.
