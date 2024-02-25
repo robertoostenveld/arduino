@@ -1,7 +1,7 @@
 #ifndef __BUFFER_H_
 #define __BUFFER_H_
 
-WiFiClient client;
+#include <WiFiClient.h>
 
 // definition of simplified interface functions, not all of them are implemented
 int fieldtrip_start_server(int port);
@@ -12,6 +12,7 @@ int fieldtrip_read_data(int server, uint32_t begsample, uint32_t endsample, byte
 int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float fsample);
 int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_t nsamples, byte *buffer);
 int fieldtrip_wait_data(int server, uint32_t nsamples, uint32_t nevents, uint32_t milliseconds);
+int wordsize_from_type(uint32_t datatype);
 
 // define the version of the message packet
 #define VERSION    (uint16_t)0x0001
@@ -55,8 +56,6 @@ int fieldtrip_wait_data(int server, uint32_t nsamples, uint32_t nevents, uint32_
 #define DATATYPE_INT64   (uint32_t)8
 #define DATATYPE_FLOAT32 (uint32_t)9
 #define DATATYPE_FLOAT64 (uint32_t)10
-
-uint32_t wordsize_from_type[] = { 1, 1, 2, 4, 8, 1, 2, 4, 8, 4, 8};
 
 // a packet that is sent over the network should contain the following
 typedef struct {

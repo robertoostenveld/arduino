@@ -1,6 +1,8 @@
 #include "fieldtrip_buffer.h"
 
-#define DEBUG
+WiFiClient client;
+
+#undef DEBUG
 
 /*******************************************************************************
    OPEN CONNECTION
@@ -93,13 +95,13 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
   request = (messagedef_t *)(msg + 0);
   request->version = VERSION;
   request->command = PUT_DAT_NORESPONSE;
-  request->bufsize = sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype];
+  request->bufsize = sizeof(datadef_t) + nchans * nsamples * wordsize_from_type(datatype);
 
   data = (datadef_t *)(msg + sizeof(messagedef_t)); // the first 8 bytes are version, command and bufsize
   data->nchans     = nchans;
   data->nsamples   = nsamples;
   data->data_type  = datatype;
-  data->bufsize    = nchans * nsamples * wordsize_from_type[datatype];
+  data->bufsize    = nchans * nsamples * wordsize_from_type(datatype);
 
 #ifdef DEBUG
   Serial.print("msg =  ");
@@ -113,7 +115,7 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
   int n = 0;
   n += client.write(msg, sizeof(messagedef_t) + sizeof(datadef_t));
   client.flush();
-  n += client.write(buffer, nchans * nsamples * wordsize_from_type[datatype]);
+  n += client.write(buffer, nchans * nsamples * wordsize_from_type(datatype));
   client.flush();
 
 #ifdef DEBUG
@@ -122,8 +124,48 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
   Serial.println(" bytes");
 #endif
 
-  if (n == sizeof(messagedef_t) + sizeof(datadef_t) + nchans * nsamples * wordsize_from_type[datatype])
+  if (n == sizeof(messagedef_t) + sizeof(datadef_t) + nchans * nsamples * wordsize_from_type(datatype))
     return 0;
   else
     return -1;
+};
+
+int wordsize_from_type(uint32_t datatype) {
+  int wordsize = 0;
+  switch (datatype) {
+    case DATATYPE_CHAR:
+      wordsize = 1;
+      break;
+    case DATATYPE_UINT8:
+      wordsize = 1;
+      break;
+    case DATATYPE_UINT16:
+      wordsize = 2;
+      break;
+    case DATATYPE_UINT32:
+      wordsize = 4;
+      break;
+    case DATATYPE_UINT64:
+      wordsize = 8;
+      break;
+    case DATATYPE_INT8:
+      wordsize = 1;
+      break;
+    case DATATYPE_INT16:
+      wordsize = 2;
+      break;
+    case DATATYPE_INT32:
+      wordsize = 4;
+      break;
+    case DATATYPE_INT64:
+      wordsize = 8;
+      break;
+    case DATATYPE_FLOAT32:
+      wordsize = 4;
+      break;
+    case DATATYPE_FLOAT64:
+      wordsize = 8;
+      break;
+    }
+  return wordsize;
 };
