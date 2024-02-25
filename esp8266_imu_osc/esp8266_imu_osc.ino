@@ -18,19 +18,17 @@
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <WiFiClient.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
 #include <WiFiUDP.h>
 #include <OSCBundle.h>
-#include <FS.h>
 
 // from https://github.com/robertoostenveld/SparkFun_MPU-9250_Breakout_Arduino_Library
 #include <MPU9250.h>
 #include <quaternionFilters.h>
 
-#include "tca9548a.h"
 #include "setup_ota.h"
 #include "rgb_led.h"
+#include "tca9548a.h"
 #include "I2Cscan.h"
 
 #define debugLevel 2          // 0 = silent, 1 = blink led, 2 = print on serial console
@@ -210,15 +208,15 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    CONFIG_TO_JSON(sensors, "sensors");
-    CONFIG_TO_JSON(decimate, "decimate");
-    CONFIG_TO_JSON(calibrate, "calibrate");
-    CONFIG_TO_JSON(raw, "raw");
-    CONFIG_TO_JSON(ahrs, "ahrs");
-    CONFIG_TO_JSON(quaternion, "quaternion");
-    CONFIG_TO_JSON(temperature, "temperature");
+    N_CONFIG_TO_JSON(sensors, "sensors");
+    N_CONFIG_TO_JSON(decimate, "decimate");
+    N_CONFIG_TO_JSON(calibrate, "calibrate");
+    N_CONFIG_TO_JSON(raw, "raw");
+    N_CONFIG_TO_JSON(ahrs, "ahrs");
+    N_CONFIG_TO_JSON(quaternion, "quaternion");
+    N_CONFIG_TO_JSON(temperature, "temperature");
     S_CONFIG_TO_JSON(destination, "destination");
-    CONFIG_TO_JSON(port, "port");
+    N_CONFIG_TO_JSON(port, "port");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["rate"]    = rate;

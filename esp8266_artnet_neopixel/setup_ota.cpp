@@ -71,17 +71,17 @@ bool loadConfig() {
     return false;
   }
 
-  JSON_TO_CONFIG(universe, "universe");
-  JSON_TO_CONFIG(offset, "offset");
-  JSON_TO_CONFIG(pixels, "pixels");
-  JSON_TO_CONFIG(leds, "leds");
-  JSON_TO_CONFIG(white, "white");
-  JSON_TO_CONFIG(brightness, "brightness");
-  JSON_TO_CONFIG(hsv, "hsv");
-  JSON_TO_CONFIG(mode, "mode");
-  JSON_TO_CONFIG(reverse, "reverse");
-  JSON_TO_CONFIG(speed, "speed");
-  JSON_TO_CONFIG(split, "split");
+  N_JSON_TO_CONFIG(universe, "universe");
+  N_JSON_TO_CONFIG(offset, "offset");
+  N_JSON_TO_CONFIG(pixels, "pixels");
+  N_JSON_TO_CONFIG(leds, "leds");
+  N_JSON_TO_CONFIG(white, "white");
+  N_JSON_TO_CONFIG(brightness, "brightness");
+  N_JSON_TO_CONFIG(hsv, "hsv");
+  N_JSON_TO_CONFIG(mode, "mode");
+  N_JSON_TO_CONFIG(reverse, "reverse");
+  N_JSON_TO_CONFIG(speed, "speed");
+  N_JSON_TO_CONFIG(split, "split");
 
   return true;
 }
@@ -91,17 +91,17 @@ bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
-  CONFIG_TO_JSON(universe, "universe");
-  CONFIG_TO_JSON(offset, "offset");
-  CONFIG_TO_JSON(pixels, "pixels");
-  CONFIG_TO_JSON(leds, "leds");
-  CONFIG_TO_JSON(white, "white");
-  CONFIG_TO_JSON(brightness, "brightness");
-  CONFIG_TO_JSON(hsv, "hsv");
-  CONFIG_TO_JSON(mode, "mode");
-  CONFIG_TO_JSON(reverse, "reverse");
-  CONFIG_TO_JSON(speed, "speed");
-  CONFIG_TO_JSON(split, "split");
+  N_CONFIG_TO_JSON(universe, "universe");
+  N_CONFIG_TO_JSON(offset, "offset");
+  N_CONFIG_TO_JSON(pixels, "pixels");
+  N_CONFIG_TO_JSON(leds, "leds");
+  N_CONFIG_TO_JSON(white, "white");
+  N_CONFIG_TO_JSON(brightness, "brightness");
+  N_CONFIG_TO_JSON(hsv, "hsv");
+  N_CONFIG_TO_JSON(mode, "mode");
+  N_CONFIG_TO_JSON(reverse, "reverse");
+  N_CONFIG_TO_JSON(speed, "speed");
+  N_CONFIG_TO_JSON(split, "split");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -240,32 +240,32 @@ void handleJSON() {
       handleStaticFile("/reload_failure.html");
       return;
     }
-    JSON_TO_CONFIG(universe, "universe");
-    JSON_TO_CONFIG(offset, "offset");
-    JSON_TO_CONFIG(pixels, "pixels");
-    JSON_TO_CONFIG(leds, "leds");
-    JSON_TO_CONFIG(white, "white");
-    JSON_TO_CONFIG(brightness, "brightness");
-    JSON_TO_CONFIG(hsv, "hsv");
-    JSON_TO_CONFIG(mode, "mode");
-    JSON_TO_CONFIG(reverse, "reverse");
-    JSON_TO_CONFIG(speed, "speed");
-    JSON_TO_CONFIG(split, "split");
+    N_JSON_TO_CONFIG(universe, "universe");
+    N_JSON_TO_CONFIG(offset, "offset");
+    N_JSON_TO_CONFIG(pixels, "pixels");
+    N_JSON_TO_CONFIG(leds, "leds");
+    N_JSON_TO_CONFIG(white, "white");
+    N_JSON_TO_CONFIG(brightness, "brightness");
+    N_JSON_TO_CONFIG(hsv, "hsv");
+    N_JSON_TO_CONFIG(mode, "mode");
+    N_JSON_TO_CONFIG(reverse, "reverse");
+    N_JSON_TO_CONFIG(speed, "speed");
+    N_JSON_TO_CONFIG(split, "split");
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
-    KEYVAL_TO_CONFIG(universe, "universe");
-    KEYVAL_TO_CONFIG(offset, "offset");
-    KEYVAL_TO_CONFIG(pixels, "pixels");
-    KEYVAL_TO_CONFIG(leds, "leds");
-    KEYVAL_TO_CONFIG(white, "white");
-    KEYVAL_TO_CONFIG(brightness, "brightness");
-    KEYVAL_TO_CONFIG(hsv, "hsv");
-    KEYVAL_TO_CONFIG(mode, "mode");
-    KEYVAL_TO_CONFIG(reverse, "reverse");
-    KEYVAL_TO_CONFIG(speed, "speed");
-    KEYVAL_TO_CONFIG(split, "split");
+    N_KEYVAL_TO_CONFIG(universe, "universe");
+    N_KEYVAL_TO_CONFIG(offset, "offset");
+    N_KEYVAL_TO_CONFIG(pixels, "pixels");
+    N_KEYVAL_TO_CONFIG(leds, "leds");
+    N_KEYVAL_TO_CONFIG(white, "white");
+    N_KEYVAL_TO_CONFIG(brightness, "brightness");
+    N_KEYVAL_TO_CONFIG(hsv, "hsv");
+    N_KEYVAL_TO_CONFIG(mode, "mode");
+    N_KEYVAL_TO_CONFIG(reverse, "reverse");
+    N_KEYVAL_TO_CONFIG(speed, "speed");
+    N_KEYVAL_TO_CONFIG(split, "split");
     handleStaticFile("/reload_success.html");
   }
   saveConfig();

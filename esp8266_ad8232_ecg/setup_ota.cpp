@@ -64,7 +64,7 @@ bool loadConfig() {
   }
 
   S_JSON_TO_CONFIG(address, "address");
-  JSON_TO_CONFIG(port, "port");
+  N_JSON_TO_CONFIG(port, "port");
 
   return true;
 }
@@ -76,7 +76,7 @@ bool saveConfig() {
   JsonObject& root = jsonBuffer.createObject();
 
   S_CONFIG_TO_JSON(address, "address");
-  CONFIG_TO_JSON(port, "port");
+  N_CONFIG_TO_JSON(port, "port");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -213,14 +213,14 @@ void handleJSON() {
       return;
     }
     S_JSON_TO_CONFIG(address, "address");
-    JSON_TO_CONFIG(port, "port");
+    N_JSON_TO_CONFIG(port, "port");
 
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
     S_KEYVAL_TO_CONFIG(address, "address");
-    KEYVAL_TO_CONFIG(port, "port");
+    N_KEYVAL_TO_CONFIG(port, "port");
 
     handleStaticFile("/reload_success.html");
   }

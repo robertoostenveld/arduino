@@ -1,4 +1,5 @@
 #include "setup_ota.h"
+#include "rgb_led.h"
 
 extern ESP8266WebServer server;
 extern Config config;
@@ -63,8 +64,8 @@ bool loadConfig() {
   }
 
   S_JSON_TO_CONFIG(redis, "redis");
-  JSON_TO_CONFIG(port, "port");
-  JSON_TO_CONFIG(duration, "duration");
+  N_JSON_TO_CONFIG(port, "port");
+  N_JSON_TO_CONFIG(duration, "duration");
 
   return true;
 }
@@ -75,8 +76,8 @@ bool saveConfig() {
   JsonObject& root = jsonBuffer.createObject();
 
   S_CONFIG_TO_JSON(redis, "redis");
-  CONFIG_TO_JSON(port, "port");
-  CONFIG_TO_JSON(duration, "duration");
+  N_CONFIG_TO_JSON(port, "port");
+  N_CONFIG_TO_JSON(duration, "duration");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -213,16 +214,16 @@ void handleJSON() {
       return;
     }
     S_JSON_TO_CONFIG(redis, "redis");
-    JSON_TO_CONFIG(port, "port");
-    JSON_TO_CONFIG(duration, "duration");
+    N_JSON_TO_CONFIG(port, "port");
+    N_JSON_TO_CONFIG(duration, "duration");
     
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
     S_KEYVAL_TO_CONFIG(redis, "redis");
-    KEYVAL_TO_CONFIG(port, "port");
-    KEYVAL_TO_CONFIG(duration, "duration");
+    N_KEYVAL_TO_CONFIG(port, "port");
+    N_KEYVAL_TO_CONFIG(duration, "duration");
     
     handleStaticFile("/reload_success.html");
   }
@@ -237,4 +238,3 @@ void handleJSON() {
   // some of the settings require re-initialization
   ESP.restart();
 }
-

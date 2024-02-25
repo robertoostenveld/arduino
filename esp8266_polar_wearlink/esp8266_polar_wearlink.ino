@@ -11,15 +11,12 @@
 */
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Redis.h>               // https://github.com/remicaumette/esp8266-redis
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <WiFiClient.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
-#include <WiFiUDP.h>
-#include <FS.h>
+#include <Wire.h>
+#include <Redis.h>               // https://github.com/remicaumette/esp8266-redis
 
 #include "setup_ota.h"
 #include "rgb_led.h"
@@ -194,8 +191,8 @@ void setup() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
     S_CONFIG_TO_JSON(redis, "redis");
-    CONFIG_TO_JSON(port, "port");
-    CONFIG_TO_JSON(duration, "duration");
+    N_CONFIG_TO_JSON(port, "port");
+    N_CONFIG_TO_JSON(duration, "duration");
 
     root["heartrate"] = bpm;
     root["version"] = version;

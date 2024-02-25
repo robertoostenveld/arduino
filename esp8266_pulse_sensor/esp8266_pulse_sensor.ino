@@ -13,11 +13,8 @@
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <WiFiClient.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
-#include <WiFiUDP.h>
 #include <Ticker.h>
-#include <FS.h>
 
 #include "setup_ota.h"
 #include "blink_led.h"
@@ -209,7 +206,7 @@ void setup() {
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
     S_CONFIG_TO_JSON(address, "address");
-    CONFIG_TO_JSON(port, "port");
+    N_CONFIG_TO_JSON(port, "port");
 
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);

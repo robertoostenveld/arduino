@@ -69,15 +69,15 @@ bool loadConfig() {
     return false;
   }
 
-  JSON_TO_CONFIG(sensors, "sensors");
-  JSON_TO_CONFIG(decimate, "decimate");
-  JSON_TO_CONFIG(calibrate, "calibrate");
-  JSON_TO_CONFIG(raw, "raw");
-  JSON_TO_CONFIG(ahrs, "ahrs");
-  JSON_TO_CONFIG(quaternion, "quaternion");
-  JSON_TO_CONFIG(temperature, "temperature");
+  N_JSON_TO_CONFIG(sensors, "sensors");
+  N_JSON_TO_CONFIG(decimate, "decimate");
+  N_JSON_TO_CONFIG(calibrate, "calibrate");
+  N_JSON_TO_CONFIG(raw, "raw");
+  N_JSON_TO_CONFIG(ahrs, "ahrs");
+  N_JSON_TO_CONFIG(quaternion, "quaternion");
+  N_JSON_TO_CONFIG(temperature, "temperature");
   S_JSON_TO_CONFIG(destination, "destination");
-  JSON_TO_CONFIG(port, "port");
+  N_JSON_TO_CONFIG(port, "port");
 
   return true;
 }
@@ -87,15 +87,15 @@ bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
-  CONFIG_TO_JSON(sensors, "sensors");
-  CONFIG_TO_JSON(decimate, "decimate");
-  CONFIG_TO_JSON(calibrate, "calibrate");
-  CONFIG_TO_JSON(raw, "raw");
-  CONFIG_TO_JSON(ahrs, "ahrs");
-  CONFIG_TO_JSON(quaternion, "quaternion");
-  CONFIG_TO_JSON(temperature, "temperature");
+  N_CONFIG_TO_JSON(sensors, "sensors");
+  N_CONFIG_TO_JSON(decimate, "decimate");
+  N_CONFIG_TO_JSON(calibrate, "calibrate");
+  N_CONFIG_TO_JSON(raw, "raw");
+  N_CONFIG_TO_JSON(ahrs, "ahrs");
+  N_CONFIG_TO_JSON(quaternion, "quaternion");
+  N_CONFIG_TO_JSON(temperature, "temperature");
   S_CONFIG_TO_JSON(destination, "destination");
-  CONFIG_TO_JSON(port, "port");
+  N_CONFIG_TO_JSON(port, "port");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -231,28 +231,28 @@ void handleJSON() {
       handleStaticFile("/reload_failure.html");
       return;
     }
-    JSON_TO_CONFIG(sensors, "sensors");
-    JSON_TO_CONFIG(decimate, "decimate");
-    JSON_TO_CONFIG(calibrate, "calibrate");
-    JSON_TO_CONFIG(raw, "raw");
-    JSON_TO_CONFIG(ahrs, "ahrs");
-    JSON_TO_CONFIG(quaternion, "quaternion");
-    JSON_TO_CONFIG(temperature, "temperature");
+    N_JSON_TO_CONFIG(sensors, "sensors");
+    N_JSON_TO_CONFIG(decimate, "decimate");
+    N_JSON_TO_CONFIG(calibrate, "calibrate");
+    N_JSON_TO_CONFIG(raw, "raw");
+    N_JSON_TO_CONFIG(ahrs, "ahrs");
+    N_JSON_TO_CONFIG(quaternion, "quaternion");
+    N_JSON_TO_CONFIG(temperature, "temperature");
     S_JSON_TO_CONFIG(destination, "destination");
-    JSON_TO_CONFIG(port, "port");
+    N_JSON_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");
   }
   else {
     // parse it as key1=val1&key2=val2&key3=val3
-    KEYVAL_TO_CONFIG(sensors, "sensors");
-    KEYVAL_TO_CONFIG(decimate, "decimate");
-    KEYVAL_TO_CONFIG(calibrate, "calibrate");
-    KEYVAL_TO_CONFIG(raw, "raw");
-    KEYVAL_TO_CONFIG(ahrs, "ahrs");
-    KEYVAL_TO_CONFIG(quaternion, "quaternion");
-    KEYVAL_TO_CONFIG(temperature, "temperature");
+    N_KEYVAL_TO_CONFIG(sensors, "sensors");
+    N_KEYVAL_TO_CONFIG(decimate, "decimate");
+    N_KEYVAL_TO_CONFIG(calibrate, "calibrate");
+    N_KEYVAL_TO_CONFIG(raw, "raw");
+    N_KEYVAL_TO_CONFIG(ahrs, "ahrs");
+    N_KEYVAL_TO_CONFIG(quaternion, "quaternion");
+    N_KEYVAL_TO_CONFIG(temperature, "temperature");
     S_KEYVAL_TO_CONFIG(destination, "destination");
-    KEYVAL_TO_CONFIG(port, "port");
+    N_KEYVAL_TO_CONFIG(port, "port");
     handleStaticFile("/reload_success.html");
   }
   saveConfig();

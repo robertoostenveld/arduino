@@ -6,14 +6,13 @@
   https://github.com/adafruit/Adafruit_NeoPixel
 */
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
-#include <WiFiClient.h>
-#include <ArtnetWifi.h>          // https://github.com/rstephan/ArtnetWifi 
+#include <ArtnetWifi.h>          // https://github.com/rstephan/ArtnetWifi
 #include <Adafruit_NeoPixel.h>
-#include <FS.h>
 
 #include "setup_ota.h"
 #include "neopixel_mode.h"
@@ -215,17 +214,17 @@ void setup() {
     tic_web = millis();
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    CONFIG_TO_JSON(universe, "universe");
-    CONFIG_TO_JSON(offset, "offset");
-    CONFIG_TO_JSON(pixels, "pixels");
-    CONFIG_TO_JSON(leds, "leds");
-    CONFIG_TO_JSON(white, "white");
-    CONFIG_TO_JSON(brightness, "brightness");
-    CONFIG_TO_JSON(hsv, "hsv");
-    CONFIG_TO_JSON(mode, "mode");
-    CONFIG_TO_JSON(reverse, "reverse");
-    CONFIG_TO_JSON(speed, "speed");
-    CONFIG_TO_JSON(split, "split");
+    N_CONFIG_TO_JSON(universe, "universe");
+    N_CONFIG_TO_JSON(offset, "offset");
+    N_CONFIG_TO_JSON(pixels, "pixels");
+    N_CONFIG_TO_JSON(leds, "leds");
+    N_CONFIG_TO_JSON(white, "white");
+    N_CONFIG_TO_JSON(brightness, "brightness");
+    N_CONFIG_TO_JSON(hsv, "hsv");
+    N_CONFIG_TO_JSON(mode, "mode");
+    N_CONFIG_TO_JSON(reverse, "reverse");
+    N_CONFIG_TO_JSON(speed, "speed");
+    N_CONFIG_TO_JSON(split, "split");
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     root["packets"] = packetCounter;
