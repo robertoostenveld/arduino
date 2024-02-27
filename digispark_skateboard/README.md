@@ -20,19 +20,18 @@ implementation of the light modes is borrowed from one of my other
 projects: which are [ESP8266 powered ArtNet neopixel
 modules](https://robertoostenveld.nl/esp-8266-art-net-neopixel-module/).
 
-* static single uniform color
-* uniform blinking between two colors
-* rotating color wheel with another color background
-* rotating HSV rainbow
+- static single uniform color
+- uniform blinking between two colors
+- rotating color wheel with another color background
+- rotating HSV rainbow
 
 ## Components
 
-* Digispark rev4
-* 18650 LiPo battery with builit-in protection
-* battery holder
-* USB DC-DC transformer with 5V output
-* 4 latching switches, 1x for power, 3x for mode selection
-* 3 pull-up resistors, few kOhm
-* capacitor, 1000uF
-* 3-D printed enclosure
-
+- Digispark rev4
+- 18650 LiPo battery with builit-in protection
+- battery holder
+- USB DC-DC transformer with 5V output
+- 4 latching switches, 1x for power, 3x for mode selection
+- 3 pull-up resistors, few kOhm
+- capacitor, 1000uF
+- 3-D printed enclosure
