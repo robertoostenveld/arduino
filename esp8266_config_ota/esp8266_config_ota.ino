@@ -1,11 +1,20 @@
-#include <ArduinoJson.h>
 
+#include <Arduino.h>
+#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <WiFiManager.h>         //https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
+
+#ifndef ARDUINOJSON_VERSION
+#error ArduinoJson version 5 not found, please include ArduinoJson.h in your .ino file
+#endif
+
+#if ARDUINOJSON_VERSION_MAJOR != 5
+#error ArduinoJson version 5 is required
+#endif
 
 ESP8266WebServer server(80);
 const char* host = "esp8266";
@@ -62,28 +71,63 @@ bool loadConfig() {
     var2 = root["var2"];
   if (root.containsKey("var3"))
     var3 = root["var3"];
+
+  printConfig();
   return true;
 }
 
 bool saveConfig() {
   Serial.println("saveConfig");
+  printConfig();
   StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& json = jsonBuffer.createObject();
-  json["var1"] = var1;
-  json["var2"] = var2;
-  json["var3"] = var3;
+  JsonObject& root = jsonBuffer.createObject();
+  root["var1"] = var1;
+  root["var2"] = var2;
+  root["var3"] = var3;
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
     Serial.println("Failed to open config file for writing");
     return false;
   }
+  else {
+    root.printTo(configFile);
+    return true;
+  }
+}
 
-  json.printTo(configFile);
-  return true;
+void printConfig() {
+  Serial.print("var1 = ");
+  Serial.println(var1);
+  Serial.print("var2 = ");
+  Serial.println(var2);
+  Serial.print("var3 = ");
+  Serial.println(var3);
+}    
+
+void printRequest() {
+  String message = "HTTP Request\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nHeaders: ";
+  message += server.headers();
+  message += "\n";
+  for (uint8_t i = 0; i < server.headers(); i++ ) {
+    message += " " + server.headerName(i) + ": " + server.header(i) + "\n";
+  }
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  Serial.println(message);
 }
 
 void handleUpdate1() {
+  Serial.println("handleUpdate1");
   server.sendHeader("Connection", "close");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
@@ -91,6 +135,7 @@ void handleUpdate1() {
 }
 
 void handleUpdate2() {
+  Serial.println("handleUpdate2");
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     Serial.setDebugOutput(true);
@@ -149,20 +194,22 @@ void handleNotFound() {
   }
 }
 
-void handleRedirect(String filename) {
-  char buf[64];
-  filename.toCharArray(buf, 64);
-  handleRedirect(filename);
+void handleRedirect(const char * filename) {
+  handleRedirect((String)filename);
 }
 
-void handleRedirect(const char * filename) {
-  Serial.println("handleRedirect");
-  server.sendHeader("Location", String(filename), true);
+void handleRedirect(String filename) {
+  Serial.println("handleRedirect: " + filename);
+  server.sendHeader("Location", filename, true);
   server.send(302, "text/plain", "");
 }
 
+bool handleStaticFile(const char * path) {
+  return handleStaticFile((String)path);
+}
+
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile");
+  Serial.println("handleStaticFile: " + path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
@@ -170,49 +217,19 @@ bool handleStaticFile(String path) {
     file.close();                                       // Then close the file again
     return true;
   }
-  Serial.println("\tFile Not Found");
-  return false;                                         // If the file doesn't exist, return false
-}
-
-bool handleStaticFile(const char * path) {
-  return handleStaticFile((String)path);
+  else {
+    Serial.println("\tFile Not Found");
+    return false;                                         // If the file doesn't exist, return false
+  }
 }
 
 void handleSettings() {
-  Serial.println("handleSettings");
-
-  String message = "HTTP Request\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  Serial.println(message);
-
   // this gets called in response to either a PUT or a POST
-  if (server.hasArg("plain")) {
-    // parse it as JSON object
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
-    if (!root.success()) {
-      handleStaticFile("/reload_failure.html");
-      return;
-    }
-    if (root.containsKey("var1"))
-      var1 = root["var1"];
-    if (root.containsKey("var2"))
-      var2 = root["var2"];
-    if (root.containsKey("var3"))
-      var3 = root["var3"];
-    handleStaticFile("/reload_success.html");
-  }
-  else {
-    // parse it as key1=val1&key2=val2&key3=val3
+  Serial.println("handleSettings");
+  printRequest();
+
+  if (server.hasArg("var1") || server.hasArg("var2") || server.hasArg("var3")) {
+    // the ESP8266Webserver has already parsed it
     String str;
     if (server.hasArg("var1")) {
       str = server.arg("var1");
@@ -227,6 +244,27 @@ void handleSettings() {
       var3 = str.toInt();
     }
     handleStaticFile("/reload_success.html");
+  }
+  else if (server.hasArg("plain")) {
+    // parse the body as JSON object
+    String body = server.arg("plain");
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(body);
+    if (!root.success()) {
+      handleStaticFile("/reload_failure.html");
+      return;
+    }
+    if (root.containsKey("var1"))
+      var1 = root["var1"];
+    if (root.containsKey("var2"))
+      var2 = root["var2"];
+    if (root.containsKey("var3"))
+      var3 = root["var3"];
+    handleStaticFile("/reload_success.html");
+  }
+  else {
+      handleStaticFile("/reload_failure.html");
+      return;
   }
   saveConfig();
 }
@@ -305,6 +343,11 @@ void setup() {
 
   server.on("/update", HTTP_POST, handleUpdate1, handleUpdate2);
 
+  // ask server to track these headers
+  const char * headerkeys[] = {"User-Agent","Content-Type"} ;
+  size_t headerkeyssize = sizeof(headerkeys)/sizeof(char*);
+  server.collectHeaders(headerkeys, headerkeyssize );
+
   server.begin();
 
   MDNS.begin(host);
@@ -314,5 +357,5 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly
   server.handleClient();
-  delay(1);
+  delay(10); // in milliseconds
 }
