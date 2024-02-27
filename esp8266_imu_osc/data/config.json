@@ -6,6 +6,6 @@
 	"ahrs": 0,
 	"quaternion": 0,
 	"termperature": 0,
-	"destination": "192.168.1.182",
+	"destination": "192.168.1.34",
 	"port": 8000
 }

@@ -9,7 +9,7 @@ int ftserver = 0, status = 0;
 #define FSAMPLE   1000
 #define BLOCKSIZE 100
 
-#define FTHOST "192.168.1.182"
+#define FTHOST "192.168.1.34"
 #define FTPORT 1972
 
 uint16_t buf[BLOCKSIZE];

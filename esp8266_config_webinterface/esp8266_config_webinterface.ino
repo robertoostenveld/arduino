@@ -103,7 +103,7 @@ void printConfig() {
   Serial.println(var2);
   Serial.print("var3 = ");
   Serial.println(var3);
-}    
+}
 
 void printRequest() {
   String message = "HTTP Request\n\n";
@@ -223,13 +223,13 @@ bool handleStaticFile(String path) {
   }
 }
 
-void handleSettings() {
+void handleJSON() {
   // this gets called in response to either a PUT or a POST
-  Serial.println("handleSettings");
+  Serial.println("handleJSON");
   printRequest();
 
   if (server.hasArg("var1") || server.hasArg("var2") || server.hasArg("var3")) {
-    // the ESP8266Webserver has already parsed it
+    // the body is key1=val1&key2=val2&key3=val3 and the ESP8266Webserver has already parsed it
     String str;
     if (server.hasArg("var1")) {
       str = server.arg("var1");
@@ -322,9 +322,9 @@ void setup() {
     handleStaticFile("/settings.html");
   });
 
-  server.on("/json", HTTP_PUT, handleSettings);
+  server.on("/json", HTTP_PUT, handleJSON);
 
-  server.on("/json", HTTP_POST, handleSettings);
+  server.on("/json", HTTP_POST, handleJSON);
 
   server.on("/json", HTTP_GET, [] {
     StaticJsonBuffer<200> jsonBuffer;

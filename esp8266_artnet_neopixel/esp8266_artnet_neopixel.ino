@@ -14,14 +14,14 @@
 #include <ArtnetWifi.h>          // https://github.com/rstephan/ArtnetWifi
 #include <Adafruit_NeoPixel.h>
 
-#include "setup_ota.h"
+#include "webinterface.h"
 #include "neopixel_mode.h"
 
 Config config;
 ESP8266WebServer server(80);
 const char* host = "ARTNET";
 const char* version = __DATE__ " / " __TIME__;
-float temperature = 0, fps = 0;
+float fps = 0;
 
 // Neopixel settings
 const byte dataPin = D2;

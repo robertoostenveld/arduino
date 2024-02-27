@@ -1,4 +1,4 @@
-#include "setup_ota.h"
+#include "webinterface.h"
 #include "blink_led.h"
 
 extern ESP8266WebServer server;
@@ -31,7 +31,7 @@ static String getContentType(const String& path) {
 bool initialConfig() {
   Serial.println("initialConfig");
   
-  strncpy(config.address, "192.168.1.182", 32);
+  strncpy(config.address, "192.168.1.34", 32);
   config.port = 1972;
   return true;
 }
@@ -91,7 +91,26 @@ bool saveConfig() {
   }
 }
 
-/***************************************************************************/
+void printRequest() {
+  String message = "HTTP Request\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nHeaders: ";
+  message += server.headers();
+  message += "\n";
+  for (uint8_t i = 0; i < server.headers(); i++ ) {
+    message += " " + server.headerName(i) + ": " + server.header(i) + "\n";
+  }
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  Serial.println(message);
+}
 
 void handleUpdate1() {
   server.sendHeader("Connection", "close");
@@ -159,20 +178,22 @@ void handleNotFound() {
   }
 }
 
-void handleRedirect(String filename) {
-  char buf[64];
-  filename.toCharArray(buf, 64);
-  handleRedirect(filename);
+void handleRedirect(const char * filename) {
+  handleRedirect((String)filename);
 }
 
-void handleRedirect(const char * filename) {
-  Serial.println("handleRedirect");
-  server.sendHeader("Location", String(filename), true);
+void handleRedirect(String filename) {
+  Serial.println("handleRedirect: " + filename);
+  server.sendHeader("Location", filename, true);
   server.send(302, "text/plain", "");
 }
 
+bool handleStaticFile(const char * path) {
+  return handleStaticFile((String)path);
+}
+
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile");
+  Serial.println("handleStaticFile " + path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
@@ -184,28 +205,20 @@ bool handleStaticFile(String path) {
   return false;                                         // If the file doesn't exist, return false
 }
 
-bool handleStaticFile(const char * path) {
-  return handleStaticFile((String)path);
-}
-
 void handleJSON() {
-  Serial.println("handleJSON");
-  String message = "HTTP Request\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  Serial.println(message);
-
   // this gets called in response to either a PUT or a POST
-  if (server.hasArg("plain")) {
-    // parse it as JSON object
+  Serial.println("handleJSON");
+  printRequest();
+
+  if (server.hasArg("address") || server.hasArg("port")) {
+    // the body is key1=val1&key2=val2&key3=val3 and the ESP8266Webserver has already parsed it
+    S_KEYVAL_TO_CONFIG(address, "address");
+    N_KEYVAL_TO_CONFIG(port, "port");
+
+    handleStaticFile("/reload_success.html");
+  }
+  else if (server.hasArg("plain")) {
+    // parse the body as JSON object
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
@@ -217,14 +230,8 @@ void handleJSON() {
 
     handleStaticFile("/reload_success.html");
   }
-  else {
-    // parse it as key1=val1&key2=val2&key3=val3
-    S_KEYVAL_TO_CONFIG(address, "address");
-    N_KEYVAL_TO_CONFIG(port, "port");
-
-    handleStaticFile("/reload_success.html");
-  }
   saveConfig();
+
   // blink five times
   for (int i = 0; i < 5; i++) {
     ledOn();
@@ -232,6 +239,7 @@ void handleJSON() {
     ledOff();
     delay(200);
   }
+
   // some of the settings require re-initialization
   ESP.restart();
 }

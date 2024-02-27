@@ -1,5 +1,5 @@
-#ifndef _SETUP_OTA_H_
-#define _SETUP_OTA_H_
+#ifndef _WEBINTERFACE_H_
+#define _WEBINTERFACE_H_
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -54,4 +54,4 @@ struct Config {
   int split;
 };
 
-#endif // _SETUP_OTA_H_
+#endif // _WEBINTERFACE_H_

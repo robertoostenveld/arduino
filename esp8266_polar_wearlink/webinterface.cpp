@@ -1,4 +1,4 @@
-#include "setup_ota.h"
+#include "webinterface.h"
 #include "rgb_led.h"
 
 extern ESP8266WebServer server;
@@ -30,15 +30,11 @@ static String getContentType(const String& path) {
 /***************************************************************************/
 
 bool initialConfig() {
-  config.sensors = 8;
-  config.decimate = 1;
-  config.calibrate = 0;
-  config.raw = 1;
-  config.ahrs = 0;
-  config.quaternion = 0;
-  config.temperature = 0;
-  strncpy(config.destination, "192.168.1.182", 32);
-  config.port = 8000;
+  Serial.println("loadConfig");
+
+  strncpy(config.redis, "192.168.1.34", 32);
+  config.port = 6379;
+  config.duration = 100;
   return true;
 }
 
@@ -69,15 +65,9 @@ bool loadConfig() {
     return false;
   }
 
-  N_JSON_TO_CONFIG(sensors, "sensors");
-  N_JSON_TO_CONFIG(decimate, "decimate");
-  N_JSON_TO_CONFIG(calibrate, "calibrate");
-  N_JSON_TO_CONFIG(raw, "raw");
-  N_JSON_TO_CONFIG(ahrs, "ahrs");
-  N_JSON_TO_CONFIG(quaternion, "quaternion");
-  N_JSON_TO_CONFIG(temperature, "temperature");
-  S_JSON_TO_CONFIG(destination, "destination");
+  S_JSON_TO_CONFIG(redis, "redis");
   N_JSON_TO_CONFIG(port, "port");
+  N_JSON_TO_CONFIG(duration, "duration");
 
   return true;
 }
@@ -87,15 +77,9 @@ bool saveConfig() {
   StaticJsonBuffer<300> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
 
-  N_CONFIG_TO_JSON(sensors, "sensors");
-  N_CONFIG_TO_JSON(decimate, "decimate");
-  N_CONFIG_TO_JSON(calibrate, "calibrate");
-  N_CONFIG_TO_JSON(raw, "raw");
-  N_CONFIG_TO_JSON(ahrs, "ahrs");
-  N_CONFIG_TO_JSON(quaternion, "quaternion");
-  N_CONFIG_TO_JSON(temperature, "temperature");
-  S_CONFIG_TO_JSON(destination, "destination");
+  S_CONFIG_TO_JSON(redis, "redis");
   N_CONFIG_TO_JSON(port, "port");
+  N_CONFIG_TO_JSON(duration, "duration");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -110,7 +94,26 @@ bool saveConfig() {
   }
 }
 
-/***************************************************************************/
+void printRequest() {
+  String message = "HTTP Request\n\n";
+  message += "URI: ";
+  message += server.uri();
+  message += "\nMethod: ";
+  message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nHeaders: ";
+  message += server.headers();
+  message += "\n";
+  for (uint8_t i = 0; i < server.headers(); i++ ) {
+    message += " " + server.headerName(i) + ": " + server.header(i) + "\n";
+  }
+  message += "\nArguments: ";
+  message += server.args();
+  message += "\n";
+  for (uint8_t i = 0; i < server.args(); i++) {
+    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  }
+  Serial.println(message);
+}
 
 void handleUpdate1() {
   server.sendHeader("Connection", "close");
@@ -178,20 +181,22 @@ void handleNotFound() {
   }
 }
 
-void handleRedirect(String filename) {
-  char buf[64];
-  filename.toCharArray(buf, 64);
-  handleRedirect(filename);
+void handleRedirect(const char * filename) {
+  handleRedirect((String)filename);
 }
 
-void handleRedirect(const char * filename) {
-  Serial.println("handleRedirect");
-  server.sendHeader("Location", String(filename), true);
+void handleRedirect(String filename) {
+  Serial.println("handleRedirect: " + filename);
+  server.sendHeader("Location", filename, true);
   server.send(302, "text/plain", "");
 }
 
+bool handleStaticFile(const char * path) {
+  return handleStaticFile((String)path);
+}
+
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile");
+  Serial.println("handleStaticFile " + path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
@@ -203,91 +208,44 @@ bool handleStaticFile(String path) {
   return false;                                         // If the file doesn't exist, return false
 }
 
-bool handleStaticFile(const char * path) {
-  return handleStaticFile((String)path);
-}
-
 void handleJSON() {
-  Serial.println("handleJSON");
-  String message = "HTTP Request\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  Serial.println(message);
-
   // this gets called in response to either a PUT or a POST
-  if (server.hasArg("plain")) {
-    // parse it as JSON object
+  Serial.println("handleJSON");
+  printRequest();
+
+  if (server.hasArg("redis") || server.hasArg("port") || server.hasArg("duration")) {
+    // the body is key1=val1&key2=val2&key3=val3 and the ESP8266Webserver has already parsed it
+    S_KEYVAL_TO_CONFIG(redis, "redis");
+    N_KEYVAL_TO_CONFIG(port, "port");
+    N_KEYVAL_TO_CONFIG(duration, "duration");
+    
+    handleStaticFile("/reload_success.html");
+  }
+  else if (server.hasArg("plain")) {
+    // parse the body as JSON object
     StaticJsonBuffer<300> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(server.arg("plain"));
     if (!root.success()) {
       handleStaticFile("/reload_failure.html");
       return;
     }
-    N_JSON_TO_CONFIG(sensors, "sensors");
-    N_JSON_TO_CONFIG(decimate, "decimate");
-    N_JSON_TO_CONFIG(calibrate, "calibrate");
-    N_JSON_TO_CONFIG(raw, "raw");
-    N_JSON_TO_CONFIG(ahrs, "ahrs");
-    N_JSON_TO_CONFIG(quaternion, "quaternion");
-    N_JSON_TO_CONFIG(temperature, "temperature");
-    S_JSON_TO_CONFIG(destination, "destination");
+    S_JSON_TO_CONFIG(redis, "redis");
     N_JSON_TO_CONFIG(port, "port");
+    N_JSON_TO_CONFIG(duration, "duration");
+    
     handleStaticFile("/reload_success.html");
   }
-  else {
-    // parse it as key1=val1&key2=val2&key3=val3
-    N_KEYVAL_TO_CONFIG(sensors, "sensors");
-    N_KEYVAL_TO_CONFIG(decimate, "decimate");
-    N_KEYVAL_TO_CONFIG(calibrate, "calibrate");
-    N_KEYVAL_TO_CONFIG(raw, "raw");
-    N_KEYVAL_TO_CONFIG(ahrs, "ahrs");
-    N_KEYVAL_TO_CONFIG(quaternion, "quaternion");
-    N_KEYVAL_TO_CONFIG(temperature, "temperature");
-    S_KEYVAL_TO_CONFIG(destination, "destination");
-    N_KEYVAL_TO_CONFIG(port, "port");
-    handleStaticFile("/reload_success.html");
-  }
+
   saveConfig();
-  // blink five times, this takes 2 seconds
+
+  // blink five times
   for (int i = 0; i < 5; i++) {
     ledRed();
     delay(200);
     ledBlack();
     delay(200);
   }
+
   // some of the settings require re-initialization
   ESP.restart();
-}
-
-
-void handleFileUpload() { // upload a new file to the SPIFFS
-  File fsUploadFile;  // a File object to temporarily store the received file
-  HTTPUpload& upload = server.upload();
-  if (upload.status == UPLOAD_FILE_START) {
-    String filename = upload.filename;
-    if (!filename.startsWith("/")) filename = "/" + filename;
-    Serial.print("handleFileUpload Name: "); Serial.println(filename);
-    fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
-    filename = String();
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (fsUploadFile)
-      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (fsUploadFile) {                                   // If the file was successfully created
-      fsUploadFile.close();                               // Close the file again
-      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
-      server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
-      server.send(303);
-    } else {
-      server.send(500, "text/plain", "500: couldn't create file");
-    }
-  }
 }
