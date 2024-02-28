@@ -2,6 +2,10 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 
+#if defined(ESP32)
+#include <SPIFFS.h>
+#endif
+
 #ifndef ARDUINOJSON_VERSION
 #error ArduinoJson version 5 not found, please include ArduinoJson.h in your .ino file
 #endif
@@ -13,10 +17,9 @@
 int var1, var2, var3;
 
 bool loadConfig() {
-  Serial.println("loadConfig");
   File configFile = SPIFFS.open("/config.json", "r");
   if (!configFile) {
-    Serial.println("Failed to open config file");
+    Serial.println("Failed to open config file for reading");
     return false;
   }
 
@@ -47,7 +50,6 @@ bool loadConfig() {
 }
 
 bool saveConfig() {
-  Serial.println("saveConfig");
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   root["var1"] = var1;
@@ -64,13 +66,14 @@ bool saveConfig() {
   return true;
 }
 
-void printConfig() {
+bool printConfig() {
   Serial.print("var1 = ");
   Serial.println(var1);
   Serial.print("var2 = ");
   Serial.println(var2);
   Serial.print("var3 = ");
   Serial.println(var3);
+  return true;
 }
 
 void setup() {
@@ -78,13 +81,43 @@ void setup() {
   while (!Serial) {
     ;
   }
+  delay(1000);
   Serial.println("");
-  SPIFFS.begin();
-  loadConfig();
-  printConfig()
-  saveConfig();
+  Serial.println("setup start");
+
+  if (SPIFFS.begin()) {
+    Serial.println("SPIFFS ok");
+  }
+  else {
+    Serial.println("SPIFFS fail");
+  }
+  
+  if (loadConfig()) {
+    Serial.println("loadConfig ok");
+  }
+  else {
+    Serial.println("loadConfig fail");
+  }
+  
+  if (printConfig()) {
+      Serial.println("printConfig ok");
+  }
+  else {
+    Serial.println("printConfig fail");
+  }
+
+  if (saveConfig()) {
+    Serial.println("saveConfig ok");
+  }
+  else {
+    Serial.println("loadConfig fail");
+  }
+
+  SPIFFS.end();
+  Serial.println("setup end");
 }
 
 void loop() {
   delay(1000);
+  Serial.print(".");
 }
