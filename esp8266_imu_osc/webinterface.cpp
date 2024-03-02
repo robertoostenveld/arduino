@@ -29,7 +29,7 @@ static String getContentType(const String& path) {
 
 /***************************************************************************/
 
-bool initialConfig() {
+bool defaultConfig() {
   config.sensors = 8;
   config.decimate = 1;
   config.calibrate = 0;

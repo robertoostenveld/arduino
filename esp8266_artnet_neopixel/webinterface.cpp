@@ -28,8 +28,8 @@ static String getContentType(const String& path) {
 
 /***************************************************************************/
 
-bool initialConfig() {
-  Serial.println("initialConfig");
+bool defaultConfig() {
+  Serial.println("defaultConfig");
   
   config.universe = 1;
   config.offset = 0;

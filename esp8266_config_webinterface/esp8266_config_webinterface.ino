@@ -18,6 +18,7 @@
 
 ESP8266WebServer server(80);
 const char* host = "esp8266";
+const char* version = __DATE__ " / " __TIME__;
 int var1, var2, var3;
 
 static String getContentType(const String& path) {
@@ -282,7 +283,6 @@ void setup() {
   loadConfig();
 
   WiFiManager wifiManager;
-  // wifiManager.resetSettings();
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
   Serial.println("connected");
@@ -294,22 +294,26 @@ void setup() {
     handleRedirect("/index.html");
   });
 
-  server.on("/wifi", HTTP_GET, []() {
-    handleStaticFile("/reload_success.html");
+  server.on("/reconnect", HTTP_GET, []() {
     Serial.println("handleWifi");
-    Serial.flush();
+    handleStaticFile("/reload_success.html");
+    server.close();
+    server.stop();
+    delay(5000);
     WiFiManager wifiManager;
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
+    server.begin();
   });
 
-  server.on("/reset", HTTP_GET, []() {
+  server.on("/restart", HTTP_GET, []() {
+    Serial.println("handleRestart");
     handleStaticFile("/reload_success.html");
-    Serial.println("handleReset");
-    Serial.flush();
-    WiFiManager wifiManager;
-    wifiManager.resetSettings();
+    server.close();
+    server.stop();
+    SPIFFS.end();
+    delay(5000);
     ESP.restart();
   });
 
@@ -322,16 +326,14 @@ void setup() {
   server.on("/json", HTTP_GET, [] {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    root["var1"] = var1;
-    root["var2"] = var2;
-    root["var3"] = var3;
+    root["var1"]    = var1;
+    root["var2"]    = var2;
+    root["var3"]    = var3;
+    root["version"] = version;
+    root["uptime"]  = long(millis() / 1000);
     String content;
     root.printTo(content);
     server.send(200, "application/json", content);
-  });
-
-  server.on("/update", HTTP_GET, []() {
-    handleStaticFile("/update.html");
   });
 
   server.on("/update", HTTP_POST, handleUpdate1, handleUpdate2);

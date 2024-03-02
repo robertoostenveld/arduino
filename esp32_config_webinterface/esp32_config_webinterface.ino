@@ -19,6 +19,7 @@
 
 WebServer server(80);
 const char* host = "esp32";
+const char* version = __DATE__ " / " __TIME__;
 int var1, var2, var3;
 
 static String getContentType(const String& path) {
@@ -39,6 +40,14 @@ static String getContentType(const String& path) {
   else if (path.endsWith(".gz"))    return "application/x-gzip";
   else if (path.endsWith(".json"))  return "application/json";
   return "application/octet-stream";
+}
+
+bool defaultConfig() {
+  Serial.println("defaultConfig");
+  var1 = 10;
+  var2 = 20;
+  var3 = 30;
+  return true;
 }
 
 bool loadConfig() {
@@ -236,7 +245,6 @@ void setup() {
   loadConfig();
 
   WiFiManager wifiManager;
-  // wifiManager.resetSettings();
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
   Serial.println("connected");
@@ -248,22 +256,38 @@ void setup() {
     handleRedirect("/index.html");
   });
 
-  server.on("/wifi", HTTP_GET, []() {
+  server.on("/defaults", HTTP_GET, []() {
+    Serial.println("handleDefaults");
     handleStaticFile("/reload_success.html");
-    Serial.println("handleWifi");
-    Serial.flush();
+    defaultConfig();
+    saveConfig();
+    server.close();
+    server.stop();
+    delay(5000);
+    ESP.restart();
+  });
+
+  server.on("/reconnect", HTTP_GET, []() {
+    Serial.println("handleReconnect");
+    handleStaticFile("/reload_success.html");
+    server.close();
+    server.stop();
+    delay(5000);
     WiFiManager wifiManager;
+    wifiManager.resetSettings();
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
+    server.begin();
   });
 
-  server.on("/reset", HTTP_GET, []() {
+  server.on("/restart", HTTP_GET, []() {
+    Serial.println("handleRestart");
     handleStaticFile("/reload_success.html");
-    Serial.println("handleReset");
-    Serial.flush();
-    WiFiManager wifiManager;
-    wifiManager.resetSettings();
+    server.close();
+    server.stop();
+    SPIFFS.end();
+    delay(5000);
     ESP.restart();
   });
 
@@ -274,9 +298,11 @@ void setup() {
   server.on("/json", HTTP_GET, [] {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    root["var1"] = var1;
-    root["var2"] = var2;
-    root["var3"] = var3;
+    root["var1"]    = var1;
+    root["var2"]    = var2;
+    root["var3"]    = var3;
+    root["version"] = version;
+    root["uptime"]  = long(millis() / 1000);
     String content;
     root.printTo(content);
     server.send(200, "application/json", content);

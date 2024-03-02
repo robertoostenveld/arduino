@@ -97,9 +97,6 @@ void setup() {
   pinMode(LO2, INPUT); // Setup for leads off detection LO -
 
   ledInit();
-  initialConfig();
-  Serial.println(config.address);
-  Serial.println(config.port);
 
   WiFi.hostname(host);
   WiFi.begin();
@@ -121,10 +118,9 @@ void setup() {
     ledFast();
 
   WiFiManager wifiManager;
-  // wifiManager.resetSettings();  // this is only needed when flashing a completely new ESP8266
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
-  Serial.println("Connected to WiFi");
+  Serial.println("connected");
 
   if (WiFi.status() == WL_CONNECTED)
     ledSlow();
@@ -142,13 +138,11 @@ void setup() {
     tic_web = millis();
     Serial.println("handleDefaults");
     handleStaticFile("/reload_success.html");
-    delay(2000);
-    ledFast();
-    initialConfig();
+    defaultConfig();
     saveConfig();
-    WiFiManager wifiManager;
-    wifiManager.resetSettings();
-    WiFi.hostname(host);
+    server.close();
+    server.stop();
+    delay(5000);
     ESP.restart();
   });
 
@@ -156,22 +150,29 @@ void setup() {
     tic_web = millis();
     Serial.println("handleReconnect");
     handleStaticFile("/reload_success.html");
-    delay(2000);
     ledFast();
+    server.close();
+    server.stop();
+    delay(5000);
     WiFiManager wifiManager;
+    wifiManager.resetSettings();
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
+    server.begin();
     if (WiFi.status() == WL_CONNECTED)
       ledSlow();
   });
 
-  server.on("/reset", HTTP_GET, []() {
+  server.on("/restart", HTTP_GET, []() {
     tic_web = millis();
-    Serial.println("handleReset");
+    Serial.println("handleRestart");
     handleStaticFile("/reload_success.html");
-    delay(2000);
     ledFast();
+    server.close();
+    server.stop();
+    SPIFFS.end();
+    delay(5000);
     ESP.restart();
   });
 

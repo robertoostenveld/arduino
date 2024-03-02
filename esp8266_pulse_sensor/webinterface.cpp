@@ -28,8 +28,8 @@ static String getContentType(const String& path) {
 
 /***************************************************************************/
 
-bool initialConfig() {
-  Serial.println("initialConfig");
+bool defaultConfig() {
+  Serial.println("defaultConfig");
   
   strncpy(config.address, "192.168.1.34", 32);
   config.port = 1972;

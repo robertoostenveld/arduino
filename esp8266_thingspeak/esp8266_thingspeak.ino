@@ -33,8 +33,8 @@ void setup () {
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     if (count++ > 20) {
-      Serial.println("No WiFi connection, reset...");
-      ESP.reset();
+      Serial.println("No WiFi connection, restart...");
+      ESP.restart();
     }
     else
       Serial.print(".");

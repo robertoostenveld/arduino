@@ -99,8 +99,6 @@ void setup() {
   SPIFFS.begin();
   strip.begin();
 
-  initialConfig();
-
   if (loadConfig()) {
     updateNeopixelStrip();
     strip.setBrightness(255);
@@ -115,7 +113,6 @@ void setup() {
   }
 
   WiFiManager wifiManager;
-  // wifiManager.resetSettings();
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
   Serial.println("connected");
@@ -140,12 +137,10 @@ void setup() {
     tic_web = millis();
     Serial.println("handleDefaults");
     handleStaticFile("/reload_success.html");
-    delay(2000);
-    singleRed();
-    initialConfig();
+    defaultConfig();
     saveConfig();
-    WiFiManager wifiManager;
-    wifiManager.resetSettings();
+    server.close();
+    server.stop();
     ESP.restart();
   });
 
@@ -153,22 +148,29 @@ void setup() {
     tic_web = millis();
     Serial.println("handleReconnect");
     handleStaticFile("/reload_success.html");
-    delay(2000);
     singleYellow();
+    server.close();
+    server.stop();
+    delay(5000);
     WiFiManager wifiManager;
+    wifiManager.resetSettings();
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
     Serial.println("connected");
+    server.begin();
     if (WiFi.status() == WL_CONNECTED)
       singleGreen();
   });
 
-  server.on("/reset", HTTP_GET, []() {
+  server.on("/restart", HTTP_GET, []() {
     tic_web = millis();
-    Serial.println("handleReset");
+    Serial.println("handleRestart");
     handleStaticFile("/reload_success.html");
-    delay(2000);
     singleRed();
+    server.close();
+    server.stop();
+    SPIFFS.end();
+    delay(5000);
     ESP.restart();
   });
 

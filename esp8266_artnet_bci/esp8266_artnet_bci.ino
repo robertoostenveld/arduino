@@ -125,6 +125,8 @@ void setup() {
   if (WiFi.status() != WL_CONNECTED)
     singleRed();
 
+  WiFiManager wifiManager;
+  wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -148,7 +150,7 @@ void setup() {
   });
   ArduinoOTA.onEnd([]() {
     Serial.println("\nEnd OTA");
-    ESP.reset();
+    ESP.restart();
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
@@ -178,19 +180,26 @@ void setup() {
     tic_web = millis();
     Serial.println("handleReconnect");
     singleRed();
-    server.stop();  // switch the web server off
+    server.close();
+    server.stop();
+    delay(5000);
+    wifiManager.resetSettings();
     wifiManager.startConfigPortal(host);
-    server.begin();  // switch the web server back on
-    singleGreen();
     Serial.println("connected");
+    server.begin();
+    if (WiFi.status() == WL_CONNECTED)
+      singleGreen();
   });
 
-  server.on("/reset", HTTP_GET, []() {
+  server.on("/restart", HTTP_GET, []() {
     tic_web = millis();
-    Serial.println("handleReset");
-    wifiManager.resetSettings();
+    Serial.println("handleRestart");
     singleRed();
-    ESP.reset();
+    server.close();
+    server.stop();
+    SPIFFS.end();
+    delay(5000);
+    ESP.restart();
   });
 
   // start the web server

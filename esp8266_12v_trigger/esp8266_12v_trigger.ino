@@ -29,13 +29,13 @@
 #define PINOUT D6
 
 const char* version = __DATE__ " / " __TIME__;
-const char* name = "NAD-D3020";
+const char* host = "NAD-D3020";
 
 ESP8266WebServer server(80);
 
 void handleRoot() {
   Serial.println("/");
-  server.send(200, "text/plain", name);
+  server.send(200, "text/plain", host);
 }
 
 void handleNotFound() {
@@ -76,15 +76,16 @@ void setup(void) {
   Serial.println("]");
 
   WiFiManager wifiManager;
-  //wifiManager.resetSettings();
-  wifiManager.autoConnect(name);
+  wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
+  wifiManager.autoConnect(host);
+  Serial.println("connected");
 
   Serial.println("");
   Serial.println("Connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  if (MDNS.begin(name)) {
+  if (MDNS.begin(host)) {
     Serial.println("MDNS responder started");
   }
 
@@ -115,6 +116,12 @@ void setup(void) {
     server.send(200, "text/plain", version);
   });
 
+  server.on("/restart", []() {
+    Serial.println("/restart");
+    server.send(200, "text/plain", "restart");
+    ESP.restart();
+  });
+
   server.on("/reset", []() {
     Serial.println("/reset");
     server.send(200, "text/plain", "reset");
@@ -131,8 +138,8 @@ void loop(void) {
   // check the connection status every 10 seconds
   if ((millis()-checkpoint) > 10000) {
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("reset");
-      ESP.reset();
+      Serial.println("restart");
+      ESP.restart();
     }
     else
       checkpoint = millis();

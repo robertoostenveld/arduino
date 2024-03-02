@@ -29,7 +29,7 @@ static String getContentType(const String& path) {
 
 /***************************************************************************/
 
-bool initialConfig() {
+bool defaultConfig() {
   Serial.println("loadConfig");
 
   strncpy(config.redis, "192.168.1.34", 32);
