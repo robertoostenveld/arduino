@@ -128,12 +128,7 @@ void setup() {
 
   server.on("/", HTTP_GET, []() {
     tic_web = millis();
-    handleRedirect("/index");
-  });
-
-  server.on("/index", HTTP_GET, []() {
-    tic_web = millis();
-    handleStaticFile("/index.html");
+    handleRedirect("/index.html");
   });
 
   server.on("/version", HTTP_GET, []() {
@@ -175,21 +170,6 @@ void setup() {
     delay(2000);
     singleRed();
     ESP.restart();
-  });
-
-  server.on("/monitor", HTTP_GET, [] {
-    tic_web = millis();
-    handleStaticFile("/monitor.html");
-  });
-
-  server.on("/hello", HTTP_GET, [] {
-    tic_web = millis();
-    handleStaticFile("/hello.html");
-  });
-
-  server.on("/settings", HTTP_GET, [] {
-    tic_web = millis();
-    handleStaticFile("/settings.html");
   });
 
   server.on("/dir", HTTP_GET, [] {

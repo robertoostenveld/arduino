@@ -193,11 +193,6 @@ void setup() {
     ESP.reset();
   });
 
-  server.on("/monitor", HTTP_GET, [] {
-    tic_web = millis();
-    Serial.println("handleMonitor");
-  });
-
   // start the web server
   server.begin();
 
@@ -279,4 +274,3 @@ void singleBright() {
   pixels.setPixelColor(0, r, g, b);
   pixels.show();
 }
-

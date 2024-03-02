@@ -161,7 +161,8 @@ void handleDirList() {
 }
 
 void handleNotFound() {
-  Serial.println("handleNotFound");
+  Serial.print("handleNotFound: ");
+  Serial.println(server.uri());
   if (SPIFFS.exists(server.uri())) {
     handleStaticFile(server.uri());
   }
@@ -196,7 +197,7 @@ bool handleStaticFile(const char * path) {
 }
 
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile " + path);
+  Serial.println("handleStaticFile: " + path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it

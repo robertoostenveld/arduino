@@ -2,7 +2,7 @@
  *  This sketch serves as a 12 volt trigger to switch a NAD-D3020 audio amplifier on and off.
  *  The on and off state are controlled over a http call. The current status can also be probed.
  *
- *  The GPOI output of pin D6 is used to switch a PC900v optocoupler. Its output voltage can be 
+ *  The GPOI output of pin D6 is used to switch a PC900v optocoupler. Its output voltage can be
  *  toggled between 0 and 5 volt, which is is enough to trigger the amplifier.
  *
  *  See https://robertoostenveld.nl/12-volt-trigger-for-nad-d3020-amplifier/
@@ -39,18 +39,25 @@ void handleRoot() {
 }
 
 void handleNotFound() {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  Serial.print("handleNotFound: ");
+  Serial.println(server.uri());
+  if (SPIFFS.exists(server.uri())) {
+    handleStaticFile(server.uri());
   }
-  server.send(404, "text/plain", message);
+  else {
+    String message = "File Not Found\n\n";
+    message += "URI: ";
+    message += server.uri();
+    message += "\nMethod: ";
+    message += (server.method() == HTTP_GET) ? "GET" : "POST";
+    message += "\nArguments: ";
+    message += server.args();
+    message += "\n";
+    for (uint8_t i = 0; i < server.args(); i++) {
+      message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+    }
+    server.send(404, "text/plain", message);
+  }
 }
 
 long checkpoint = millis();

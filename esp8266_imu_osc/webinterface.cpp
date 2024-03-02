@@ -177,7 +177,8 @@ void handleDirList() {
 }
 
 void handleNotFound() {
-  Serial.println("handleNotFound");
+  Serial.print("handleNotFound: ");
+  Serial.println(server.uri());
   if (SPIFFS.exists(server.uri())) {
     handleStaticFile(server.uri());
   }
@@ -212,7 +213,7 @@ bool handleStaticFile(const char * path) {
 }
 
 bool handleStaticFile(String path) {
-  Serial.println("handleStaticFile " + path);
+  Serial.println("handleStaticFile: " + path);
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
@@ -276,14 +277,14 @@ void handleJSON() {
   ESP.restart();
 }
 
-
 void handleFileUpload() { // upload a new file to the SPIFFS
   File fsUploadFile;  // a File object to temporarily store the received file
   HTTPUpload& upload = server.upload();
   if (upload.status == UPLOAD_FILE_START) {
     String filename = upload.filename;
     if (!filename.startsWith("/")) filename = "/" + filename;
-    Serial.print("handleFileUpload Name: "); Serial.println(filename);
+    Serial.print("handleFileUpload Name: ");
+    Serial.println(filename);
     fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
     filename = String();
   } else if (upload.status == UPLOAD_FILE_WRITE) {
@@ -292,7 +293,8 @@ void handleFileUpload() { // upload a new file to the SPIFFS
   } else if (upload.status == UPLOAD_FILE_END) {
     if (fsUploadFile) {                                   // If the file was successfully created
       fsUploadFile.close();                               // Close the file again
-      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
+      Serial.print("handleFileUpload Size: ");
+      Serial.println(upload.totalSize);
       server.sendHeader("Location", "/success.html");     // Redirect the client to the success page
       server.send(303);
     } else {

@@ -174,7 +174,8 @@ void handleDirList() {
 }
 
 void handleNotFound() {
-  Serial.println("handleNotFound");
+  Serial.print("handleNotFound: ");
+  Serial.println(server.uri());
   if (SPIFFS.exists(server.uri())) {
     handleStaticFile(server.uri());
   }
@@ -290,11 +291,7 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.on("/", HTTP_GET, []() {
-    handleRedirect("/index");
-  });
-
-  server.on("/index", HTTP_GET, []() {
-    handleStaticFile("/index.html");
+    handleRedirect("/index.html");
   });
 
   server.on("/wifi", HTTP_GET, []() {
@@ -317,10 +314,6 @@ void setup() {
   });
 
   server.on("/dir", HTTP_GET, handleDirList);
-
-  server.on("/settings", HTTP_GET, [] {
-    handleStaticFile("/settings.html");
-  });
 
   server.on("/json", HTTP_PUT, handleJSON);
 
