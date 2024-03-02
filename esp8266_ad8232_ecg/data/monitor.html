@@ -4,7 +4,6 @@
 <title>Monitor</title>
 <meta charset="utf-8">
 <link href="style.css" rel="stylesheet" type="text/css">
-<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"></script>
 </head>
 
 <body>
@@ -17,7 +16,16 @@ Firmware version:
 Uptime:
 <div id="uptime" name"uptime">?</div>
 
-<script language="javascript" type="text/javascript" src="monitor.js"></script>
+<script>
+  async function updateContent() {
+    const response = await fetch("json");
+    const data = await response.json();
+    console.log(data);
+    document.getElementById("version").innerHTML = data["version"];
+    document.getElementById("uptime").innerHTML = data["uptime"];
+  }
+  updateContent();
+</script>
 
 </body>
 </html>

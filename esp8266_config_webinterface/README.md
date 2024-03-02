@@ -1,6 +1,6 @@
 # Overview
 
-This is a demonstration and test sketch for configuring persistent options via the web interface. This strategy is used in a number of my functional esp8266 sketches. It consists of a `settings.json` file in the SPIFFS filesystem, a `settings.html` file, and a `settings.js` script.
+This is a demonstration and test sketch for configuring persistent options via the web interface. This strategy is used in a number of my functional esp8266 sketches. It consists of a `settings.json` file in the SPIFFS filesystem and a `settings.html` file with some javascript.
 
 The settings can be changed in the webbrowser at http://192.168.1.xxx/settings and clicking "Send". This results in `ESP8266Webserver` parsing the arguments and placing the variables in the header, but also places the query string in the body.
 

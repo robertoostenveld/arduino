@@ -4,8 +4,6 @@
 <title>Settings</title>
 <meta charset="utf-8">
 <link href="style.css" rel="stylesheet" type="text/css">
-<script language="javascript" type="text/javascript" src="jquery-3.1.1.min.js"></script>
-<script language="javascript" type="text/javascript" src="settings.js" defer></script>
 </head>
 
 <body>
@@ -62,6 +60,18 @@
         <button type="submit">Send</button>
     </div>
 </form>
+
+<script>
+  async function updateContent() {
+    const response = await fetch("json");
+    const data = await response.json();
+    console.log(data);
+    document.getElementById("var1").value = data["var1"];
+    document.getElementById("var2").value = data["var2"];
+    document.getElementById("var3").value = data["var3"];
+  }
+  updateContent();
+</script>
 
 </body>
 </html>
