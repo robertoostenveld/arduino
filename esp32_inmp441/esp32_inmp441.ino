@@ -1,11 +1,22 @@
 /*
-   Sketch for ESP32 board, like the NodeMCU 32S or the Adafruit Huzzah32
-   connected to a INMP411 I2S microphone
+    Sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32, or the Adafruit Huzzah32
+    connected to a INMP411 I2S microphone
 
-   See https://diyi0t.com/i2s-sound-tutorial-for-esp32/
-   and https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html
+    See https://diyi0t.com/i2s-sound-tutorial-for-esp32/
+    and https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html
 
+    This is how I connected the LOLIN32 Lite to the INMP411 module:
+      3V3 - VDD (red)
+      GND - GND (black)
+      26  - SD  (orange)
+      32  - L/R (blue)
+      33  - WS  (green)
+      25  - SCK (purple)
 */
+
+#if not defined(ESP32)
+#error This is a sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32, or the Adafruit Huzzah32
+#endif
 
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -19,8 +30,13 @@
 
 #define USE_DHCP
 #define CONNECT_LOLIN32
-#define PRINT_RANGE
-#define DO_RECONNECT
+//#define DO_RECONNECT
+//#define SEND_TCP
+//#define PRINT_VALUE
+//#define PRINT_RANGE
+//#define PRINT_FREQUENCY
+#define PRINT_VOLUME
+//#define PRINT_HEADER
 
 #ifndef USE_DHCP
 IPAddress localAddress(192, 168, 1, 100);
@@ -92,8 +108,8 @@ void setup() {
 
 #ifdef CONNECT_LOLIN32
 #define LED_BUILTIN 22
-  pinMode(32, OUTPUT); digitalWrite(32, HIGH);  // L/R
-  pinMode(35, OUTPUT); digitalWrite(35, HIGH);  // VDD
+  pinMode(32, OUTPUT); 
+  digitalWrite(32, LOW);  // L/R
 
   const i2s_pin_config_t pin_config = {
     .bck_io_num = 25,                   // Serial Clock (SCK on the INMP441)
@@ -112,13 +128,12 @@ void setup() {
   };
 #endif
 
-
 #ifdef CONNECT_HUZZAH32
   const i2s_pin_config_t pin_config = {
-    .bck_io_num = 32,                   // Serial Clock (BCLK on the SPH0645)
-    .ws_io_num = 22,                    // Word Select  (LRCL on the SPH0645)
+    .bck_io_num = 32,                   // Serial Clock (SCK on the INMP441)
+    .ws_io_num = 22,                    // Word Select  (WS on the INMP441)
     .data_out_num = I2S_PIN_NO_CHANGE,  // not used     (only for speakers)
-    .data_in_num = 14                   // Serial Data  (DOUT on the SPH0645)
+    .data_in_num = 14                   // Serial Data  (SD on the INMP441)
   };
 #endif
 
@@ -134,7 +149,7 @@ void setup() {
 
 #ifndef USE_DHCP
   if (!WiFi.config(localAddress, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("STA Failed to configure");
+    Serial.println("STA Failed to configure, halt!");
     while (true);
   }
 #endif
@@ -171,14 +186,14 @@ void setup() {
   // This function must be called before any I2S driver read/write operations.
   err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
   if (err != ESP_OK) {
-    Serial.printf("Failed installing driver: %d\n", err);
+    Serial.printf("Failed installing driver: %d, halt!\n", err);
     while (true);
   }
   Serial.println("I2S driver installed.");
 
   err = i2s_set_pin(I2S_PORT, &pin_config);
   if (err != ESP_OK) {
-    Serial.printf("Failed setting pin: %d\n", err);
+    Serial.printf("Failed setting pin: %d, halt!\n", err);
     while (true);
   }
   Serial.println("I2S pins set.");
@@ -186,7 +201,7 @@ void setup() {
   // use the last number of the IP address as identifier
   message.id = WiFi.localIP()[3];
 
-  for (int i; i < sampleRate; i++) {
+  for (int i=0; i < sampleRate; i++) {
     err = i2s_read(I2S_PORT, buffer, 4, &bytes_read, 0);
   }
 
@@ -212,7 +227,7 @@ void loop() {
   err = i2s_read(I2S_PORT, buffer, samples * 4, &bytes_read, 0);
 
   if (err == ESP_OK) {
-    for (unsigned int sample; sample < bytes_read / 4; sample++) {
+    for (unsigned int sample=0; sample < bytes_read / 4; sample++) {
 
       double value = buffer[sample];
 
@@ -231,7 +246,7 @@ void loop() {
       value /= (1 + fabs(value));
       value *= 32767;
 
-#ifdef PRINT_HEADER
+#ifdef PRINT_VALUE
       Serial.println(value);
 #endif
 
@@ -290,6 +305,7 @@ void loop() {
       }
 #endif
 
+#ifdef SEND_TCP
       if (connected) {
         blinkTime = 1000;
         int count = Tcp.write((uint8_t *)(&message), sizeof(message));
@@ -298,12 +314,16 @@ void loop() {
       else {
         blinkTime = 250;
       }
+#endif
 
       shortstat.Clear();
       message.counter++;
       message.samples = 0;
     }
   }
-
+  else {
+    Serial.println("i2s_read error, halt!");
+    while (true);
+  }
 
 } // loop
