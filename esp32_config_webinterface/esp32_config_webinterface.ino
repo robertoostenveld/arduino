@@ -1,3 +1,6 @@
+#if not defined(ESP32)
+#error This is a sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32, or the Adafruit Huzzah32
+#endif
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
