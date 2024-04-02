@@ -7,91 +7,57 @@ void ledInit() {
 }
 
 #ifdef COMMON_ANODE
-
-void ledRed() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, HIGH);
-}
-
-void ledGreen() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, HIGH);
-}
-
-void ledBlue() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, LOW);
-}
-
-void ledYellow() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, HIGH);
-}
-
-void ledMagenta() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, LOW);
-}
-
-void ledCyan() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, LOW);
-}
-
-void ledBlack() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, HIGH);
-}
-
+  #define LED_ON  LOW
+  #define LED_OFF HIGH
 #else
+  #define LED_ON  HIGH
+  #define LED_OFF LOW
+#endif
 
 void ledRed() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, LOW);
+  digitalWrite(LED_R, LED_ON);
+  digitalWrite(LED_G, LED_OFF);
+  digitalWrite(LED_B, LED_OFF);
 }
 
 void ledGreen() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, LOW);
+  digitalWrite(LED_R, LED_OFF);
+  digitalWrite(LED_G, LED_ON);
+  digitalWrite(LED_B, LED_OFF);
 }
 
 void ledBlue() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, HIGH);
+  digitalWrite(LED_R, LED_OFF);
+  digitalWrite(LED_G, LED_OFF);
+  digitalWrite(LED_B, LED_ON);
 }
 
 void ledYellow() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, LOW);
+  digitalWrite(LED_R, LED_ON);
+  digitalWrite(LED_G, LED_ON);
+  digitalWrite(LED_B, LED_OFF);
 }
 
 void ledMagenta() {
-  digitalWrite(LED_R, HIGH);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, HIGH);
+  digitalWrite(LED_R, LED_ON);
+  digitalWrite(LED_G, LED_OFF);
+  digitalWrite(LED_B, LED_ON);
 }
 
 void ledCyan() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, HIGH);
-  digitalWrite(LED_B, HIGH);
+  digitalWrite(LED_R, LED_OFF);
+  digitalWrite(LED_G, LED_ON);
+  digitalWrite(LED_B, LED_ON);
 }
 
 void ledBlack() {
-  digitalWrite(LED_R, LOW);
-  digitalWrite(LED_G, LOW);
-  digitalWrite(LED_B, LOW);
+  digitalWrite(LED_R, LED_OFF);
+  digitalWrite(LED_G, LED_OFF);
+  digitalWrite(LED_B, LED_OFF);
 }
 
-#endif
+void ledWhite() {
+  digitalWrite(LED_R, LED_ON);
+  digitalWrite(LED_G, LED_ON);
+  digitalWrite(LED_B, LED_ON);
+}
