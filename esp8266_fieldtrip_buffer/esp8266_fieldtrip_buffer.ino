@@ -18,7 +18,7 @@ uint16_t buf[BLOCKSIZE];
 
 void setup() {
   Serial.begin(115200);
-  delay(10);
+  delay(1000);
 
   Serial.println();
   Serial.println();
@@ -40,24 +40,17 @@ void setup() {
 
   ftserver = fieldtrip_open_connection(FTHOST, FTPORT);
   if (ftserver > 0) {
-    Serial.println("Connection to FieldTrip buffer server opened");
+    Serial.println("Connection opened");
     status = fieldtrip_write_header(ftserver, DATATYPE_UINT16, NCHANS, FSAMPLE);
-    if (status == 0) {
-      Serial.println("Wrote header");
-    }
-    else {
-      Serial.println("Failed writing header");
-    }
-    // status = fieldtrip_close_connection(ftserver);
-    status = 0;
     if (status == 0)
-      Serial.println("Connection to FieldTrip buffer server closed");
+      Serial.println("Wrote header");
     else
-      Serial.println("Failed closing connection");
+      Serial.println("Failed writing header");
   }
   else {
     Serial.println("Failed opening connection");
   }
+
   for (int i = 0; i < BLOCKSIZE; i++)
     buf[i] = 0;
 }
@@ -66,27 +59,31 @@ void setup() {
 
 void loop() {
 
-  ftserver = fieldtrip_open_connection(FTHOST, FTPORT);
+  if (ftserver == 0) {
+    ftserver = fieldtrip_open_connection(FTHOST, FTPORT);
+    if (ftserver > 0)
+      Serial.println("Connection opened");
+    else
+      Serial.println("Failed opening connection");
+  }
+
   if (ftserver > 0) {
-    Serial.println("Connection to FieldTrip buffer server opened");
     status = fieldtrip_write_data(ftserver, DATATYPE_UINT16, NCHANS, BLOCKSIZE, (byte *)buf);
     if (status == 0)
       Serial.println("Wrote data");
-    else
+    else {
       Serial.println("Failed writing data");
-    // status = fieldtrip_close_connection(ftserver);
-    status = 0;
-    if (status == 0)
-      Serial.println("Connection to FieldTrip buffer server closed");
-    else
-      Serial.println("Failed closing connection");
-  }
-  else {
-    Serial.println("Failed opening connection");
+      status = fieldtrip_close_connection(ftserver);
+      if (status == 0)
+        Serial.println("Connection closed");
+      else
+        Serial.println("Failed closing connection");
+      ftserver = 0;
+    }
   }
 
   for (int i = 0; i < BLOCKSIZE; i++)
     buf[i] += 1;
 
-  delay((1000*BLOCKSIZE)/FSAMPLE);
+  delay((1000 * BLOCKSIZE) / FSAMPLE);
 }

@@ -36,8 +36,8 @@ int fieldtrip_write_header(int server, uint32_t datatype, uint32_t nchans, float
   messagedef_t *response = NULL;
   headerdef_t  *header   = NULL;
 
-  byte msg[32];
-  for (int i = 0; i < 32; i++)
+  byte msg[8+24];
+  for (int i = 0; i < 8+24; i++)
     msg[i] = 0;
 
   request = (messagedef_t *)(msg + 0);
@@ -88,8 +88,8 @@ int fieldtrip_write_data(int server, uint32_t datatype, uint32_t nchans, uint32_
   messagedef_t *response = NULL;
   datadef_t    *data   = NULL;
 
-  byte msg[24];
-  for (int i = 0; i < 32; i++)
+  byte msg[8+16];
+  for (int i = 0; i < 8+16; i++)
     msg[i] = 0;
 
   request = (messagedef_t *)(msg + 0);

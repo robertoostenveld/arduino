@@ -97,4 +97,4 @@ typedef struct {
   uint32_t bufsize;     /* size of the buffer in bytes */
 } eventdef_t; // 64 bytes
 
-#endif _BUFFER_H_
+#endif

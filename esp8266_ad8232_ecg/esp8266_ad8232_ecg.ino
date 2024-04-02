@@ -10,10 +10,11 @@
 */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>         // https://github.com/esp8266/Arduino
+#include <ESP8266WiFi.h>          // https://github.com/esp8266/Arduino
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <WiFiManager.h>         // https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>          // https://github.com/tzapu/WiFiManager
+#include <Ticker.h>               // https://github.com/sstaub/Ticker
 
 #include "webinterface.h"
 #include "blink_led.h"
@@ -31,6 +32,7 @@ ESP8266WebServer server(80);
 Config config;
 Ticker sampler;
 
+#define ADC       A0
 #define NCHANS    1
 #define FSAMPLE   200
 #define BLOCKSIZE (FSAMPLE/10)
@@ -68,7 +70,7 @@ void getSample() {
   }
 
   // get the current ECG value, it is from a 10-bits ADC, value between 0 and 1023
-  uint16_t value = analogRead(A0);
+  uint16_t value = analogRead(ADC);
 
   // store it in the active block
   switch (block) {
@@ -232,12 +234,13 @@ void setup() {
   if (ftserver > 0) {
     Serial.println("Connection opened");
     status = fieldtrip_write_header(ftserver, DATATYPE_UINT16, NCHANS, FSAMPLE);
-    if (status == 0) {
-      Serial.println("Wrote header");
-    }
-    status = fieldtrip_close_connection(ftserver);
     if (status == 0)
-      Serial.println("Connection closed");
+      Serial.println("Wrote header");
+    else
+      Serial.println("Failed writing header");
+  }
+  else {
+    Serial.println("Failed opening connection");
   }
 
 #endif
@@ -277,6 +280,8 @@ void loop() {
       ftserver = fieldtrip_open_connection(config.address, config.port);
       if (ftserver > 0)
         Serial.println("Connection opened");
+      else
+        Serial.println("Failed opening connection");
     }
 
     if (ftserver > 0) {
