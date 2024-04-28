@@ -33,7 +33,7 @@
   for thingspeak
     #define CHANNEL "XXXXXXXXXXXXXXXX"
     #define APIKEY  "XXXXXXXXXXXXXXXX"
-  and for MQTT3
+  and for MQTT
     #define CLIENTID "XXXXXXXXXXXXXXXX"
     #define USERNAME "XXXXXXXXXXXXXXXX"
     #define PASSWORD "XXXXXXXXXXXXXXXX"
@@ -45,17 +45,27 @@ const int8_t txPin = -1;
 const int8_t requestPin = D1;
 
 #define BUFSIZE 1024
-#define USE_MQTT // or USE_REST 
+
+// one of these options is to be selected
+// #define USE_PLAIN
+#define USE_MQTT
+// #define USE_REST
 
 SoftwareSerial MySerial;
 P1Reader reader(&MySerial, requestPin);
-WiFiClient client;
-PubSubClient mqtt_client(client);
+WiFiClient wifi_client;
+PubSubClient mqtt_client(wifi_client);
 
 const char* server = "api.thingspeak.com";
 const int port = 80;
-const char* mqtt_server = "mqtt.thingspeak.com";
+
+#if defined USE_MQTT
+const char* mqtt_server = "mqtt3.thingspeak.com";
 const int mqtt_port = 1883;
+#elif defined USE_PLAIN
+const char* mqtt_server = "192.168.1.16";
+const int mqtt_port = 1883;
+#endif
 
 const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
 const unsigned long durationLed = 1000;       // the status LED remains on for 1 second
@@ -137,7 +147,7 @@ struct Printer {
 
 void setup() {
   Serial.begin(115200);
-  MySerial.begin(115200, SWSERIAL_8N1, rxPin, txPin, true, BUFSIZE); 
+  MySerial.begin(115200, SWSERIAL_8N1, rxPin, txPin, true, BUFSIZE);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
@@ -164,9 +174,10 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-#ifdef USE_MQTT
+#if defined USE_PLAIN
   mqtt_client.setServer(mqtt_server, mqtt_port);
-  mqtt_client.connect(CLIENTID, USERNAME, PASSWORD);
+#elif defined USE_MQTT
+  mqtt_client.setServer(mqtt_server, mqtt_port);
 #endif
 
   //Upon restart, fire off a one-off reading
@@ -212,12 +223,15 @@ void loop () {
       // Parse succesful, print result
       Serial.println("---parse succesful---------------------------------------------");
       localdata.applyEach(Printer());
-#ifdef USE_MQTT
+#if defined USE_PLAIN
+      sendPlainMQTT();
+#elif defined USE_MQTT
       sendThingspeakMQTT();
-#elif USE_REST
+#elif defined USE_REST
       sendThingspeakREST();
 #endif
-    } else {
+    }
+    else {
       // Parser error, print error
       Serial.println("---parse error-------------------------------------------------");
       Serial.println(err);
@@ -227,8 +241,53 @@ void loop () {
 
 /*****************************************************************************/
 
+void sendPlainMQTT() {
+  while (!mqtt_client.connected()) {
+    Serial.print("Reconnecting to MQTT...");
+    if (mqtt_client.connect(CLIENTID)) {
+      Serial.println(" done!");
+    }
+    else {
+      Serial.println(" failed.");
+      resetCounter++;
+      if (resetCounter >= 5 )
+        ESP.restart();
+      delay(5000);
+    }
+  }
+
+  if (mqtt_client.connected()) {
+    digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
+    lastLed = millis();
+
+    mqtt_client.publish ("p1/power_delivered",          String(globaldata->power_delivered).c_str());
+    mqtt_client.publish ("p1/power_returned",           String(globaldata->power_returned).c_str());
+    mqtt_client.publish ("p1/gas_delivered",            String(globaldata->gas_delivered).c_str());
+    mqtt_client.publish ("p1/energy_delivered_tariff1", String(globaldata->energy_delivered_tariff1).c_str());
+    mqtt_client.publish ("p1/energy_delivered_tariff2", String(globaldata->energy_delivered_tariff2).c_str());
+    mqtt_client.publish ("p1/energy_returned_tariff1",  String(globaldata->energy_returned_tariff1).c_str());
+    mqtt_client.publish ("p1/energy_returned_tariff2",  String(globaldata->energy_returned_tariff2).c_str());
+  }
+} // sendPlainMQTT
+
+/*****************************************************************************/
+
 void sendThingspeakMQTT() {
-  if (mqtt_client.connect("esp2866_p1_thingspeak")) {
+  while (!mqtt_client.connected()) {
+    Serial.print("Reconnecting to MQTT...");
+    if (mqtt_client.connect(CLIENTID, USERNAME, PASSWORD)) {
+      Serial.println(" done!");
+    }
+    else {
+      Serial.println(" failed.");
+      resetCounter++;
+      if (resetCounter >= 5 )
+        ESP.restart();
+      delay(5000);
+    }
+  }
+
+  if (mqtt_client.connected()) {
     digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
     lastLed = millis();
 
@@ -243,26 +302,22 @@ void sendThingspeakMQTT() {
     body += String(globaldata->energy_delivered_tariff1);
     body += String("&field5=");
     body += String(globaldata->energy_delivered_tariff2);
+    body += String("&field6=");
+    body += String(globaldata->energy_returned_tariff1);
+    body += String("&field7=");
+    body += String(globaldata->energy_returned_tariff2);
 
     Serial.println("---mqtt message------------------------------------------------");
     Serial.println(body);
-    mqtt_client.publish("channels/" CHANNEL "/publish/" APIKEY, body.c_str());
-  }
-  else {
-    Serial.println("MQTT connection Failed.");
-    Serial.println();
-
-    resetCounter++;
-    if (resetCounter >= 5 ) {
-      ESP.restart();
-    }
+    if (mqtt_client.publish("channels/" CHANNEL "/publish", body.c_str()))
+      resetCounter = 0;
   }
 } // sendThingspeakMQTT
 
 /*****************************************************************************/
 
 void sendThingspeakREST() {
-  if (client.connect(server, port)) {
+  if (wifi_client.connect(server, port)) {
     digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
     lastLed = millis();
 
@@ -277,28 +332,32 @@ void sendThingspeakREST() {
     body += String(globaldata->energy_delivered_tariff1);
     body += String("&field5=");
     body += String(globaldata->energy_delivered_tariff2);
+    body += String("&field6=");
+    body += String(globaldata->energy_returned_tariff1);
+    body += String("&field7=");
+    body += String(globaldata->energy_returned_tariff2);
 
     Serial.println("---post url----------------------------------------------------");
     Serial.println(body);
 
     // Send message to thingspeak
-    client.print("POST /update HTTP/1.1\n");
-    client.print("Host: " + String(server) + "\n");
-    client.print("Connection: close\n");
-    client.print("X-THINGSPEAKAPIKEY: " + String(APIKEY) + "\n");
-    client.print("Content-Type: application/x-www-form-urlencoded\n");
-    client.print("Content-Length: " + String(body.length()) + "\n");
-    client.print("\n");
-    client.print(body);
-    client.print("\n");
+    wifi_client.print("POST /update HTTP/1.1\n");
+    wifi_client.print("Host: " + String(server) + "\n");
+    wifi_client.print("Connection: close\n");
+    wifi_client.print("X-THINGSPEAKAPIKEY: " + String(APIKEY) + "\n");
+    wifi_client.print("Content-Type: application/x-www-form-urlencoded\n");
+    wifi_client.print("Content-Length: " + String(body.length()) + "\n");
+    wifi_client.print("\n");
+    wifi_client.print(body);
+    wifi_client.print("\n");
 
     Serial.println("---server response---------------------------------------------");
-    while (client.available()) {
-      char c = client.read();
+    while (wifi_client.available()) {
+      char c = wifi_client.read();
       Serial.print(c);
     }
 
-    client.stop();
+    wifi_client.stop();
     resetCounter = 0;
   }
   else {
