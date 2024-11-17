@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h1>Settings</h1>
+
+<form id="settings-form" method="post" action="json">
+    <div class="field">
+        <label for="var1">var1:</label>
+        <input type="text" id="var1" name="var1" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="var2">var2:</label>
+        <input type="text" id="var2" name="var2" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="var2">var3:</label>
+        <input type="text" id="var3" name="var3" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script>
+  async function updateContent() {
+    const response = await fetch("json");
+    const data = await response.json();
+    console.log(data);
+    document.getElementById("var1").value = data["var1"];
+    document.getElementById("var2").value = data["var2"];
+    document.getElementById("var3").value = data["var3"];
+  }
+  updateContent();
+</script>
+
+</body>
+</html>
