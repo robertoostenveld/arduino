@@ -3,9 +3,9 @@
 #endif
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
+#include <ArduinoJson.h>  // https://arduinojson.org
 #include <WiFi.h>
-#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
@@ -21,35 +21,35 @@
 #endif
 
 WebServer server(80);
-const char* host = "esp32";
+const char* host = "ESP32";
 const char* version = __DATE__ " / " __TIME__;
 int var1, var2, var3;
 
 static String getContentType(const String& path) {
-  if (path.endsWith(".html"))       return "text/html";
-  else if (path.endsWith(".htm"))   return "text/html";
-  else if (path.endsWith(".css"))   return "text/css";
-  else if (path.endsWith(".txt"))   return "text/plain";
-  else if (path.endsWith(".js"))    return "application/javascript";
-  else if (path.endsWith(".png"))   return "image/png";
-  else if (path.endsWith(".gif"))   return "image/gif";
-  else if (path.endsWith(".jpg"))   return "image/jpeg";
-  else if (path.endsWith(".jpeg"))  return "image/jpeg";
-  else if (path.endsWith(".ico"))   return "image/x-icon";
-  else if (path.endsWith(".svg"))   return "image/svg+xml";
-  else if (path.endsWith(".xml"))   return "text/xml";
-  else if (path.endsWith(".pdf"))   return "application/pdf";
-  else if (path.endsWith(".zip"))   return "application/zip";
-  else if (path.endsWith(".gz"))    return "application/x-gzip";
-  else if (path.endsWith(".json"))  return "application/json";
+  if (path.endsWith(".html")) return "text/html";
+  else if (path.endsWith(".htm")) return "text/html";
+  else if (path.endsWith(".css")) return "text/css";
+  else if (path.endsWith(".txt")) return "text/plain";
+  else if (path.endsWith(".js")) return "application/javascript";
+  else if (path.endsWith(".png")) return "image/png";
+  else if (path.endsWith(".gif")) return "image/gif";
+  else if (path.endsWith(".jpg")) return "image/jpeg";
+  else if (path.endsWith(".jpeg")) return "image/jpeg";
+  else if (path.endsWith(".ico")) return "image/x-icon";
+  else if (path.endsWith(".svg")) return "image/svg+xml";
+  else if (path.endsWith(".xml")) return "text/xml";
+  else if (path.endsWith(".pdf")) return "application/pdf";
+  else if (path.endsWith(".zip")) return "application/zip";
+  else if (path.endsWith(".gz")) return "application/x-gzip";
+  else if (path.endsWith(".json")) return "application/json";
   return "application/octet-stream";
 }
 
 bool defaultConfig() {
   Serial.println("defaultConfig");
-  var1 = 10;
-  var2 = 20;
-  var3 = 30;
+  var1 = 11;
+  var2 = 22;
+  var3 = 33;
   return true;
 }
 
@@ -85,7 +85,6 @@ bool loadConfig() {
   if (root.containsKey("var3"))
     var3 = root["var3"];
 
-  printConfig();
   return true;
 }
 
@@ -102,8 +101,7 @@ bool saveConfig() {
   if (!configFile) {
     Serial.println("Failed to open config file for writing");
     return false;
-  }
-  else {
+  } else {
     root.printTo(configFile);
     return true;
   }
@@ -127,7 +125,7 @@ void printRequest() {
   message += "\nHeaders: ";
   message += server.headers();
   message += "\n";
-  for (uint8_t i = 0; i < server.headers(); i++ ) {
+  for (uint8_t i = 0; i < server.headers(); i++) {
     message += " " + server.headerName(i) + ": " + server.header(i) + "\n";
   }
   message += "\nArguments: ";
@@ -144,8 +142,7 @@ void handleNotFound() {
   Serial.println(server.uri());
   if (SPIFFS.exists(server.uri())) {
     handleStaticFile(server.uri());
-  }
-  else {
+  } else {
     String message = "File Not Found\n\n";
     message += "URI: ";
     message += server.uri();
@@ -161,7 +158,7 @@ void handleNotFound() {
   }
 }
 
-void handleRedirect(const char * filename) {
+void handleRedirect(const char* filename) {
   handleRedirect((String)filename);
 }
 
@@ -171,22 +168,21 @@ void handleRedirect(String filename) {
   server.send(302, "text/plain", "");
 }
 
-bool handleStaticFile(const char * path) {
+bool handleStaticFile(const char* path) {
   return handleStaticFile((String)path);
 }
 
 bool handleStaticFile(String path) {
   Serial.println("handleStaticFile: " + path);
-  String contentType = getContentType(path);            // Get the MIME type
-  if (SPIFFS.exists(path)) {                            // If the file exists
-    File file = SPIFFS.open(path, "r");                 // Open it
-    server.streamFile(file, contentType);               // And send it to the client
-    file.close();                                       // Then close the file again
+  String contentType = getContentType(path);  // Get the MIME type
+  if (SPIFFS.exists(path)) {                  // If the file exists
+    File file = SPIFFS.open(path, "r");       // Open it
+    server.streamFile(file, contentType);     // And send it to the client
+    file.close();                             // Then close the file again
     return true;
-  }
-  else {
+  } else {
     Serial.println("\tFile Not Found");
-    return false;                                         // If the file doesn't exist, return false
+    return false;  // If the file doesn't exist, return false
   }
 }
 
@@ -211,8 +207,7 @@ void handleJSON() {
       var3 = str.toInt();
     }
     handleStaticFile("/reload_success.html");
-  }
-  else if (server.hasArg("plain")) {
+  } else if (server.hasArg("plain")) {
     // parse the body as JSON object
     String body = server.arg("plain");
     StaticJsonBuffer<200> jsonBuffer;
@@ -228,8 +223,7 @@ void handleJSON() {
     if (root.containsKey("var3"))
       var3 = root["var3"];
     handleStaticFile("/reload_success.html");
-  }
-  else {
+  } else {
     handleStaticFile("/reload_failure.html");
     return;
   }
@@ -244,8 +238,10 @@ void setup() {
   Serial.println("");
   Serial.println("setup");
 
+  // The SPIFFS file system contains the config.json, and the html and javascript code for the web interface
   SPIFFS.begin();
   loadConfig();
+  printConfig();
 
   WiFiManager wifiManager;
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
@@ -263,6 +259,7 @@ void setup() {
     Serial.println("handleDefaults");
     handleStaticFile("/reload_success.html");
     defaultConfig();
+    printConfig();
     saveConfig();
     server.close();
     server.stop();
@@ -280,8 +277,9 @@ void setup() {
     wifiManager.resetSettings();
     wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     wifiManager.startConfigPortal(host);
-    Serial.println("connected");
     server.begin();
+    if (WiFi.status() == WL_CONNECTED)
+      Serial.println("WiFi status ok");
   });
 
   server.on("/restart", HTTP_GET, []() {
@@ -301,29 +299,33 @@ void setup() {
   server.on("/json", HTTP_GET, [] {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& root = jsonBuffer.createObject();
-    root["var1"]    = var1;
-    root["var2"]    = var2;
-    root["var3"]    = var3;
+    root["var1"] = var1;
+    root["var2"] = var2;
+    root["var3"] = var3;
     root["version"] = version;
-    root["uptime"]  = long(millis() / 1000);
+    root["uptime"] = long(millis() / 1000);
     String content;
     root.printTo(content);
     server.send(200, "application/json", content);
   });
 
   // ask server to track these headers
-  const char * headerkeys[] = {"User-Agent", "Content-Type"} ;
+  const char* headerkeys[] = { "User-Agent", "Content-Type" };
   size_t headerkeyssize = sizeof(headerkeys) / sizeof(char*);
-  server.collectHeaders(headerkeys, headerkeyssize );
+  server.collectHeaders(headerkeys, headerkeyssize);
 
+  // start the web server
   server.begin();
 
+  // announce the hostname and web server through zeroconf
   MDNS.begin(host);
   MDNS.addService("http", "tcp", 80);
+
+  Serial.println("Setup done");
 }
 
 void loop() {
   // put your main code here, to run repeatedly
   server.handleClient();
-  delay(10); // in milliseconds
+  delay(10);  // in milliseconds
 }
