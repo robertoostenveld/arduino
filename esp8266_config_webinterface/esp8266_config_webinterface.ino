@@ -1,8 +1,8 @@
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
-#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
+#include <ArduinoJson.h>          // https://arduinojson.org
+#include <ESP8266WiFi.h>          // https://github.com/esp8266/Arduino
+#include <WiFiManager.h>          // https://github.com/tzapu/WiFiManager
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
