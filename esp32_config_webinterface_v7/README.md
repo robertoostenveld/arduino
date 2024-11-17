@@ -2,11 +2,11 @@
 
 This is a demonstration and test sketch for configuring persistent options via the web interface. This strategy is used in a number of my functional ESP32 and ESP8266 sketches. It consists of a `settings.json` file in the SPIFFS filesystem and a `settings.html` file with some javascript.
 
-**This specific version is for ArduinoJson 5, there are other examples for version 6 and 7.**
+**This specific version is for ArduinoJson 7, there are other examples for version 5 and 6.**
 
 The settings can be changed in the webbrowser at http://192.168.1.xxx/settings and clicking "Send". This results in `Webserver` parsing the arguments and placing the variables in the header, but also places the query string in the body.
 
-The following results in `Webserver` parsing the arguments and placing the variables in the header.
+The following also results in `Webserver` parsing the arguments and placing the variables in the header.
 
     curl -X POST 'http://192.168.1.xxx/json?var1=11&var2=22&var3=33'
     curl -X PUT  'http://192.168.1.xxx/json?var1=11&var2=22&var3=33'
