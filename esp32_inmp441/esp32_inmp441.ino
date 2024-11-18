@@ -1,5 +1,5 @@
 /*
-    Sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32, or the Adafruit Huzzah32
+    Sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32 Lite, or the Adafruit Huzzah32
     connected to a INMP411 I2S microphone
 
     See https://diyi0t.com/i2s-sound-tutorial-for-esp32/
@@ -15,7 +15,7 @@
 */
 
 #if not defined(ESP32)
-#error This is a sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32, or the Adafruit Huzzah32
+#error This is a sketch for an ESP32 board, like the NodeMCU 32S, LOLIN32 Lite, or the Adafruit Huzzah32
 #endif
 
 #include <WiFi.h>
