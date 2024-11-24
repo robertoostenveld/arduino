@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Upload waypoints</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h1>Upload waypoints</h1>
+
+<form id="waypoints-form" method="post" action="json">
+    <div class="field">
+        <textarea type="text" rows="10" cols="80" id="waypoints" name="waypoints" required>?</textarea>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script>
+  async function updateContent() {
+    const response = await fetch("json");
+    const data = await response.json();
+    console.log(data);
+    document.getElementById("waypoints").value = data["waypoints"];
+  }
+  updateContent();
+</script>
+
+</body>
+</html>
