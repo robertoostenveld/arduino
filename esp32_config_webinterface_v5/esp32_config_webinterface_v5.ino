@@ -225,7 +225,7 @@ void handleJSON() {
     handleStaticFile("/reload_success.html");
   } else {
     handleStaticFile("/reload_failure.html");
-    return;
+    return; // do not save the configuration
   }
   saveConfig();
 }

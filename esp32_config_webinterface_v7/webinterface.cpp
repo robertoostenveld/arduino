@@ -179,7 +179,6 @@ void handleJSON() {
     N_KEYVAL_TO_CONFIG(var1, "var1");
     N_KEYVAL_TO_CONFIG(var2, "var2");
     N_KEYVAL_TO_CONFIG(var3, "var3");
-
     handleStaticFile("/reload_success.html");
   }
   else if (server.hasArg("plain")) {
@@ -193,8 +192,11 @@ void handleJSON() {
     N_JSON_TO_CONFIG(var1, "var1");
     N_JSON_TO_CONFIG(var2, "var2");
     N_JSON_TO_CONFIG(var3, "var3");
-
     handleStaticFile("/reload_success.html");
+  }
+  else {
+    handleStaticFile("/reload_failure.html");
+    return; // do not save the configuration
   }
   saveConfig();
 }
