@@ -1,8 +1,8 @@
 #include "webinterface.h"
 #include "waypoints.h"
 
-extern WebServer server;
-extern Config config;
+Config config;
+extern WebServer server; 
 
 /***************************************************************************/
 
@@ -185,7 +185,7 @@ void handleJSON() {
     N_KEYVAL_TO_CONFIG(var3, "var3");
 
     if (server.hasArg("waypoints"))
-      stringToWaypoints(server.arg("waypoints"));
+      saveWaypoints(server.arg("waypoints"));
 
     handleStaticFile("/reload_success.html");
   }
@@ -203,13 +203,14 @@ void handleJSON() {
     N_JSON_TO_CONFIG(var3, "var3");
 
     if (root.containsKey("waypoints"))
-      stringToWaypoints(root["waypoints"]);
+      saveWaypoints(root["waypoints"]);
 
     handleStaticFile("/reload_success.html");
   }
   else {
     handleStaticFile("/reload_failure.html");
-    return;
+    return; // do not save the configuration
   }
+
   saveConfig();
 }

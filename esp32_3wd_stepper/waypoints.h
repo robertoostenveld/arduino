@@ -12,8 +12,8 @@ extern vector<float> waypoints_x;
 extern vector<float> waypoints_y;
 extern vector<float> waypoints_theta;
 
-void readWaypoints();
-String waypointsToString();
-size_t stringToWaypoints(String);
+void parseWaypoints();          // read the waypoints from the file and represent as vectors
+String loadWaypoints();         // read the waypoints from the file and return as a string
+size_t saveWaypoints(String);   // save the waypoints (as string) to the file
 
 #endif // _WAYPOINTS_H_

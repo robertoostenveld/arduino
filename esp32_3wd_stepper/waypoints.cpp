@@ -15,8 +15,8 @@ vector<float> waypoints_theta;
 
 /****************************************************************************************/
 
-size_t stringToWaypoints(String s) {
-  Serial.println("stringToWaypoints");
+size_t saveWaypoints(String s) {
+  Serial.println("saveWaypoints");
 
   File file = SPIFFS.open("/waypoints.csv", "w");
   if (!file) {
@@ -28,9 +28,9 @@ size_t stringToWaypoints(String s) {
 
 /****************************************************************************************/
 
-String waypointsToString()
+String loadWaypoints()
 {
-  Serial.println("waypointsToString");
+  Serial.println("loadWaypoints");
 
   File file = SPIFFS.open("/waypoints.csv", "r");
   if (!file) {
@@ -48,8 +48,8 @@ String waypointsToString()
 
 /****************************************************************************************/
 
-void readWaypoints() {
-  Serial.println("readWaypoints");
+void parseWaypoints() {
+  Serial.println("parseWaypoints");
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");

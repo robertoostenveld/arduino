@@ -14,7 +14,6 @@
 const char *host = "3WD-STEPPER";
 const char *version = __DATE__ " / " __TIME__;
 
-Config config;
 WebServer server(80);
 WiFiUDP Udp;
 
@@ -37,11 +36,12 @@ const float wc = 0.1197;        // wheel circumference, in meter
 const float totalsteps = 2048;  // steps per revolution, see http://www.mjblythe.com/hacks/2016/09/28byj-48-stepper-motor/
 const float maxsteps = 512;     // maximum steps per seconds
 
-long previous = 0, feedback = 0;  // keep track of time
+unsigned long previous = 0, feedback = 0;  // used to integrate the speed over time
+unsigned long offset = 4294967295;         // time at which the program started
+
 float vx = 0, vy = 0, vtheta = 0; // speed in meter per second, and in radians per second
 float x = 0, y = 0, theta = 0;    // absolute position (in meter) and rotation (in radians)
 float r1 = 0, r2 = 0, r3 = 0;     // speed of the stepper motors, in steps per second
-unsigned long offset = 4294967295; // time (in millis) at which the program started
 
 /********************************************************************************/
 
@@ -128,6 +128,72 @@ void accxyzCallback(OSCMessage &msg) {
 
 /********************************************************************************/
 
+void parseOSC() {
+  int size = Udp.parsePacket();
+
+  if (size > 0) {
+    OSCMessage msg;
+    OSCBundle bundle;
+    OSCErrorCode error;
+
+    char c = Udp.peek();
+    if (c == '#') {
+      // it is a bundle, these are sent by TouchDesigner
+      while (size--) {
+        bundle.fill(Udp.read());
+      }
+      if (!bundle.hasError()) {
+        bundle.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
+        bundle.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
+        bundle.dispatch("/3wd/x", xCallback);
+        bundle.dispatch("/3wd/y", yCallback);
+        bundle.dispatch("/3wd/theta", thetaCallback);
+        bundle.dispatch("/3wd/user", userCallback);
+        bundle.dispatch("/3wd/prog", progCallback);
+        bundle.dispatch("/3wd/stop", stopCallback);
+      } else {
+        error = bundle.getError();
+        Serial.print("error: ");
+        Serial.println(error);
+      }
+    } else if (c == '/') {
+      // it is a message, these are sent by touchOSC
+      while (size--) {
+        msg.fill(Udp.read());
+      }
+      if (!msg.hasError()) {
+        msg.dispatch("/*", printCallback) || msg.dispatch("/*/*", printCallback) || msg.dispatch("/*/*/*", printCallback);
+        msg.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
+        msg.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
+        msg.dispatch("/3wd/x", xCallback);
+        msg.dispatch("/3wd/y", yCallback);
+        msg.dispatch("/3wd/theta", thetaCallback);
+        msg.dispatch("/3wd/user", userCallback);
+        msg.dispatch("/3wd/prog", progCallback);
+        msg.dispatch("/3wd/stop", stopCallback);
+      } else {
+        error = msg.getError();
+        Serial.print("error: ");
+        Serial.println(error);
+      }
+    }
+  }  // if size
+}  // parseOSC
+
+/********************************************************************************/
+
+float maxOfThree(float a, float b, float c) {
+    if (a >= b && a >= c) {
+        return a;
+    } 
+    else if (b >= a && b >= c) {
+        return b;
+    } 
+    else {
+        return c;
+    }
+}
+
 void updateSpeed() {
   // convert the speed from world-coordinates into the rotation speed of the motors
   r1 = sin(theta) * vx / wc - cos(theta) * vy / wc - vtheta * (pc / wc) / (PI * 2);
@@ -135,39 +201,14 @@ void updateSpeed() {
   r3 = sin(theta - PI * 2 / 3) * vx / wc - cos(theta - PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
 
   // convert from rotations per second into steps per second
-  r1 = r1 * totalsteps;
-  r2 = r2 * totalsteps;
-  r3 = r3 * totalsteps;
+  r1 *= totalsteps;
+  r2 *= totalsteps;
+  r3 *= totalsteps;
 
-  // the stepper motors cannot rotate at more than 512 steps/second
-  if (abs(r1) > maxsteps) {
-    float reduction = abs(r1) / maxsteps;
-    Serial.print("reducing speed by factor ");
-    Serial.println(reduction);
-    r1 /= reduction;
-    r2 /= reduction;
-    r3 /= reduction;
-    vx /= reduction;
-    vy /= reduction;
-    vtheta /= reduction;
-  }
-
-  // the stepper motors cannot rotate at more than 512 steps/second
-  if (abs(r2) > maxsteps) {
-    float reduction = abs(r2) / maxsteps;
-    Serial.print("reducing speed by factor ");
-    Serial.println(reduction);
-    r1 /= reduction;
-    r2 /= reduction;
-    r3 /= reduction;
-    vx /= reduction;
-    vy /= reduction;
-    vtheta /= reduction;
-  }
-
-  // the stepper motors cannot rotate at more than 512 steps/second
-  if (abs(r3) > maxsteps) {
-    float reduction = abs(r3) / maxsteps;
+  // the stepper motors cannot rotate at more than ~512 steps/second
+  float r = maxOfThree(abs(r1), abs(r2), abs(r3));
+  if (r > maxsteps) {
+    float reduction = r / maxsteps;
     Serial.print("reducing speed by factor ");
     Serial.println(reduction);
     r1 /= reduction;
@@ -196,15 +237,25 @@ void updateSpeed() {
   wheel3.spin(r3);
 }  // updateSpeed
 
+/********************************************************************************/
+
 void updatePosition() {
-  long now = millis();
+  unsigned long now = millis();
 
   // integrate the speed over time to keep track of the position
-  x += vx * (now - previous) / 1000;
-  y += vy * (now - previous) / 1000;
+  x     += vx     * (now - previous) / 1000;
+  y     += vy     * (now - previous) / 1000;
   theta += vtheta * (now - previous) / 1000;
   previous = now;
 
+}  // updatePosition
+
+/********************************************************************************/
+
+void printPosition() {
+  unsigned long now = millis();
+
+  // do not print more than once every 500ms
   if ((now - feedback) > 500) {
     Serial.print(x);
     Serial.print(", ");
@@ -226,12 +277,11 @@ void updatePosition() {
     Serial.print("\n");
     feedback = now;
   }
-}  // updatePosition
+}  // printPosition
 
+/********************************************************************************/
 
 void updateProgram() {
-  long now = millis();
-
   if (mode != PROG)
     // this only applies when the program is running
     return;
@@ -240,6 +290,7 @@ void updateProgram() {
   // determine on which segment we currently are
   int segment = -1;
   int num = waypoints_time.size();
+  unsigned long now = millis();
   for (int i = 0; i < (num - 1); i++) {
     unsigned long segment_starttime = offset + 1000 * waypoints_time.at(i);
     unsigned long segment_endtime   = offset + 1000 * waypoints_time.at(i + 1);
@@ -286,9 +337,6 @@ void setup() {
   SPIFFS.begin();
   loadConfig();
   printConfig();
-
-  // The SPIFFS file system contains the "waypoints.csv" file for predefined movements
-  readWaypoints();
 
   WiFi.hostname(host);
   WiFi.begin();
@@ -355,10 +403,10 @@ void setup() {
     N_CONFIG_TO_JSON(var3, "var3");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
-    root["waypoints"] = waypointsToString();
+    root["waypoints"] = loadWaypoints();
     String str;
     serializeJson(root, str);
-    server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 
@@ -375,6 +423,9 @@ void setup() {
   wheel2.begin(22, 23, 19, 18);
   wheel3.begin(17, 16, 5, 4);
 
+  // The SPIFFS file system contains the "waypoints.csv" file for predefined movements
+  parseWaypoints();
+
   // start in user mode
   mode = USER;
 }  // setup
@@ -382,64 +433,16 @@ void setup() {
 /********************************************************************************/
 
 void loop() {
-  updatePosition();   // integrate the velocity to get an estimate of the position and heading
-  updateProgram();    // update the speed according to the programmed waypoints
-  updateSpeed();      // translate the world speed into motor speeds
+  updatePosition();       // integrate the velocity to get an estimate of the position and heading
+  printPosition();        // print the current position and speed
+  updateProgram();        // update the speed according to the programmed waypoints
+  updateSpeed();          // translate the world speed into motor speeds
 
+  // keep the wheels moving at the proper speed
   wheel1.loop();
   wheel2.loop();
   wheel3.loop();
 
-  // allow the webserver to handle requests, note that this may disrupt other processes
-  server.handleClient();
-  delay(1);
-
-  int size = Udp.parsePacket();
-  if (size > 0) {
-    OSCMessage msg;
-    OSCBundle bundle;
-    OSCErrorCode error;
-
-    char c = Udp.peek();
-    if (c == '#') {
-      // it is a bundle, these are sent by TouchDesigner
-      while (size--) {
-        bundle.fill(Udp.read());
-      }
-      if (!bundle.hasError()) {
-        bundle.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
-        bundle.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
-        bundle.dispatch("/3wd/x", xCallback);
-        bundle.dispatch("/3wd/y", yCallback);
-        bundle.dispatch("/3wd/theta", thetaCallback);
-        bundle.dispatch("/3wd/user", userCallback);
-        bundle.dispatch("/3wd/prog", progCallback);
-        bundle.dispatch("/3wd/stop", stopCallback);
-      } else {
-        error = bundle.getError();
-        Serial.print("error: ");
-        Serial.println(error);
-      }
-    } else if (c == '/') {
-      // it is a message, these are sent by touchOSC
-      while (size--) {
-        msg.fill(Udp.read());
-      }
-      if (!msg.hasError()) {
-        msg.dispatch("/*", printCallback) || msg.dispatch("/*/*", printCallback) || msg.dispatch("/*/*/*", printCallback);
-        msg.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
-        msg.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
-        msg.dispatch("/3wd/x", xCallback);
-        msg.dispatch("/3wd/y", yCallback);
-        msg.dispatch("/3wd/theta", thetaCallback);
-        msg.dispatch("/3wd/user", userCallback);
-        msg.dispatch("/3wd/prog", progCallback);
-        msg.dispatch("/3wd/stop", stopCallback);
-      } else {
-        error = msg.getError();
-        Serial.print("error: ");
-        Serial.println(error);
-      }
-    }
-  }  // if size
+  parseOSC();             // parse the incoming OSC messages
+  server.handleClient();  // handle webserver requests, note that this may disrupt other processes
 }  // loop
