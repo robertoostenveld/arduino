@@ -19,7 +19,6 @@
 const char* host = "ESP32";
 const char* version = __DATE__ " / " __TIME__;
 
-Config config;
 WebServer server(80);
 WiFiManager wifiManager;
 
@@ -99,6 +98,7 @@ void setup() {
     root["uptime"] = long(millis() / 1000);
     String str;
     serializeJson(root, str);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 

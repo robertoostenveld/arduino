@@ -17,7 +17,6 @@
 #include "webinterface.h"
 #include "neopixel_mode.h"
 
-Config config;
 ESP8266WebServer server(80);
 const char* host = "ARTNET";
 const char* version = __DATE__ " / " __TIME__;
@@ -213,6 +212,7 @@ void setup() {
     root["fps"]     = fps;
     String str;
     root.printTo(str);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 

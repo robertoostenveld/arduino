@@ -46,7 +46,6 @@
 #define MPU9250_ADDRESS MPU9250_ADDRESS_AD0
 // #define MPU9250_ADDRESS MPU9250_ADDRESS_AD1
 
-Config config;
 ESP8266WebServer server(80);
 const char* host = "IMU-OSC";
 const char* version = __DATE__ " / " __TIME__;
@@ -205,6 +204,7 @@ void setup() {
     root["rate"]    = rate;
     String str;
     root.printTo(str);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 

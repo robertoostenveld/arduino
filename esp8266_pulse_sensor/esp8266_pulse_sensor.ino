@@ -29,7 +29,6 @@ const char* host = "PULSE-SENSOR";
 const char* version = __DATE__ " / " __TIME__;
 
 ESP8266WebServer server(80);
-Config config;
 Ticker sampler;
 
 #define ADC       A0
@@ -188,11 +187,11 @@ void setup() {
     JsonObject& root = jsonBuffer.createObject();
     S_CONFIG_TO_JSON(address, "address");
     N_CONFIG_TO_JSON(port, "port");
-
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     String str;
     root.printTo(str);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 

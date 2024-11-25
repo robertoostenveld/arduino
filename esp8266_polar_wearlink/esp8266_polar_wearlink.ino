@@ -35,7 +35,6 @@ Redis *redis_p = NULL;
 #define REDIS_PORT      6379
 #define REDIS_PASSWORD  ""
 
-Config config;
 ESP8266WebServer server(80);
 const char* host = "POLAR-WEARLINK";
 const char* version = __DATE__ " / " __TIME__;
@@ -176,12 +175,12 @@ void setup() {
     S_CONFIG_TO_JSON(redis, "redis");
     N_CONFIG_TO_JSON(port, "port");
     N_CONFIG_TO_JSON(duration, "duration");
-
     root["heartrate"] = bpm;
     root["version"] = version;
     root["uptime"]  = long(millis() / 1000);
     String str;
     root.printTo(str);
+    server.setContentLength(str.length());
     server.send(200, "application/json", str);
   });
 

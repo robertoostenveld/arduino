@@ -1,7 +1,7 @@
 #include "webinterface.h"
 
+Config config;
 extern WebServer server;
-extern Config config;
 
 /***************************************************************************/
 
@@ -138,6 +138,7 @@ void handleNotFound() {
     for (uint8_t i = 0; i < server.args(); i++) {
       message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
     }
+    server.setContentLength(message.length());
     server.send(404, "text/plain", message);
   }
 }
@@ -149,6 +150,7 @@ void handleRedirect(const char * filename) {
 void handleRedirect(String filename) {
   Serial.println("handleRedirect: " + filename);
   server.sendHeader("Location", filename, true);
+  server.setContentLength(0);
   server.send(302, "text/plain", "");
 }
 
@@ -161,6 +163,7 @@ bool handleStaticFile(String path) {
   String contentType = getContentType(path);            // Get the MIME type
   if (SPIFFS.exists(path)) {                            // If the file exists
     File file = SPIFFS.open(path, "r");                 // Open it
+    server.setContentLength(file.size());
     server.streamFile(file, contentType);               // And send it to the client
     file.close();                                       // Then close the file again
     return true;
@@ -198,5 +201,6 @@ void handleJSON() {
     handleStaticFile("/reload_failure.html");
     return; // do not save the configuration
   }
+  
   saveConfig();
 }
