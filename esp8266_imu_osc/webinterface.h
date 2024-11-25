@@ -26,6 +26,20 @@
 #define S_CONFIG_TO_JSON(x, y)   { root.set(y, config.x); }
 #define S_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); strcpy(config.x, str.c_str()); } }
 
+struct Config {
+  int sensors;
+  int decimate;
+  int calibrate;
+  int raw;
+  int ahrs;
+  int quaternion;
+  int temperature;
+  char destination[32];
+  int port;
+};
+
+extern Config config;
+
 bool defaultConfig(void);
 bool loadConfig(void);
 bool saveConfig(void);
@@ -40,17 +54,5 @@ bool handleStaticFile(String);
 bool handleStaticFile(const char *);
 void handleJSON();
 void handleFileUpload();    // https://tttapa.github.io/ESP8266/Chap12%20-%20Uploading%20to%20Server.html
-
-struct Config {
-  int sensors;
-  int decimate;
-  int calibrate;
-  int raw;
-  int ahrs;
-  int quaternion;
-  int temperature;
-  char destination[32];
-  int port;
-};
 
 #endif

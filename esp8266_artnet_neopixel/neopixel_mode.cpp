@@ -3,9 +3,7 @@
 #include "colorspace.h"
 #include "font8x8_basic.h"
 
-extern Config config;
 extern Adafruit_NeoPixel strip;
-
 extern long tic_frame;
 float prev;
 

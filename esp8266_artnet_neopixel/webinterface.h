@@ -26,20 +26,6 @@
 #define S_CONFIG_TO_JSON(x, y)   { root.set(y, config.x); }
 #define S_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); strcpy(config.x, str.c_str()); } }
 
-bool defaultConfig(void);
-bool loadConfig(void);
-bool saveConfig(void);
-
-void handleUpdate1(void);
-void handleUpdate2(void);
-void handleDirList(void);
-void handleNotFound(void);
-void handleRedirect(String);
-void handleRedirect(const char *);
-bool handleStaticFile(String);
-bool handleStaticFile(const char *);
-void handleJSON();
-
 struct Config {
   int universe;
   int offset;
@@ -53,5 +39,21 @@ struct Config {
   int speed;
   int split;
 };
+
+extern Config config;
+
+bool defaultConfig(void);
+bool loadConfig(void);
+bool saveConfig(void);
+
+void handleUpdate1(void);
+void handleUpdate2(void);
+void handleDirList(void);
+void handleNotFound(void);
+void handleRedirect(String);
+void handleRedirect(const char *);
+bool handleStaticFile(String);
+bool handleStaticFile(const char *);
+void handleJSON();
 
 #endif // _WEBINTERFACE_H_
