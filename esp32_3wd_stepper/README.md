@@ -3,12 +3,12 @@
 This is an Arduino sketch for an ESP32 (LOLIN32 Lite) controlled
 three-wheel-drive omni-wheel robot based on 28BYJ-48 stepper motors, similar to the one documented [here][1] and various other places online.
 
-The robot can rotate around its axis and move in any direction using [omni wheels][2]. The wheels are 38 mm onmi wheels from [Piscinarobots][3]. These wheels are also available on [AliExpress][4].
+The robot can rotate around its axis and move in any direction using [omni wheels][2]. The wheels are 38 mm omni-wheels that I orderen from [Piscinarobots][3]. These wheels are also available on [AliExpress][4].
 
 To position the motors and wheels at 120 degree angles, I designed
 and 3D-printed a circular base. I also designed and 3D-printed the
-first set of 38mm omni-wheels following the dimensions of the
-Piscinarobots/AliExpress wheels, but found that those were too rough and not running sideways smoothly enough. Hence I switched to the commercially fabricated wheels.
+first set of omni-wheels following the dimensions of the
+commercial 38 mm wheels, but found that those were too rough and not running sideways smoothly enough. Hence I switched to the commercially fabricated wheels.
 
 The control of the robot is implemented using Open Sound Control
 (OSC), using the [TouchOSC][5] app on my iPhone. The robot can move by itself along a prespecified list of waypoints (and times at which to reach each waypoint). The waypoints are uploaded as CSV file.
