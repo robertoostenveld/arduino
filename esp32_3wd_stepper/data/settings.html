@@ -11,18 +11,18 @@
 
 <form id="settings-form" method="post" action="json">
     <div class="field">
-        <label for="var1">var1:</label>
-        <input type="text" id="var1" name="var1" value="?" required>
+        <label for="repeat">repeat:</label>
+        <input type="text" id="repeat" name="repeat" value="?" required>
     </div>
 
     <div class="field">
-        <label for="var2">var2:</label>
-        <input type="text" id="var2" name="var2" value="?" required>
+        <label for="serialfeedback">serialfeedback:</label>
+        <input type="text" id="serialfeedback" name="serialfeedback" value="?" required>
     </div>
 
     <div class="field">
-        <label for="var2">var3:</label>
-        <input type="text" id="var3" name="var3" value="?" required>
+        <label for="unused2">unused2:</label>
+        <input type="text" id="unused2" name="unused2" value="?" required>
     </div>
 
     <div class="field">
@@ -35,9 +35,9 @@
     const response = await fetch("json");
     const data = await response.json();
     console.log(data);
-    document.getElementById("var1").value = data["var1"];
-    document.getElementById("var2").value = data["var2"];
-    document.getElementById("var3").value = data["var3"];
+    document.getElementById("repeat").value = data["repeat"];
+    document.getElementById("serialfeedback").value = data["serialfeedback"];
+    document.getElementById("unused2").value = data["unused2"];
   }
   updateContent();
 </script>

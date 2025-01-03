@@ -10,6 +10,7 @@
 
 #include "webinterface.h"
 #include "waypoints.h"
+#include "blink_led.h"
 
 const char *host = "3WD-STEPPER";
 const char *version = __DATE__ " / " __TIME__;
@@ -26,22 +27,22 @@ ContinuousStepper<FourWireStepper> wheel1;
 ContinuousStepper<FourWireStepper> wheel2;
 ContinuousStepper<FourWireStepper> wheel3;
 
-const unsigned int inPort = 8000;   // local OSC port
-const unsigned int outPort = 9000;  // remote OSC port (not needed for receive)
+const unsigned int inPort = 8000;   // local OSC port for receiving commands
+const float pd = 0.120;             // platform diameter, in meter
+const float wd = 0.038;             // wheel diameter, in meter
+const float pc = 0.3770;            // platform circumference, in meter
+const float wc = 0.1197;            // wheel circumference, in meter
+const float totalsteps = 2048;      // steps per revolution, see http://www.mjblythe.com/hacks/2016/09/28byj-48-stepper-motor/
+const float maxsteps = 512;         // maximum steps per seconds, determined experimentally
+const int direction = -1;           // rotation direction of the motors
 
-const float pd = 0.120;         // platform diameter, in meter
-const float wd = 0.038;         // wheel diameter, in meter
-const float pc = 0.3770;        // platform circumference, in meter
-const float wc = 0.1197;        // wheel circumference, in meter
-const float totalsteps = 2048;  // steps per revolution, see http://www.mjblythe.com/hacks/2016/09/28byj-48-stepper-motor/
-const float maxsteps = 512;     // maximum steps per seconds
+unsigned long previous = 0;         // timer to integrate the speed over time
+unsigned long feedback = 0;         // timer for feedback on the serial console
+unsigned long offset = 4294967295;  // time at which the automatically executed program started
 
-unsigned long previous = 0, feedback = 0;  // used to integrate the speed over time
-unsigned long offset = 4294967295;         // time at which the program started
-
-float vx = 0, vy = 0, vtheta = 0; // speed in meter per second, and in radians per second
-float x = 0, y = 0, theta = 0;    // absolute position (in meter) and rotation (in radians)
-float r1 = 0, r2 = 0, r3 = 0;     // speed of the stepper motors, in steps per second
+float vx = 0, vy = 0, vtheta = 0;   // speed in meter per second, and in radians per second
+float x = 0, y = 0, theta = 0;      // absolute position (in meter) and rotation (in radians)
+float r1 = 0, r2 = 0, r3 = 0;       // speed of the stepper motors, in steps per second
 
 /********************************************************************************/
 
@@ -183,15 +184,15 @@ void parseOSC() {
 /********************************************************************************/
 
 float maxOfThree(float a, float b, float c) {
-    if (a >= b && a >= c) {
-        return a;
-    } 
-    else if (b >= a && b >= c) {
-        return b;
-    } 
-    else {
-        return c;
-    }
+  if (a >= b && a >= c) {
+    return a;
+  }
+  else if (b >= a && b >= c) {
+    return b;
+  }
+  else {
+    return c;
+  }
 }
 
 void updateSpeed() {
@@ -201,9 +202,9 @@ void updateSpeed() {
   r3 = sin(theta - PI * 2 / 3) * vx / wc - cos(theta - PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
 
   // convert from rotations per second into steps per second
-  r1 *= totalsteps;
-  r2 *= totalsteps;
-  r3 *= totalsteps;
+  r1 *= totalsteps * direction;
+  r2 *= totalsteps * direction;
+  r3 *= totalsteps * direction;
 
   // the stepper motors cannot rotate at more than ~512 steps/second
   float r = maxOfThree(abs(r1), abs(r2), abs(r3));
@@ -224,11 +225,13 @@ void updateSpeed() {
     wheel1.powerOff();
     wheel2.powerOff();
     wheel3.powerOff();
+    ledOn();
   }
   else {
     wheel1.powerOn();
     wheel2.powerOn();
     wheel3.powerOn();
+    ledSlow();
   }
 
   // set the motor speed in steps per seconds
@@ -253,9 +256,11 @@ void updatePosition() {
 /********************************************************************************/
 
 void printPosition() {
-  unsigned long now = millis();
+  if (!config.serialfeedback)
+    return;
 
   // do not print more than once every 500ms
+  unsigned long now = millis();
   if ((now - feedback) > 500) {
     Serial.print(x);
     Serial.print(", ");
@@ -282,20 +287,27 @@ void printPosition() {
 /********************************************************************************/
 
 void updateProgram() {
+  // this only applies when the program is running
   if (mode != PROG)
-    // this only applies when the program is running
     return;
 
   // the N waypoints are connected by N-1 segments
   // determine on which segment we currently are
+  unsigned long now = millis();
   int segment = -1;
   int num = waypoints_time.size();
-  unsigned long now = millis();
   for (int i = 0; i < (num - 1); i++) {
     unsigned long segment_starttime = offset + 1000 * waypoints_time.at(i);
     unsigned long segment_endtime   = offset + 1000 * waypoints_time.at(i + 1);
+    unsigned long program_endtime   = offset + 1000 * waypoints_time.at(num - 1);
     if (now >= segment_starttime && now < segment_endtime) {
       segment = i;
+      break;
+    }
+    else if (now >= program_endtime && config.repeat) {
+      // repeat the program
+      segment = 0;
+      offset = now;
       break;
     } // if
   } // for
@@ -330,13 +342,19 @@ void setup() {
   Serial.print(version);
   Serial.println(" ]");
 
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
+  ledInit();
+  ledFast();
 
   // The SPIFFS file system contains the html and javascript code for the web interface, and the "config.json" file
-  SPIFFS.begin();
-  loadConfig();
-  printConfig();
+  if (!SPIFFS.begin()) {
+    Serial.println("Error opening file system");
+    while (true);
+  }
+  else {
+    Serial.println("Opened file system");
+    loadConfig();
+    printConfig();
+  }
 
   WiFi.hostname(host);
   WiFi.begin();
@@ -344,7 +362,7 @@ void setup() {
   WiFiManager wifiManager;
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
-  Serial.println("connected");
+  Serial.println("Connected to WiFi");
 
   // Used for OSC
   Udp.begin(inPort);
@@ -398,9 +416,9 @@ void setup() {
 
   server.on("/json", HTTP_GET, [] {
     JsonDocument root;
-    N_CONFIG_TO_JSON(var1, "var1");
-    N_CONFIG_TO_JSON(var2, "var2");
-    N_CONFIG_TO_JSON(var3, "var3");
+    N_CONFIG_TO_JSON(repeat, "repeat");
+    N_CONFIG_TO_JSON(serialfeedback, "serialfeedback");
+    N_CONFIG_TO_JSON(unused2, "unused2");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
     root["waypoints"] = loadWaypoints();
@@ -417,11 +435,10 @@ void setup() {
   MDNS.begin(host);
   MDNS.addService("http", "tcp", 80);
 
-  // For the default Arduino Stepper the pins are entered in the sequence IN1-IN3-IN2-IN4
-  // For ContinuousStepper the pins are entered in the sequence IN1-IN2-IN3-IN4
-  wheel1.begin(25, 27, 26, 14);
-  wheel2.begin(22, 23, 19, 18);
-  wheel3.begin(17, 16, 5, 4);
+  // the pin activation sequence is IN1-IN3-IN2-IN4
+  wheel1.begin(14, 26, 27, 25);
+  wheel2.begin(13, 2, 15, 4);
+  wheel3.begin(16, 5, 17, 18);
 
   // The SPIFFS file system contains the "waypoints.csv" file for predefined movements
   parseWaypoints();

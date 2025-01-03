@@ -31,9 +31,9 @@ static String getContentType(const String& path) {
 bool defaultConfig() {
   Serial.println("defaultConfig");
 
-  config.var1 = 11;
-  config.var2 = 22;
-  config.var3 = 33;
+  config.repeat = 0;
+  config.serialfeedback = 1;
+  config.unused2 = 2;
   return true;
 }
 
@@ -63,9 +63,9 @@ bool loadConfig() {
     return false;
   }
 
-  N_JSON_TO_CONFIG(var1, "var1");
-  N_JSON_TO_CONFIG(var2, "var2");
-  N_JSON_TO_CONFIG(var3, "var3");
+  N_JSON_TO_CONFIG(repeat, "repeat");
+  N_JSON_TO_CONFIG(serialfeedback, "serialfeedback");
+  N_JSON_TO_CONFIG(unused2, "unused2");
 
   return true;
 }
@@ -74,9 +74,9 @@ bool saveConfig() {
   Serial.println("saveConfig");
   JsonDocument root;
 
-  N_CONFIG_TO_JSON(var1, "var1");
-  N_CONFIG_TO_JSON(var2, "var2");
-  N_CONFIG_TO_JSON(var3, "var3");
+  N_CONFIG_TO_JSON(repeat, "repeat");
+  N_CONFIG_TO_JSON(serialfeedback, "serialfeedback");
+  N_CONFIG_TO_JSON(unused2, "unused2");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -92,12 +92,12 @@ bool saveConfig() {
 }
 
 void printConfig() {
-  Serial.print("var1 = ");
-  Serial.println(config.var1);
-  Serial.print("var2 = ");
-  Serial.println(config.var2);
-  Serial.print("var3 = ");
-  Serial.println(config.var3);
+  Serial.print("repeat = ");
+  Serial.println(config.repeat);
+  Serial.print("serialfeedback = ");
+  Serial.println(config.serialfeedback);
+  Serial.print("unused2 = ");
+  Serial.println(config.unused2);
 }
 
 void printRequest() {
@@ -178,11 +178,11 @@ void handleJSON() {
   Serial.println("handleJSON");
   printRequest();
 
-  if (server.hasArg("var1") || server.hasArg("var2") || server.hasArg("var3") || server.hasArg("waypoints")) {
+  if (server.hasArg("repeat") || server.hasArg("serialfeedback") || server.hasArg("unused2") || server.hasArg("waypoints")) {
     // the body is key1=val1&key2=val2&key3=val3 and the ESP8266Webserver has already parsed it
-    N_KEYVAL_TO_CONFIG(var1, "var1");
-    N_KEYVAL_TO_CONFIG(var2, "var2");
-    N_KEYVAL_TO_CONFIG(var3, "var3");
+    N_KEYVAL_TO_CONFIG(repeat, "repeat");
+    N_KEYVAL_TO_CONFIG(serialfeedback, "serialfeedback");
+    N_KEYVAL_TO_CONFIG(unused2, "unused2");
 
     if (server.hasArg("waypoints"))
       saveWaypoints(server.arg("waypoints"));
@@ -198,9 +198,9 @@ void handleJSON() {
       handleStaticFile("/reload_failure.html");
       return;
     }
-    N_JSON_TO_CONFIG(var1, "var1");
-    N_JSON_TO_CONFIG(var2, "var2");
-    N_JSON_TO_CONFIG(var3, "var3");
+    N_JSON_TO_CONFIG(repeat, "repeat");
+    N_JSON_TO_CONFIG(serialfeedback, "serialfeedback");
+    N_JSON_TO_CONFIG(unused2, "unused2");
 
     if (root.containsKey("waypoints"))
       saveWaypoints(root["waypoints"]);
@@ -213,4 +213,5 @@ void handleJSON() {
   }
 
   saveConfig();
+  printConfig();
 }

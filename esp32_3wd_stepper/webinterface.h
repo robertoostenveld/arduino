@@ -26,9 +26,9 @@
 #define S_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); strcpy(config.x, str.c_str()); } }
 
 struct Config {
-  int var1;
-  int var2;
-  int var3;
+  int repeat;
+  int serialfeedback;
+  int unused2;
 };
 
 extern Config config;
