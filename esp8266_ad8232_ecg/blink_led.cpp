@@ -21,6 +21,7 @@ void ledInit() {
 void ledOn() {
   if (ledState != LED_ON) {
     ledState = LED_ON;
+    blinker.detach();
     digitalWrite(LED, LOW);
   }
 }
@@ -28,6 +29,7 @@ void ledOn() {
 void ledOff() {
   if (ledState != LED_OFF) {
     ledState = LED_OFF;
+    blinker.detach();
     digitalWrite(LED, HIGH);
   }
 }
