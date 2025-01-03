@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Settings</title>
+<meta charset="utf-8">
+<link href="style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h1>Settings</h1>
+
+<form id="settings-form" method="post" action="json">
+    <div class="field">
+        <label for="address">address:</label>
+        <input type="text" id="address" name="address" value="?" required>
+    </div>
+
+    <div class="field">
+        <label for="port">port:</label>
+        <input type="text" id="port" name="port" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Send</button>
+    </div>
+</form>
+
+<script>
+  async function updateContent() {
+    const response = await fetch("json");
+    const data = await response.json();
+    console.log(data);
+    document.getElementById("address").value = data["address"];
+    document.getElementById("port").value = data["port"];
+  }
+  updateContent();
+</script>
+
+</body>
+</html>
