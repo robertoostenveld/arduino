@@ -7,10 +7,10 @@
 
 using namespace std;
 
-extern vector<float> waypoints_time;
+extern vector<float> waypoints_t;
 extern vector<float> waypoints_x;
 extern vector<float> waypoints_y;
-extern vector<float> waypoints_theta;
+extern vector<float> waypoints_a;
 
 void printWaypoints();          // print the waypoints on the serial console
 void parseWaypoints();          // read the waypoints from the file and represent as vectors

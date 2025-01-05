@@ -39,8 +39,8 @@ unsigned long previous = 0;         // timer to integrate the speed over time
 unsigned long feedback = 0;         // timer for feedback on the serial console
 unsigned long offset = 4294967295;  // time at which the automatically executed program started
 
-float vx = 0, vy = 0, vtheta = 0;   // speed in meter per second, and in radians per second
-float x = 0, y = 0, theta = 0;      // absolute position (in meter) and rotation (in radians)
+float x = 0, y = 0, a = 0;          // absolute position (in meter) and angle (in radians)
+float vx = 0, vy = 0, va = 0;       // speed in meter per second, and angular speed in radians per second
 float r1 = 0, r2 = 0, r3 = 0;       // speed of the stepper motors, in steps per second
 
 /********************************************************************************/
@@ -79,10 +79,10 @@ void progCallback(OSCMessage &msg) {
   offset = millis();
   x = 0;
   y = 0;
-  theta = 0;
+  a = 0;
   vx = 0;
   vy = 0;
-  vtheta = 0;
+  va = 0;
 }
 
 void stopCallback(OSCMessage &msg) {
@@ -91,16 +91,10 @@ void stopCallback(OSCMessage &msg) {
   offset = 4294967295;
   x = 0;
   y = 0;
-  theta = 0;
+  a = 0;
   vx = 0;
   vy = 0;
-  vtheta = 0;
-}
-
-void userCallback(OSCMessage &msg) {
-  // this will stop the program but not the movement
-  mode = USER;
-  offset = 4294967295;
+  va = 0;
 }
 
 void xCallback(OSCMessage &msg) {
@@ -112,7 +106,7 @@ void yCallback(OSCMessage &msg) {
 }
 
 void thetaCallback(OSCMessage &msg) {
-  vtheta = msg.getFloat(0);
+  va = msg.getFloat(0);
 }
 
 void xyCallback(OSCMessage &msg) {
@@ -121,7 +115,7 @@ void xyCallback(OSCMessage &msg) {
 }
 
 void accxyzCallback(OSCMessage &msg) {
-  // values are between -1 and 1, scale them to a more appropriate speed
+  // values are between -1 and 1, scale them to a more appropriate speed of 3 cm/s
   vx = msg.getFloat(0) * 0.03;
   vy = msg.getFloat(1) * 0.03;
 }
@@ -143,14 +137,13 @@ void parseOSC() {
         bundle.fill(Udp.read());
       }
       if (!bundle.hasError()) {
-        bundle.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
-        bundle.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
-        bundle.dispatch("/3wd/x", xCallback);
-        bundle.dispatch("/3wd/y", yCallback);
+        bundle.dispatch("/accxyz",    accxyzCallback);  // this is for the accelerometer in touchOSC
+        bundle.dispatch("/3wd/xy/1",  xyCallback);      // this is for the 2D panel in touchOSC
+        bundle.dispatch("/3wd/x",     xCallback);
+        bundle.dispatch("/3wd/y",     yCallback);
         bundle.dispatch("/3wd/theta", thetaCallback);
-        bundle.dispatch("/3wd/user", userCallback);
-        bundle.dispatch("/3wd/prog", progCallback);
-        bundle.dispatch("/3wd/stop", stopCallback);
+        bundle.dispatch("/3wd/prog",  progCallback);
+        bundle.dispatch("/3wd/stop",  stopCallback);
       } else {
         error = bundle.getError();
         Serial.print("error: ");
@@ -163,14 +156,13 @@ void parseOSC() {
       }
       if (!msg.hasError()) {
         msg.dispatch("/*", printCallback) || msg.dispatch("/*/*", printCallback) || msg.dispatch("/*/*/*", printCallback);
-        msg.dispatch("/accxyz", accxyzCallback);  // this is for the accelerometer in touchOSC
-        msg.dispatch("/3wd/xy/1", xyCallback);    // this is for the 2D panel in touchOSC
-        msg.dispatch("/3wd/x", xCallback);
-        msg.dispatch("/3wd/y", yCallback);
-        msg.dispatch("/3wd/theta", thetaCallback);
-        msg.dispatch("/3wd/user", userCallback);
-        msg.dispatch("/3wd/prog", progCallback);
-        msg.dispatch("/3wd/stop", stopCallback);
+        msg.dispatch("/accxyz",     accxyzCallback);  // this is for the accelerometer in touchOSC
+        msg.dispatch("/3wd/xy/1",   xyCallback);      // this is for the 2D panel in touchOSC
+        msg.dispatch("/3wd/x",      xCallback);
+        msg.dispatch("/3wd/y",      yCallback);
+        msg.dispatch("/3wd/theta",  thetaCallback);
+        msg.dispatch("/3wd/prog",   progCallback);
+        msg.dispatch("/3wd/stop",   stopCallback);
       } else {
         error = msg.getError();
         Serial.print("error: ");
@@ -194,11 +186,13 @@ float maxOfThree(float a, float b, float c) {
   }
 }
 
+/********************************************************************************/
+
 void updateSpeed() {
   // convert the speed from world-coordinates into the rotation speed of the motors
-  r1 = sin(theta) * vx / wc              - cos(theta) * vy / wc              - vtheta * (pc / wc) / (PI * 2);
-  r2 = sin(theta + PI * 2 / 3) * vx / wc - cos(theta + PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
-  r3 = sin(theta - PI * 2 / 3) * vx / wc - cos(theta - PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
+  r1 = sin(a               ) * vx / wc - cos(a               ) * vy / wc - va * (pc / wc) / (M_PI * 2);
+  r2 = sin(a + M_PI * 2 / 3) * vx / wc - cos(a + M_PI * 2 / 3) * vy / wc - va * (pc / wc) / (M_PI * 2);
+  r3 = sin(a - M_PI * 2 / 3) * vx / wc - cos(a - M_PI * 2 / 3) * vy / wc - va * (pc / wc) / (M_PI * 2);
 
   // convert from rotations per second into steps per second
   r1 *= totalsteps;
@@ -216,7 +210,7 @@ void updateSpeed() {
     r3 /= reduction;
     vx /= reduction;
     vy /= reduction;
-    vtheta /= reduction;
+    va /= reduction;
   }
 
   if (r1 == 0 && r2 == 0 && r3 == 0) {
@@ -244,10 +238,10 @@ void updateSpeed() {
 void updatePosition() {
   unsigned long now = millis();
 
-  // integrate the speed over time to keep track of the position
-  x     += vx     * (now - previous) / 1000;
-  y     += vy     * (now - previous) / 1000;
-  theta += vtheta * (now - previous) / 1000;
+  // integrate the speed over time to keep track of the position and angle
+  x += vx * (now - previous) / 1000;
+  y += vy * (now - previous) / 1000;
+  a += va * (now - previous) / 1000;
   previous = now;
 
 }  // updatePosition
@@ -265,13 +259,13 @@ void printPosition() {
     Serial.print(", ");
     Serial.print(y);
     Serial.print(", ");
-    Serial.print(theta * 180 / M_PI); // in degrees
+    Serial.print(a * 180 / M_PI); // in degrees
     Serial.print(", ");
     Serial.print(vx);
     Serial.print(", ");
     Serial.print(vy);
     Serial.print(", ");
-    Serial.print(vtheta * 180 / M_PI); // in degrees per second
+    Serial.print(va * 180 / M_PI); // in degrees per second
     Serial.print(", ");
     Serial.print(r1);
     Serial.print(", ");
@@ -294,11 +288,11 @@ void updateProgram() {
   // determine on which segment we currently are
   unsigned long now = millis();
   int segment = -1;
-  int num = waypoints_time.size();
-  for (int i = 0; i < (num - 1); i++) {
-    unsigned long segment_starttime = offset + 1000 * waypoints_time.at(i);
-    unsigned long segment_endtime   = offset + 1000 * waypoints_time.at(i + 1);
-    unsigned long program_endtime   = offset + 1000 * waypoints_time.at(num - 1);
+  int n = waypoints_t.size();
+  for (int i = 0; i < (n - 1); i++) {
+    unsigned long segment_starttime = offset + 1000 * waypoints_t.at(i);
+    unsigned long segment_endtime   = offset + 1000 * waypoints_t.at(i + 1);
+    unsigned long program_endtime   = offset + 1000 * waypoints_t.at(n - 1);
     if (now >= segment_starttime && now < segment_endtime) {
       segment = i;
       break;
@@ -313,22 +307,21 @@ void updateProgram() {
   } // for
 
   if (segment >= 0) {
-    // determine the distance to travel along this segment, and the amount of time it should take
-    float dt     = waypoints_time.at(segment + 1)  - waypoints_time.at(segment);
-    float dx     = waypoints_x.at(segment + 1)     - waypoints_x.at(segment);
-    float dy     = waypoints_y.at(segment + 1)     - waypoints_y.at(segment);
-    float dtheta = waypoints_theta.at(segment + 1) - waypoints_theta.at(segment);
+    // determine the distance along this segment, and the amount of time it should take
+    float dx = waypoints_x.at(segment + 1) - waypoints_x.at(segment);
+    float dy = waypoints_y.at(segment + 1) - waypoints_y.at(segment);
+    float da = waypoints_a.at(segment + 1) - waypoints_a.at(segment);
+    float dt = waypoints_t.at(segment + 1) - waypoints_t.at(segment);
     // compute the speed
     vx = dx / dt;
     vy = dy / dt;
-    vtheta = dtheta / dt;
+    va = da / dt;
   }
   else {
     vx = 0;
     vy = 0;
-    vtheta = 0;
+    va = 0;
   }
-
 } // updateProgram
 
 /********************************************************************************/
@@ -440,13 +433,13 @@ void setup() {
   wheel2.begin(13, 15, 2, 4);
   wheel3.begin(16, 17, 5, 18);
 
-  // The SPIFFS file system contains the "waypoints.csv" file for predefined movements
+  // The SPIFFS file system contains the "waypoints.csv" file for programmed/predefined movements
   parseWaypoints();
   printWaypoints();
 
   // start in user mode
   mode = USER;
-}  // setup
+} // setup
 
 /********************************************************************************/
 
@@ -458,4 +451,4 @@ void loop() {
 
   parseOSC();             // parse the incoming OSC messages
   server.handleClient();  // handle webserver requests, note that this may disrupt other processes
-}  // loop
+} // loop

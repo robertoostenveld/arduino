@@ -69,7 +69,7 @@ void Stepper::powerOff() {
 void IRAM_ATTR Stepper::onTimer(void* arg) {
   // This is to work around the error that ISO C++ forbids taking the address of
   // an unqualified or parenthesized non-static member function to form a pointer
-  // to member function. Say '&Stepper::onTimer' [-fpermissive]
+  // to member function.
   Stepper* pObj = (Stepper*) arg;
   pObj->doStep();
 }

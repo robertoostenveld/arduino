@@ -5,27 +5,27 @@
 // the file should have no header
 // each line should consist of four comma-separated values: time, x, y, theta
 // time is incremental and in seconds
-// x and y are in meter
-// theta is in degrees in the file, and converted to radians in memory
+// x and y are the position in meter
+// theta is the angle in degrees in the file, it is converted to radians in memory
 
-vector<float> waypoints_time;
+vector<float> waypoints_t;
 vector<float> waypoints_x;
 vector<float> waypoints_y;
-vector<float> waypoints_theta;
+vector<float> waypoints_a;
 
 /****************************************************************************************/
 
 void printWaypoints() {
   Serial.println("printWaypoints");
 
-  for (int i = 0; i < waypoints_time.size(); i++) {
-    Serial.print(waypoints_time.at(i));
+  for (int i = 0; i < waypoints_t.size(); i++) {
+    Serial.print(waypoints_t.at(i));
     Serial.print(",");
     Serial.print(waypoints_x.at(i));
     Serial.print(",");
     Serial.print(waypoints_y.at(i));
     Serial.print(",");
-    Serial.print(waypoints_theta.at(i));
+    Serial.print(waypoints_a.at(i));
     Serial.print("\n");
   }
   return;
@@ -91,10 +91,10 @@ void parseWaypoints() {
     return;
   }
 
-  waypoints_time.clear();
+  waypoints_t.clear();
   waypoints_x.clear();
   waypoints_y.clear();
-  waypoints_theta.clear();
+  waypoints_a.clear();
 
   vector<String> v;
   while (file.available()) {
@@ -112,10 +112,10 @@ void parseWaypoints() {
     String tok4 = s.substring(ind3 + 1, ind4);    //captures 4th value
 
     // convert the values to float and store each in their own vector
-    waypoints_time.push_back(atof(tok1.c_str()));
+    waypoints_t.push_back(atof(tok1.c_str()));
     waypoints_x.push_back(atof(tok2.c_str()));
     waypoints_y.push_back(atof(tok3.c_str()));
-    waypoints_theta.push_back(atof(tok4.c_str()) * M_PI / 180);  // convert from degrees to radians
+    waypoints_a.push_back(atof(tok4.c_str()) * M_PI / 180);  // convert from degrees to radians
   }
 
   file.close();
