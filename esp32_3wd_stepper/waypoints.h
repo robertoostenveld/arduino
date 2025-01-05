@@ -12,6 +12,7 @@ extern vector<float> waypoints_x;
 extern vector<float> waypoints_y;
 extern vector<float> waypoints_theta;
 
+void printWaypoints();          // print the waypoints on the serial console
 void parseWaypoints();          // read the waypoints from the file and represent as vectors
 String loadWaypoints();         // read the waypoints from the file and return as a string
 size_t saveWaypoints(String);   // save the waypoints (as string) to the file
