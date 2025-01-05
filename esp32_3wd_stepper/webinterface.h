@@ -18,7 +18,7 @@
 /* these are for numbers */
 #define N_JSON_TO_CONFIG(x, y)   { if (root.containsKey(y)) { config.x = root[y]; } }
 #define N_CONFIG_TO_JSON(x, y)   { root[y] = config.x; }
-#define N_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); config.x = str.toInt(); } }
+#define N_KEYVAL_TO_CONFIG(x, y) { if (server.hasArg(y))    { String str = server.arg(y); config.x = str.toFloat(); } }
 
 /* these are for strings */
 #define S_JSON_TO_CONFIG(x, y)   { if (root.containsKey(y)) { strcpy(config.x, root[y]); } }
@@ -28,7 +28,7 @@
 struct Config {
   int repeat;
   int serialfeedback;
-  int unused2;
+  float parameter;
 };
 
 extern Config config;
