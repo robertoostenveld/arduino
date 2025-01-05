@@ -1,15 +1,15 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h>        // https://github.com/tzapu/WiFiManager
 #include <WiFiUdp.h>
 #include <ESPmDNS.h>
-#include <OSCMessage.h>  // https://github.com/CNMAT/OSC
+#include <OSCMessage.h>         // https://github.com/CNMAT/OSC
 #include <OSCBundle.h>
-#include <ContinuousStepper.h>  // https://github.com/bblanchon/ArduinoContinuousStepper
 #include <math.h>
 
 #include "webinterface.h"
 #include "waypoints.h"
+#include "stepper.h"
 #include "blink_led.h"
 
 const char *host = "3WD-STEPPER";
@@ -23,18 +23,17 @@ enum Mode {
   USER
 } mode;
 
-ContinuousStepper<FourWireStepper> wheel1;
-ContinuousStepper<FourWireStepper> wheel2;
-ContinuousStepper<FourWireStepper> wheel3;
+Stepper wheel1;
+Stepper wheel2;
+Stepper wheel3;
 
 const unsigned int inPort = 8000;   // local OSC port for receiving commands
-const float pd = 0.120;             // platform diameter, in meter
+const float pd = 0.084252;          // platform diameter, in meter
 const float wd = 0.038;             // wheel diameter, in meter
-const float pc = 0.3770;            // platform circumference, in meter
-const float wc = 0.1197;            // wheel circumference, in meter
+const float pc = pd * M_PI;         // platform circumference, in meter
+const float wc = wd * M_PI;         // wheel circumference, in meter
 const float totalsteps = 2048;      // steps per revolution, see http://www.mjblythe.com/hacks/2016/09/28byj-48-stepper-motor/
 const float maxsteps = 512;         // maximum steps per seconds, determined experimentally
-const int direction = -1;           // rotation direction of the motors
 
 unsigned long previous = 0;         // timer to integrate the speed over time
 unsigned long feedback = 0;         // timer for feedback on the serial console
@@ -75,7 +74,7 @@ void printCallback(OSCMessage &msg) {
 }
 
 void progCallback(OSCMessage &msg) {
-  // start the programmed movement
+  // start the programmed movement along the waypoints
   mode = PROG;
   offset = millis();
   x = 0;
@@ -197,14 +196,14 @@ float maxOfThree(float a, float b, float c) {
 
 void updateSpeed() {
   // convert the speed from world-coordinates into the rotation speed of the motors
-  r1 = sin(theta) * vx / wc - cos(theta) * vy / wc - vtheta * (pc / wc) / (PI * 2);
+  r1 = sin(theta) * vx / wc              - cos(theta) * vy / wc              - vtheta * (pc / wc) / (PI * 2);
   r2 = sin(theta + PI * 2 / 3) * vx / wc - cos(theta + PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
   r3 = sin(theta - PI * 2 / 3) * vx / wc - cos(theta - PI * 2 / 3) * vy / wc - vtheta * (pc / wc) / (PI * 2);
 
   // convert from rotations per second into steps per second
-  r1 *= totalsteps * direction;
-  r2 *= totalsteps * direction;
-  r3 *= totalsteps * direction;
+  r1 *= totalsteps;
+  r2 *= totalsteps;
+  r3 *= totalsteps;
 
   // the stepper motors cannot rotate at more than ~512 steps/second
   float r = maxOfThree(abs(r1), abs(r2), abs(r3));
@@ -306,6 +305,7 @@ void updateProgram() {
     }
     else if (now >= program_endtime && config.repeat) {
       // repeat the program
+      Serial.println("repeat");
       segment = 0;
       offset = now;
       break;
@@ -418,7 +418,7 @@ void setup() {
     JsonDocument root;
     N_CONFIG_TO_JSON(repeat, "repeat");
     N_CONFIG_TO_JSON(serialfeedback, "serialfeedback");
-    N_CONFIG_TO_JSON(unused2, "unused2");
+    N_CONFIG_TO_JSON(parameter, "parameter");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
     root["waypoints"] = loadWaypoints();
@@ -435,13 +435,14 @@ void setup() {
   MDNS.begin(host);
   MDNS.addService("http", "tcp", 80);
 
-  // the pin activation sequence is IN1-IN3-IN2-IN4
-  wheel1.begin(14, 26, 27, 25);
-  wheel2.begin(13, 2, 15, 4);
-  wheel3.begin(16, 5, 17, 18);
+  // connect the timer to the stepper motor driver pins
+  wheel1.begin(14, 27, 26, 25);
+  wheel2.begin(13, 15, 2, 4);
+  wheel3.begin(16, 17, 5, 18);
 
   // The SPIFFS file system contains the "waypoints.csv" file for predefined movements
   parseWaypoints();
+  printWaypoints();
 
   // start in user mode
   mode = USER;
@@ -454,11 +455,6 @@ void loop() {
   printPosition();        // print the current position and speed
   updateProgram();        // update the speed according to the programmed waypoints
   updateSpeed();          // translate the world speed into motor speeds
-
-  // keep the wheels moving at the proper speed
-  wheel1.loop();
-  wheel2.loop();
-  wheel3.loop();
 
   parseOSC();             // parse the incoming OSC messages
   server.handleClient();  // handle webserver requests, note that this may disrupt other processes
