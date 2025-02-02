@@ -10,19 +10,23 @@
 
 <h1>Monitor</h1>
 
+Uptime:
+<div id="uptime" name"uptime">?</div>
+
 Firmware version:
 <div id="version" name="version">?</div>
 
-Uptime:
-<div id="uptime" name"uptime">?</div>
+MAC address:
+<div id="macaddress" name"macaddress">?</div>
 
 <script>
   async function updateContent() {
     const response = await fetch("json");
     const data = await response.json();
     console.log(data);
-    document.getElementById("version").innerHTML = data["version"];
     document.getElementById("uptime").innerHTML = data["uptime"];
+    document.getElementById("version").innerHTML = data["version"];
+    document.getElementById("macaddress").innerHTML = data["macaddress"];
   }
   updateContent();
 </script>

@@ -1,5 +1,5 @@
-#ifndef __STEPPER_H__
-#define __STEPPER_H__
+#ifndef _STEPPER_H_
+#define _STEPPER_H_
 
 #include <Arduino.h>
 
@@ -24,4 +24,4 @@ class Stepper {
     void IRAM_ATTR doStep();                    // this implements the actual stepping
 };
 
-#endif
+#endif // _STEPPER_H_

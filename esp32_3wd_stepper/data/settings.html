@@ -21,11 +21,6 @@
     </div>
 
     <div class="field">
-        <label for="parameter">parameter:</label>
-        <input type="text" id="parameter" name="parameter" value="?" required>
-    </div>
-
-    <div class="field">
         <button type="submit">Send</button>
     </div>
 </form>
@@ -37,7 +32,6 @@
     console.log(data);
     document.getElementById("repeat").value = data["repeat"];
     document.getElementById("serialfeedback").value = data["serialfeedback"];
-    document.getElementById("parameter").value = data["parameter"];
   }
   updateContent();
 </script>

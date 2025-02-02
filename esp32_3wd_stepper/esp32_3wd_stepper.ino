@@ -11,6 +11,7 @@
 #include "waypoints.h"
 #include "stepper.h"
 #include "blink_led.h"
+#include "util.h"
 
 const char *host = "3WD-STEPPER";
 const char *version = __DATE__ " / " __TIME__;
@@ -352,6 +353,8 @@ void setup() {
   WiFi.hostname(host);
   WiFi.begin();
 
+  printMacAddress();
+
   WiFiManager wifiManager;
   wifiManager.setAPStaticIPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
   wifiManager.autoConnect(host);
@@ -414,6 +417,7 @@ void setup() {
     N_CONFIG_TO_JSON(parameter, "parameter");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
+    root["macaddress"] = getMacAddress();
     root["waypoints"] = loadWaypoints();
     String str;
     serializeJson(root, str);
