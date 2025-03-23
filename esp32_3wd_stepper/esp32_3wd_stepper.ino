@@ -20,7 +20,7 @@ WebServer server(80);
 WiFiUDP Udp;
 
 enum Mode {
-  PROG,
+  ROUTE,
   USER
 } mode;
 
@@ -38,7 +38,7 @@ const float maxsteps = 512;         // maximum steps per seconds, determined exp
 
 unsigned long previous = 0;         // timer to integrate the speed over time
 unsigned long feedback = 0;         // timer for feedback on the serial console
-unsigned long offset = 4294967295;  // time at which the automatically executed program started
+unsigned long offset = 4294967295;  // time at which the route along the waypoints started
 
 float x = 0, y = 0, a = 0;          // absolute position (in meter) and angle (in radians)
 float vx = 0, vy = 0, va = 0;       // speed in meter per second, and angular speed in radians per second
@@ -74,28 +74,84 @@ void printCallback(OSCMessage &msg) {
   Serial.println();
 }
 
-void progCallback(OSCMessage &msg) {
-  // start the programmed movement along the waypoints
-  mode = PROG;
-  offset = millis();
-  x = 0;
-  y = 0;
-  a = 0;
+void startRoute(int route) {
+  // stop the current movement
   vx = 0;
   vy = 0;
   va = 0;
+  if (!config.absolute) {
+    // set the current position and orientation as zero
+    x = 0;
+    y = 0;
+    a = 0;
+  }
+  // read the waypoints from the SPIFFS filesystem
+  parseWaypoints(route);
+  // insert the current position and orientation as the starting position
+  waypoints_t.insert(waypoints_t.begin(), 0);
+  waypoints_x.insert(waypoints_x.begin(), x);
+  waypoints_y.insert(waypoints_y.begin(), y);
+  waypoints_a.insert(waypoints_a.begin(), a);
+  // start the new route
+  printWaypoints(route);
+  offset = millis();
+  mode = ROUTE;
+}
+
+void route1Callback(OSCMessage &msg) {
+  startRoute(1);
+}
+
+void route2Callback(OSCMessage &msg) {
+  startRoute(2);
+}
+
+void route3Callback(OSCMessage &msg) {
+  startRoute(3);
+}
+
+void route4Callback(OSCMessage &msg) {
+  startRoute(4);
+}
+
+void route5Callback(OSCMessage &msg) {
+  startRoute(5);
+}
+
+void route6Callback(OSCMessage &msg) {
+  startRoute(6);
+}
+
+void route7Callback(OSCMessage &msg) {
+  startRoute(7);
+}
+
+void route8Callback(OSCMessage &msg) {
+  startRoute(8);
 }
 
 void stopCallback(OSCMessage &msg) {
-  // this will stop the movement and switch to user-mode
-  mode = USER;
-  offset = 4294967295;
-  x = 0;
-  y = 0;
-  a = 0;
+  // stop the current movement
   vx = 0;
   vy = 0;
   va = 0;
+  // switch to user-mode
+  offset = 4294967295;
+  mode = USER;
+}
+
+void resetCallback(OSCMessage &msg) {
+  // stop the current movement
+  vx = 0;
+  vy = 0;
+  va = 0;
+  // reset the position
+  x = 0;
+  y = 0;
+  a = 0;
+  // switch to user-mode
+  offset = 4294967295;
+  mode = USER;
 }
 
 void xCallback(OSCMessage &msg) {
@@ -138,13 +194,21 @@ void parseOSC() {
         bundle.fill(Udp.read());
       }
       if (!bundle.hasError()) {
-        bundle.dispatch("/accxyz",    accxyzCallback);  // this is for the accelerometer in touchOSC
-        bundle.dispatch("/3wd/xy/1",  xyCallback);      // this is for the 2D panel in touchOSC
-        bundle.dispatch("/3wd/x",     xCallback);
-        bundle.dispatch("/3wd/y",     yCallback);
-        bundle.dispatch("/3wd/theta", thetaCallback);
-        bundle.dispatch("/3wd/prog",  progCallback);
-        bundle.dispatch("/3wd/stop",  stopCallback);
+        bundle.dispatch("/accxyz",     accxyzCallback);  // this is for the accelerometer in touchOSC
+        bundle.dispatch("/3wd/xy/1",   xyCallback);      // this is for the 2D panel in touchOSC
+        bundle.dispatch("/3wd/x",      xCallback);
+        bundle.dispatch("/3wd/y",      yCallback);
+        bundle.dispatch("/3wd/theta",  thetaCallback);
+        bundle.dispatch("/3wd/route1", route1Callback);
+        bundle.dispatch("/3wd/route2", route2Callback);
+        bundle.dispatch("/3wd/route3", route3Callback);
+        bundle.dispatch("/3wd/route4", route4Callback);
+        bundle.dispatch("/3wd/route5", route5Callback);
+        bundle.dispatch("/3wd/route6", route6Callback);
+        bundle.dispatch("/3wd/route7", route7Callback);
+        bundle.dispatch("/3wd/route8", route8Callback);
+        bundle.dispatch("/3wd/stop",   stopCallback);
+        bundle.dispatch("/3wd/reset",  resetCallback);
       } else {
         error = bundle.getError();
         Serial.print("error: ");
@@ -162,8 +226,16 @@ void parseOSC() {
         msg.dispatch("/3wd/x",      xCallback);
         msg.dispatch("/3wd/y",      yCallback);
         msg.dispatch("/3wd/theta",  thetaCallback);
-        msg.dispatch("/3wd/prog",   progCallback);
+        msg.dispatch("/3wd/route1", route1Callback);
+        msg.dispatch("/3wd/route2", route2Callback);
+        msg.dispatch("/3wd/route3", route3Callback);
+        msg.dispatch("/3wd/route4", route4Callback);
+        msg.dispatch("/3wd/route5", route5Callback);
+        msg.dispatch("/3wd/route6", route6Callback);
+        msg.dispatch("/3wd/route7", route7Callback);
+        msg.dispatch("/3wd/route8", route8Callback);
         msg.dispatch("/3wd/stop",   stopCallback);
+        msg.dispatch("/3wd/reset",  resetCallback);
       } else {
         error = msg.getError();
         Serial.print("error: ");
@@ -250,7 +322,7 @@ void updatePosition() {
 /********************************************************************************/
 
 void printPosition() {
-  if (!config.serialfeedback)
+  if (!config.serial)
     return;
 
   // do not print more than once every 500ms
@@ -280,9 +352,9 @@ void printPosition() {
 
 /********************************************************************************/
 
-void updateProgram() {
-  // this only applies when the program is running
-  if (mode != PROG)
+void updateRoute() {
+  // this only applies when the route along the waypoints is being executed
+  if (mode != ROUTE)
     return;
 
   // the N waypoints are connected by N-1 segments
@@ -293,14 +365,14 @@ void updateProgram() {
   for (int i = 0; i < (n - 1); i++) {
     unsigned long segment_starttime = offset + 1000 * waypoints_t.at(i);
     unsigned long segment_endtime   = offset + 1000 * waypoints_t.at(i + 1);
-    unsigned long program_endtime   = offset + 1000 * waypoints_t.at(n - 1);
+    unsigned long route_endtime     = offset + 1000 * waypoints_t.at(n - 1);
     if (now >= segment_starttime && now < segment_endtime) {
       segment = i;
       break;
     }
-    else if (now >= program_endtime && config.repeat) {
-      // repeat the program
-      Serial.println("repeat");
+    else if (now >= route_endtime && config.repeat) {
+      // repeat the route along the waypoints
+      Serial.println("repeat route");
       segment = 0;
       offset = now;
       break;
@@ -323,7 +395,7 @@ void updateProgram() {
     vy = 0;
     va = 0;
   }
-} // updateProgram
+} // updateRoute
 
 /********************************************************************************/
 
@@ -413,12 +485,20 @@ void setup() {
   server.on("/json", HTTP_GET, [] {
     JsonDocument root;
     N_CONFIG_TO_JSON(repeat, "repeat");
-    N_CONFIG_TO_JSON(serialfeedback, "serialfeedback");
-    N_CONFIG_TO_JSON(parameter, "parameter");
+    N_CONFIG_TO_JSON(absolute, "absolute");
+    N_CONFIG_TO_JSON(warp, "warp");
+    N_CONFIG_TO_JSON(serial, "serial");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
     root["macaddress"] = getMacAddress();
-    root["waypoints"] = loadWaypoints();
+    root["waypoints1"] = loadWaypoints(1);
+    root["waypoints2"] = loadWaypoints(2);
+    root["waypoints3"] = loadWaypoints(3);
+    root["waypoints4"] = loadWaypoints(4);
+    root["waypoints5"] = loadWaypoints(5);
+    root["waypoints6"] = loadWaypoints(6);
+    root["waypoints7"] = loadWaypoints(7);
+    root["waypoints8"] = loadWaypoints(8);
     String str;
     serializeJson(root, str);
     server.setContentLength(str.length());
@@ -437,10 +517,6 @@ void setup() {
   wheel2.begin(13, 15, 2, 4);
   wheel3.begin(16, 17, 5, 18);
 
-  // The SPIFFS file system contains the "waypoints.csv" file for programmed/predefined movements
-  parseWaypoints();
-  printWaypoints();
-
   // start in user mode
   mode = USER;
 } // setup
@@ -450,7 +526,7 @@ void setup() {
 void loop() {
   updatePosition();       // integrate the velocity to get an estimate of the position and heading
   printPosition();        // print the current position and speed
-  updateProgram();        // update the speed according to the programmed waypoints
+  updateRoute();          // update the speed of the wheels according to route along the waypoints
   updateSpeed();          // translate the world speed into motor speeds
 
   parseOSC();             // parse the incoming OSC messages

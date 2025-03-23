@@ -14,6 +14,34 @@ This sketch aligns with the convention used by [WPILib][6] and uses an NWU axes 
 
 Considering the 3-wheel-drive robot platform, wheel 1 is placed at the front (the "nose") and wheel 2 and 3 at the left and right back. The x-axis is pointing fron the center to wheel 1, and the y-axix pointing to the left. The angle theta is positive when (seen from the top) the robot turns to the left (CCW) and negative to the right.
 
+## Settings
+
+In the settings menu you can change the following parameters.
+
+### Repeat
+
+This can be 0 (false) or 1 (true) and specifies whether a route should be repeated when the end of the route is reached.
+
+### Absolute
+
+This can be 0 (false) for relative coordinates) or 1 (true) for absolute coordinates.
+
+When configured as relative, you specify the waypoints and movements _relative_ to the robot's position at the moment each route starts. The starting position (and angle) is set to zero and every new route is executed without taking any previously executed routes into consideration.
+
+When configured as absolute, you specify all waypoints relative to the robot's initial position and orientation in the room. WHen starting a new route, the latest known position (and orientation) is taken as the starting point.
+
+### Warp
+
+This is a floating point number by which the time and distances are scaled. By default the warp is 1.00.
+
+If you specify the warp as 2.00, all positions along the route will be multiplied by a factor of 2x and the time between waypoints will be also be multiplied by a factor of 2x. Consequently, the speed for each segment will remain the same, and the overall route will be 2x larger and will take 2x longer.
+
+If you specify the warp as 0.5, the overall route will be 2x shorter and faster
+
+### Serial
+
+This can be 0 (false) or 1 (true) and specifies how much information will be printed on the serial console when the robot is connected to a computer. This is only for debugging.
+
 ## Links
 
 [1]: https://github.com/manav20/3-wheel-omni

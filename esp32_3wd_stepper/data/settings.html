@@ -11,17 +11,27 @@
 
 <form id="settings-form" method="post" action="json">
     <div class="field">
-        <label for="repeat">repeat:</label>
+        <label for="repeat">repeat:</label><br>
         <input type="text" id="repeat" name="repeat" value="?" required>
     </div>
 
     <div class="field">
-        <label for="serialfeedback">serialfeedback:</label>
-        <input type="text" id="serialfeedback" name="serialfeedback" value="?" required>
+      <label for="absolute">absolute:</label><br>
+      <input type="text" id="absolute" name="absolute" value="?" required>
     </div>
 
     <div class="field">
-        <button type="submit">Send</button>
+        <label for="serial">serial:</label><br>
+        <input type="text" id="serial" name="serial" value="?" required>
+    </div>
+
+    <div class="field">
+      <label for="warp">warp:</label><br>
+      <input type="text" id="warp" name="warp" value="?" required>
+    </div>
+
+    <div class="field">
+        <button type="submit">Save</button>
     </div>
 </form>
 
@@ -31,7 +41,9 @@
     const data = await response.json();
     console.log(data);
     document.getElementById("repeat").value = data["repeat"];
-    document.getElementById("serialfeedback").value = data["serialfeedback"];
+    document.getElementById("absolute").value = data["absolute"];
+    document.getElementById("serial").value = data["serial"];
+    document.getElementById("warp").value = data["warp"];
   }
   updateContent();
 </script>

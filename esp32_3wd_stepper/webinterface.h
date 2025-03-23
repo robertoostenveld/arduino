@@ -27,8 +27,9 @@
 
 struct Config {
   int repeat;
-  int serialfeedback;
-  float parameter;
+  int absolute;
+  float warp;
+  int serial;
 };
 
 extern Config config;

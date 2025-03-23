@@ -1,5 +1,6 @@
 {
-"repeat":1,
-"serialfeedback":0,
-"parameter":0.123
+"repeat":0,
+"absolute":0,
+"warp": 1,
+"serial":0
 }

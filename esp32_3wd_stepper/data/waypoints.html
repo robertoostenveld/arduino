@@ -11,11 +11,47 @@
 
 <form id="waypoints-form" method="post" action="json">
     <div class="field">
-        <textarea type="text" rows="10" cols="80" id="waypoints" name="waypoints" required>?</textarea>
+      <label for="waypoints1">waypoints route 1:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints1" name="waypoints1" required>?</textarea>
     </div>
 
     <div class="field">
-        <button type="submit">Send</button>
+      <label for="waypoints2">waypoints route 2:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints2" name="waypoints2" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints3">waypoints route 3:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints3" name="waypoints3" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints4">waypoints route 4:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints4" name="waypoints4" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints5">waypoints route 5:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints5" name="waypoints5" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints6">waypoints route 6:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints6" name="waypoints6" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints7">waypoints route 7:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints7" name="waypoints7" required>?</textarea>
+    </div>
+
+    <div class="field">
+      <label for="waypoints8">waypoints route 8:</label><br>
+      <textarea type="text" rows="10" cols="80" id="waypoints8" name="waypoints8" required>?</textarea>
+    </div>
+
+    <div class="field">
+        <button type="submit">Save</button>
     </div>
 </form>
 
@@ -24,7 +60,14 @@
     const response = await fetch("json");
     const data = await response.json();
     console.log(data);
-    document.getElementById("waypoints").value = data["waypoints"];
+    document.getElementById("waypoints1").value = data["waypoints1"];
+    document.getElementById("waypoints2").value = data["waypoints2"];
+    document.getElementById("waypoints3").value = data["waypoints3"];
+    document.getElementById("waypoints4").value = data["waypoints4"];
+    document.getElementById("waypoints5").value = data["waypoints5"];
+    document.getElementById("waypoints6").value = data["waypoints6"];
+    document.getElementById("waypoints7").value = data["waypoints7"];
+    document.getElementById("waypoints8").value = data["waypoints8"];
   }
   updateContent();
 </script>

@@ -15,8 +15,9 @@ vector<float> waypoints_a;
 
 /****************************************************************************************/
 
-void printWaypoints() {
-  Serial.println("printWaypoints");
+void printWaypoints(int route) {
+  Serial.print("printWaypoints ");
+  Serial.println(route);
 
   for (int i = 0; i < waypoints_t.size(); i++) {
     Serial.print(waypoints_t.at(i));
@@ -33,27 +34,32 @@ void printWaypoints() {
 
 /****************************************************************************************/
 
-size_t saveWaypoints(String s) {
-  Serial.println("saveWaypoints");
+size_t saveWaypoints(int route, String s) {
+  Serial.print("saveWaypoints ");
+  Serial.print(route);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An error has occurred while mounting SPIFFS");
     return 0;
   }
 
-  File file = SPIFFS.open("/waypoints.csv", "w");
+  String filename = String("/waypoints") + String(route) + String(".csv");
+  File file = SPIFFS.open(filename, "w");
   if (!file) {
-    Serial.println("Failed to open file for writing");
+    Serial.print("Failed to open ");
+    Serial.print(filename);
+    Serial.println(" for writing");
   }
+  
   size_t bytes = file.print(s);
   return bytes;
 }
 
 /****************************************************************************************/
 
-String loadWaypoints()
-{
-  Serial.println("loadWaypoints");
+String loadWaypoints(int route) {
+  Serial.print("loadWaypoints ");
+  Serial.println(route);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An error has occurred while mounting SPIFFS");
@@ -61,9 +67,12 @@ String loadWaypoints()
     return s;
   }
 
-  File file = SPIFFS.open("/waypoints.csv", "r");
+  String filename = String("/waypoints") + String(route) + String(".csv");
+  File file = SPIFFS.open(filename, "r");
   if (!file) {
-    Serial.println("Failed to open file for reading");
+    Serial.print("Failed to open ");
+    Serial.print(filename);
+    Serial.println(" for reading");
   }
 
   String s;
@@ -77,18 +86,21 @@ String loadWaypoints()
 
 /****************************************************************************************/
 
-void parseWaypoints() {
-  Serial.println("parseWaypoints");
+void parseWaypoints(int route) {
+  Serial.print("parseWaypoints ");
+  Serial.println(route);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An error has occurred while mounting SPIFFS");
     return;
   }
 
-  File file = SPIFFS.open("/waypoints.csv", "r");
+  String filename = String("/waypoints") + String(route) + String(".csv");
+  File file = SPIFFS.open(filename, "r");
   if (!file) {
-    Serial.println("Failed to open file for reading");
-    return;
+    Serial.print("Failed to open ");
+    Serial.print(filename);
+    Serial.println(" for reading");
   }
 
   waypoints_t.clear();
