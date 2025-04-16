@@ -1,23 +1,30 @@
 /*
    This sketch is designed for the P1 port of an ISKRA AM500 smart energy meter.
-   It runs on a Wemos D1 mini that reads and parses the energy usage data and
+   It runs on a Wemos D1 mini PRO that reads and parses the energy usage data and
    subsequently sends it to http://thingspeak.com/
 
    Pin 5 appears to behave as an https://en.wikipedia.org/wiki/Open_collector and
    hence requires to be connected over a ~1kOhm resistor  to VCC of the ESP8266.
 
+   The Wemos D1 mini PRO includes a lithium battery charging circuit, which I 
+   connected to a small LiPo battery. This allows running it from the low power that
+   the P1 port provides, as the battery takes care of the current spikes during 
+   wifi transmission. The battery needed to be fully charged prior to connecting it 
+   to the P1 port, otherwise too much current would be drawn and the P1 port would 
+   switch off and on repeatedly.
+
    See http://domoticx.com/p1-poort-slimme-meter-hardware/ and
    http://domoticx.com/p1-poort-slimme-meter-hardware/
 
-   The schematic below shows how I wired the 6 pins of the RJ12 connector to
-   the Wemos D1 mini.
+   The schematic below shows how I wired the 6 pins of the RJ12 connector (on the left) 
+   to the Wemos D1 mini PRO (on the right).
 
-   1---PWR_VCC-
+   1---PWR_VCC-------------------5V
    2-------RTS-------------------D1
    3---DAT_GND-------------------GND
    4--------NC-       +----------D2 = SoftwareSerial RX
    5--------TX--------|---R670---3V3
-   6---PWR_GND-
+   6---PWR_GND-------------------GND
 
 */
 
@@ -27,7 +34,8 @@
 #include <dsmr.h>             // https://github.com/matthijskooijman/arduino-dsmr
 #include "secret.h"
 
-/* these are defined in secret.h for the wifi
+/* these are defined in secret.h 
+  for the wifi
     #define SSID    "XXXXXXXXXXXXXXXX"
     #define PASS    "XXXXXXXXXXXXXXXX"
   for thingspeak
@@ -206,9 +214,9 @@ void loop () {
     lastTime = now;
   }
 
-  // Switch the LED off, it is switched on when sending a http message
+  // Switch the LED off, it was switched on when sending a HTTP or MQTT message
   if (now - lastLed > durationLed) {
-    digitalWrite(LED_BUILTIN, HIGH);  // it is inverted on the ESP12F
+    digitalWrite(LED_BUILTIN, HIGH);  // it is inverted
     lastLed = now;
   }
 
@@ -257,7 +265,7 @@ void sendPlainMQTT() {
   }
 
   if (mqtt_client.connected()) {
-    digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
+    digitalWrite(LED_BUILTIN, LOW);  // it is inverted
     lastLed = millis();
 
     mqtt_client.publish ("p1/power_delivered",          String(globaldata->power_delivered).c_str());
@@ -288,7 +296,7 @@ void sendThingspeakMQTT() {
   }
 
   if (mqtt_client.connected()) {
-    digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
+    digitalWrite(LED_BUILTIN, LOW);  // it is inverted
     lastLed = millis();
 
     // Construct MQTT message
@@ -318,7 +326,7 @@ void sendThingspeakMQTT() {
 
 void sendThingspeakREST() {
   if (wifi_client.connect(server, port)) {
-    digitalWrite(LED_BUILTIN, LOW); // it is inverted on the ESP12F
+    digitalWrite(LED_BUILTIN, LOW);  // it is inverted
     lastLed = millis();
 
     // Construct request body
