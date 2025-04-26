@@ -1,134 +1,116 @@
-/*
-  This Arduino sketch is for an ESP32-based automated pet feeder system that operates 
-  on a sleep-wake cycle to conserve power. After performing its tasks, the ESP32 goes 
-  back to deep sleep before waking up again.
+/* 
+This Arduino sketch is for a battery operated pet feeder based on a XIAO ESP32c6. It uses deep 
+sleep to conserve power. When it wakes up, it gets a JSON document from a URL that specifies whether 
+and how much to feed. It then moves a servo to provide the required number of portions and goes
+back to sleep.
 
-  The main features are:
-  - Low power consumption by using deep sleep.
-  - Persistent memory to keep track of wakeups, last clock sync, and last feeding time.
-  - Logging to report events to an MQTT server for remote monitoring.
-  - Ensures food is dispensed only once per day and not more than once per hour.
-  - Servo motor control.
+The JSON document is dynamically hosted by Node-Red running on a Raspberri Pi, which allows for
+reprogramming the feeding schedule.
 
+To prevent the servo motor from jerking to the default 0 angle upon every wake up and also to 
+preserve power, it is connected over a bs170 transistor. This alows the ESP to switch the servo
+motor power on only when needed.
 */
 
-#include <Arduino.h>
 #include <WiFi.h>
-#include <PubSubClient.h>  // https://github.com/knolleary/pubsubclient
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include <ESP32Servo.h>
 
-#include "secret.h"  // contains wifi and mqtt credentials
-#include "util.h"    // contains some helper functions
+#include "secret.h"
 
-#define SHORT_SLEEP 60  // Time ESP32 will go to sleep when wifi fails (in seconds)
-#define LONG_SLEEP 600  // Time ESP32 will go to sleep between wakeup (in seconds)
-
-const char *host = "ESP32C6-FEEDER";
-const char *version = __DATE__ " / " __TIME__;
+#define SERVO_CONTROL 20          // D9 is GPIO20, this is the control line for the servo
+#define SERVO_ENABLE 18           // D10 is GPIO18, this goes over a 1 kOhm resistor to a BS170 transistor 
+#define uS_TO_S_FACTOR 1000000ULL // conversion factor for micro seconds to seconds
 
 WiFiClient wifi_client;
-PubSubClient mqtt_client(wifi_client);
+HTTPClient http_client;
 Servo myservo;
 
-long now = 0;
-struct tm timeinfo;  // this has multiple fields, nicely organized
-struct timeval tv;   // this has tv_sec and tv_usec
+// defaults following a hard reset
+RTC_DATA_ATTR int interval = 60;
+RTC_DATA_ATTR int amount = 0;
 
-bool updateClock = 0;
-bool provideFood = 0;
+const long wifiTimeout = 10000;
+const char* version = __DATE__ " / " __TIME__;
 
-const long setupTimeout = 10000;          // in milliseconds, when the setup fails
-const unsigned int clockTimeout = 86400;  // in seconds, update the clock once per day
+void deepsleep() {
+  Serial.print("Going asleep for ");
+  Serial.print(interval);
+  Serial.println(" seconds.");
+  Serial.flush();
+  wifi_client.flush();
+  wifi_client.stop();
+  esp_sleep_enable_timer_wakeup(interval * uS_TO_S_FACTOR);
+  esp_deep_sleep_start();
+}
 
-// these variables survive deep sleep
-RTC_DATA_ATTR unsigned long wakeupCount = 0;
-RTC_DATA_ATTR struct timeval lastClockUpdate;
-RTC_DATA_ATTR int feedingHour = 14;   // in hours of the day, 0-23
-RTC_DATA_ATTR int feedingMinute = 0;  // in minutes, 0-59
-RTC_DATA_ATTR int feedingAmount = 1;  // how many portions to serve
+void moveServo() {
+  // these have been experimentally calibrated
+  const int left = 10;
+  const int right = 74;
+  const int middle = (left + right) / 2;
+
+  Serial.println("Moving servo.");
+
+  // start in the middle position
+  myservo.write(middle);
+  // switch on the power to the servo motor
+  digitalWrite(SERVO_ENABLE, HIGH);
+
+  // move to the right to pick up the food
+  for (int posDegrees = middle; posDegrees <= right; posDegrees++) {
+    myservo.write(posDegrees);
+    delay(50);
+  }
+
+  // wait for it to drop into the slider
+  delay(1000);
+
+  // move to the left to drop the food
+  for (int posDegrees = right; posDegrees >= left; posDegrees--) {
+    myservo.write(posDegrees);
+    delay(50);
+  }
+
+  // wait for it to drop out of the slider
+  delay(1000);
+
+  // move back to the middle position
+  for (int posDegrees = left; posDegrees <= middle; posDegrees++) {
+    myservo.write(posDegrees);
+    delay(50);
+  }
+
+  // switch off the power to the servo motor
+  digitalWrite(SERVO_ENABLE, LOW);
+}
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("------------------------------------------------------------");
-  Serial.print("[ ");
-  Serial.print(host);
-  Serial.print(" / ");
+  Serial.print("\n[esp32c6_feeder / ");
   Serial.print(version);
-  Serial.println(" ]");
-  Serial.println("Starting setup");
+  Serial.println("]");
 
-  // set up the servo, but with the power disabled
+  // switch on the LED
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);  // it is inverted, this switches it on
+
+  // set up the servo, but initially with the power disabled
   pinMode(SERVO_ENABLE, OUTPUT);
   digitalWrite(SERVO_ENABLE, LOW);
   myservo.setPeriodHertz(50);
   myservo.attach(SERVO_CONTROL, 500, 2500);
 
-  // Blink slowly for two seconds
-  pinMode(LED_BUILTIN, OUTPUT);
-  now = millis();
-  while ((millis() - now) < 2000) {
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    delay(500);
-  }
-
-  // Set the timezone to Europe/Amsterdam, with DST
-  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-  tzset();
-
-  printWakeupReason();
-  Serial.println("Wakeup count: " + String(++wakeupCount));
-
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  switch (wakeup_reason) {
-    case ESP_SLEEP_WAKEUP_EXT0:
-    case ESP_SLEEP_WAKEUP_EXT1:
-    case ESP_SLEEP_WAKEUP_TIMER:
-    case ESP_SLEEP_WAKEUP_TOUCHPAD:
-    case ESP_SLEEP_WAKEUP_ULP:
-      getLocalTime(&timeinfo);  // this has multiple fields, nicely organized
-      gettimeofday(&tv, NULL);  // this has tv_sec and tv_usec, easier for time comparisons
-      if (timeinfo.tm_hour == feedingHour && timeinfo.tm_min == feedingMinute) {
-        updateClock = 0;
-        provideFood = 1;
-      } else if (timeDifference(tv, lastClockUpdate) > clockTimeout) {
-        updateClock = 1;
-        provideFood = 0;
-      } else {
-        updateClock = 0;
-        provideFood = 0;
-      }
-      break;
-    default:
-      // this is upon a hard reset
-      updateClock = 1;
-      provideFood = 0;
-      lastClockUpdate.tv_sec = 0;
-      lastClockUpdate.tv_usec = 0;
-      lastFood.tv_sec = 0;
-      lastFood.tv_usec = 0;
-      break;
-  }
-
-  printLocalTime1();
-  // printLocalTime2();
-
-  // provide feedback on the actions that will be performed
-  Serial.print("updateClock = ");
-  Serial.println(updateClock);
-  Serial.print("provideFood = ");
-  Serial.println(provideFood);
-
   Serial.println("Connecting to WiFi...");
-  WiFi.persistent(false);
   WiFi.begin(ssid, password);
-  now = millis();
+  long now = millis();
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
-    if ((millis() - now) > setupTimeout) {
+    if ((millis() - now) > wifiTimeout) {
       Serial.println("");
       Serial.println("failed!");
-      enterDeepSleep(SHORT_SLEEP);  // and try again later
+      deepsleep();  // try again later
     }
     delay(500);
   }
@@ -139,74 +121,35 @@ void setup() {
   Serial.print("RRSI: ");
   Serial.println(WiFi.RSSI());
 
-  Serial.print("Connecting to MQTT...");
-  mqtt_client.setServer(mqtt_server, mqtt_port);
-  mqtt_client.setCallback(mqttCallback);
-  now = millis();
-  while (!mqtt_client.connect(mqtt_clientid, mqtt_username, mqtt_password)) {
-    Serial.print(".");
-    if ((millis() - now) > setupTimeout) {
-      Serial.println("");
-      Serial.println("failed!");
-      enterDeepSleep(SHORT_SLEEP);  // and try again later
-    }
-    delay(500);
-  }
-  Serial.println("");
-  Serial.println("MQTT connected");
-  mqtt_client.subscribe("feeder/time");
-  mqtt_client.subscribe("feeder/amount");
+  // get the instructions from a Raspberry Pi that is running Node-Red
+  http_client.useHTTP10(true);
+  http_client.begin("http://192.168.1.16:1880/feeder");
+  if (http_client.GET()) {
+    String payload = http_client.getString();
+    Serial.println(payload);
 
-  if (updateClock) {
-    Serial.print("Connecting to NTP server...");
-    setenv("TZ", "UTC", 1);
-    tzset();
-    configTime(0, 0, "nl.pool.ntp.org");  // get the time in UTC
-    long now = millis();
-    while (!getLocalTime(&timeinfo)) {
-      Serial.print(".");
-      if ((millis() - now) > setupTimeout) {
-        Serial.println("");
-        Serial.println("failed!");
-        enterDeepSleep(SHORT_SLEEP);  // and try again later
-      }
-      delay(500);
-    }
-    gettimeofday(&tv, NULL);
-    lastClockUpdate.tv_sec = tv.tv_sec;
-    lastClockUpdate.tv_usec = tv.tv_usec;
-    Serial.println("");
-    Serial.println("NTP setup done");
-  }
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, payload);
 
-  // set the timezone to Europe/Amsterdam, with DST
-  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
-  tzset();
+    // these default to 0 when they are not present in the JSON document
+    interval = doc["interval"].as<int>();
+    amount = doc["amount"].as<int>();
 
-  printLocalTime1();
-  //printLocalTime2();
+    Serial.print("interval = ");
+    Serial.println(interval);
 
-  sendMessage("feeder/check");
+    Serial.print("amount = ");
+    Serial.println(amount);
 
-  if (provideFood) {
-    sendMessage("feeder/food");
-
-    // move the servo so that some food falls out
-    for (int i = 0; i < feedingAmount; i++)
+    // provide food by moving the servo
+    for (int i = 0; i < amount; i++)
       moveServo();
   }
+  http_client.end();
 
-  // some delay is needed to send the MQTT messages, blink rapidly
-  long now = millis();
-  while ((millis() - now) < 2000) {
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    mqtt_client.loop();
-    delay(100);
-  }
-
-  enterDeepSleep(LONG_SLEEP);
+  deepsleep();
 }
 
 void loop() {
-  // this part is never reached
+  // it never gets here
 }
