@@ -34,7 +34,7 @@ bool defaultConfig() {
   config.repeat = 0;
   config.absolute = 0;
   config.warp = 1.000;
-  config.serial = 0;
+  config.debug = 0;
   return true;
 }
 
@@ -67,7 +67,7 @@ bool loadConfig() {
   N_JSON_TO_CONFIG(repeat, "repeat");
   N_JSON_TO_CONFIG(absolute, "absolute");
   N_JSON_TO_CONFIG(warp, "warp");
-  N_JSON_TO_CONFIG(serial, "serial");
+  N_JSON_TO_CONFIG(debug, "debug");
 
   return true;
 }
@@ -79,7 +79,7 @@ bool saveConfig() {
   N_CONFIG_TO_JSON(repeat, "repeat");
   N_CONFIG_TO_JSON(absolute, "absolute");
   N_CONFIG_TO_JSON(warp, "warp");
-  N_CONFIG_TO_JSON(serial, "serial");
+  N_CONFIG_TO_JSON(debug, "debug");
 
   File configFile = SPIFFS.open("/config.json", "w");
   if (!configFile) {
@@ -100,8 +100,8 @@ void printConfig() {
   Serial.println(config.absolute);
   Serial.print("warp = ");
   Serial.println(config.warp);
-  Serial.print("serial = ");
-  Serial.println(config.serial);
+  Serial.print("debug = ");
+  Serial.println(config.debug);
 }
 
 void printRequest() {
@@ -181,7 +181,7 @@ void handleJSON() {
   Serial.println("handleJSON");
   printRequest();
 
-  if (server.hasArg("repeat") || server.hasArg("absolute") || server.hasArg("warp") || server.hasArg("serial")
+  if (server.hasArg("repeat") || server.hasArg("absolute") || server.hasArg("warp") || server.hasArg("debug")
       || server.hasArg("waypoints1")
       || server.hasArg("waypoints2")
       || server.hasArg("waypoints3")
@@ -194,7 +194,7 @@ void handleJSON() {
     N_KEYVAL_TO_CONFIG(repeat, "repeat");
     N_KEYVAL_TO_CONFIG(absolute, "absolute");
     N_KEYVAL_TO_CONFIG(warp, "warp");
-    N_KEYVAL_TO_CONFIG(serial, "serial");
+    N_KEYVAL_TO_CONFIG(debug, "debug");
 
     if (server.hasArg("waypoints1"))
       saveWaypoints(1, server.arg("waypoints1"));
@@ -227,7 +227,7 @@ void handleJSON() {
     N_JSON_TO_CONFIG(repeat, "repeat");
     N_JSON_TO_CONFIG(absolute, "absolute");
     N_JSON_TO_CONFIG(warp, "warp");
-    N_JSON_TO_CONFIG(serial, "serial");
+    N_JSON_TO_CONFIG(debug, "debug");
 
     if (root.containsKey("waypoints1"))
       saveWaypoints(1, root["waypoints1"]);

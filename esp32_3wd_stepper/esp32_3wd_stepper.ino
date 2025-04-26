@@ -3,12 +3,11 @@
 #include <WiFiManager.h>        // https://github.com/tzapu/WiFiManager
 #include <WiFiUdp.h>
 #include <ESPmDNS.h>
-#include <OSCMessage.h>         // https://github.com/CNMAT/OSC
-#include <OSCBundle.h>
 #include <math.h>
 
 #include "webinterface.h"
 #include "waypoints.h"
+#include "parseosc.h"
 #include "stepper.h"
 #include "blink_led.h"
 #include "util.h"
@@ -18,11 +17,6 @@ const char *version = __DATE__ " / " __TIME__;
 
 WebServer server(80);
 WiFiUDP Udp;
-
-enum Mode {
-  ROUTE,
-  USER
-} mode;
 
 Stepper wheel1;
 Stepper wheel2;
@@ -38,230 +32,227 @@ const float maxsteps = 512;         // maximum steps per seconds, determined exp
 
 unsigned long previous = 0;         // timer to integrate the speed over time
 unsigned long feedback = 0;         // timer for feedback on the serial console
-unsigned long offset = 4294967295;  // time at which the route along the waypoints started
 
 float x = 0, y = 0, a = 0;          // absolute position (in meter) and angle (in radians)
 float vx = 0, vy = 0, va = 0;       // speed in meter per second, and angular speed in radians per second
 float r1 = 0, r2 = 0, r3 = 0;       // speed of the stepper motors, in steps per second
 
+float target_x = 0, target_y = 0, target_a = 0;
+unsigned long route_starttime = 4294967295;
+unsigned long target_eta = 4294967295;
+
+// when there is an active route, the speed is determined by the distance to the target waypoint
+// when there is no route, the speed is determined manually by the user
+int current_route = -1;
+int current_segment = -1;
+bool route_pause = false;
+
 /********************************************************************************/
 
-void printCallback(OSCMessage &msg) {
-  Serial.print(msg.getAddress());
-  Serial.print(" : ");
-
-  for (int i = 0; i < msg.size(); i++) {
-    if (msg.isInt(i)) {
-      Serial.print(msg.getInt(i));
-    } else if (msg.isFloat(i)) {
-      Serial.print(msg.getFloat(i));
-    } else if (msg.isDouble(i)) {
-      Serial.print(msg.getDouble(i));
-    } else if (msg.isBoolean(i)) {
-      Serial.print(msg.getBoolean(i));
-    } else if (msg.isString(i)) {
-      char buffer[256];
-      msg.getString(i, buffer);
-      Serial.print(buffer);
-    } else {
-      Serial.print("?");
-    }
-
-    if (i < (msg.size() - 1)) {
-      Serial.print(", ");  // there are more to come
-    }
-  }
-  Serial.println();
-}
-
 void startRoute(int route) {
+  unsigned long now = millis();
+
   // stop the current movement
   vx = 0;
   vy = 0;
   va = 0;
+
   if (!config.absolute) {
     // set the current position and orientation as zero
     x = 0;
     y = 0;
     a = 0;
   }
+
   // read the waypoints from the SPIFFS filesystem
   parseWaypoints(route);
-  // insert the current position and orientation as the starting position
+
+  // insert the current position and orientation as the starting point
   waypoints_t.insert(waypoints_t.begin(), 0);
   waypoints_x.insert(waypoints_x.begin(), x);
   waypoints_y.insert(waypoints_y.begin(), y);
   waypoints_a.insert(waypoints_a.begin(), a);
+
   // start the new route
-  printWaypoints(route);
-  offset = millis();
-  mode = ROUTE;
-}
+  route_starttime = now;
+  current_route = route;
+  route_pause = false;
 
-void route1Callback(OSCMessage &msg) {
-  startRoute(1);
-}
+  if (config.debug)
+    printWaypoints(route);
+} // startRoute
 
-void route2Callback(OSCMessage &msg) {
-  startRoute(2);
-}
+/********************************************************************************/
 
-void route3Callback(OSCMessage &msg) {
-  startRoute(3);
-}
-
-void route4Callback(OSCMessage &msg) {
-  startRoute(4);
-}
-
-void route5Callback(OSCMessage &msg) {
-  startRoute(5);
-}
-
-void route6Callback(OSCMessage &msg) {
-  startRoute(6);
-}
-
-void route7Callback(OSCMessage &msg) {
-  startRoute(7);
-}
-
-void route8Callback(OSCMessage &msg) {
-  startRoute(8);
-}
-
-void stopCallback(OSCMessage &msg) {
-  // stop the current movement
+void pauseRoute() {
+  // pause the current route
   vx = 0;
   vy = 0;
   va = 0;
-  // switch to user-mode
-  offset = 4294967295;
-  mode = USER;
-}
+  route_pause = true;
+} // pauseRoute
 
-void resetCallback(OSCMessage &msg) {
-  // stop the current movement
+/********************************************************************************/
+
+void resumeRoute() {
+  // resume the current route
+  route_pause = false;
+} // resumeRoute
+
+/********************************************************************************/
+
+void stopRoute() {
+  // stop the current route
   vx = 0;
   vy = 0;
   va = 0;
-  // reset the position
+  current_route = -1;
+  route_starttime = 4294967295;
+  target_eta = 4294967295;
+  route_pause = false;
+} // stopRoute
+
+/********************************************************************************/
+
+void resetRoute() {
+  // stop the current route and reset the current position to zero
+  stopRoute();
   x = 0;
   y = 0;
   a = 0;
-  // switch to user-mode
-  offset = 4294967295;
-  mode = USER;
-}
-
-void xCallback(OSCMessage &msg) {
-  vx = msg.getFloat(0);
-}
-
-void yCallback(OSCMessage &msg) {
-  vy = msg.getFloat(0);
-}
-
-void thetaCallback(OSCMessage &msg) {
-  va = msg.getFloat(0);
-}
-
-void xyCallback(OSCMessage &msg) {
-  vx = msg.getFloat(0);
-  vy = msg.getFloat(1);
-}
-
-void accxyzCallback(OSCMessage &msg) {
-  // values are between -1 and 1, scale them to a more appropriate speed of 3 cm/s
-  vx = msg.getFloat(0) * 0.03;
-  vy = msg.getFloat(1) * 0.03;
-}
+} // resetRoute
 
 /********************************************************************************/
 
-void parseOSC() {
-  int size = Udp.parsePacket();
-
-  if (size > 0) {
-    OSCMessage msg;
-    OSCBundle bundle;
-    OSCErrorCode error;
-
-    char c = Udp.peek();
-    if (c == '#') {
-      // it is a bundle, these are sent by TouchDesigner
-      while (size--) {
-        bundle.fill(Udp.read());
-      }
-      if (!bundle.hasError()) {
-        bundle.dispatch("/accxyz",     accxyzCallback);  // this is for the accelerometer in touchOSC
-        bundle.dispatch("/3wd/xy/1",   xyCallback);      // this is for the 2D panel in touchOSC
-        bundle.dispatch("/3wd/x",      xCallback);
-        bundle.dispatch("/3wd/y",      yCallback);
-        bundle.dispatch("/3wd/theta",  thetaCallback);
-        bundle.dispatch("/3wd/route1", route1Callback);
-        bundle.dispatch("/3wd/route2", route2Callback);
-        bundle.dispatch("/3wd/route3", route3Callback);
-        bundle.dispatch("/3wd/route4", route4Callback);
-        bundle.dispatch("/3wd/route5", route5Callback);
-        bundle.dispatch("/3wd/route6", route6Callback);
-        bundle.dispatch("/3wd/route7", route7Callback);
-        bundle.dispatch("/3wd/route8", route8Callback);
-        bundle.dispatch("/3wd/stop",   stopCallback);
-        bundle.dispatch("/3wd/reset",  resetCallback);
-      } else {
-        error = bundle.getError();
-        Serial.print("error: ");
-        Serial.println(error);
-      }
-    } else if (c == '/') {
-      // it is a message, these are sent by touchOSC
-      while (size--) {
-        msg.fill(Udp.read());
-      }
-      if (!msg.hasError()) {
-        msg.dispatch("/*", printCallback) || msg.dispatch("/*/*", printCallback) || msg.dispatch("/*/*/*", printCallback);
-        msg.dispatch("/accxyz",     accxyzCallback);  // this is for the accelerometer in touchOSC
-        msg.dispatch("/3wd/xy/1",   xyCallback);      // this is for the 2D panel in touchOSC
-        msg.dispatch("/3wd/x",      xCallback);
-        msg.dispatch("/3wd/y",      yCallback);
-        msg.dispatch("/3wd/theta",  thetaCallback);
-        msg.dispatch("/3wd/route1", route1Callback);
-        msg.dispatch("/3wd/route2", route2Callback);
-        msg.dispatch("/3wd/route3", route3Callback);
-        msg.dispatch("/3wd/route4", route4Callback);
-        msg.dispatch("/3wd/route5", route5Callback);
-        msg.dispatch("/3wd/route6", route6Callback);
-        msg.dispatch("/3wd/route7", route7Callback);
-        msg.dispatch("/3wd/route8", route8Callback);
-        msg.dispatch("/3wd/stop",   stopCallback);
-        msg.dispatch("/3wd/reset",  resetCallback);
-      } else {
-        error = msg.getError();
-        Serial.print("error: ");
-        Serial.println(error);
-      }
-    }
-  }  // if size
-}  // parseOSC
-
-/********************************************************************************/
-
-float maxOfThree(float a, float b, float c) {
-  if (a >= b && a >= c) {
-    return a;
-  }
-  else if (b >= a && b >= c) {
-    return b;
+void updatePosition() {
+  unsigned long now = millis();
+  if (route_pause) {
+    // shift the time so that we remain in the same state
+    // this is as if the time has stopped
+    route_starttime += (now - previous);
+    target_eta += (now - previous);
   }
   else {
-    return c;
+    // integrate the speed over time to keep track of the current position and angle
+    x += vx * (now - previous) / 1000;
+    y += vy * (now - previous) / 1000;
+    a += va * (now - previous) / 1000;
   }
-}
+  previous = now;
+}  // updatePosition
+
+/********************************************************************************/
+
+void updateTarget() {
+  unsigned long now = millis();
+
+  if (current_route < 0) {
+    // when there is no route, the speed is determined manually by the user
+    // hence the current position is as good a target as anywhere else
+    target_x = x;
+    target_y = y;
+    target_a = a;
+    target_eta = 4294967295;
+  }
+  else {
+    // when there is an active route, the speed is determined by the distance to the target waypoint
+    // determine the segment or leg that we are currently on
+    current_segment = -1;
+
+    int n = waypoints_t.size();
+    unsigned long route_endtime = route_starttime + 1000 * waypoints_t.at(n - 1);
+
+    if (now < route_starttime) {
+      // the route has not yet started
+      // stay where we are
+      target_x = x;
+      target_y = y;
+      target_a = a;
+      target_eta = 4294967295;
+    }
+    else if (now >= route_endtime) {
+      // the route has finished
+      if (config.repeat) {
+        // start the same route again
+        startRoute(current_route);
+      }
+      else {
+        // stop the route
+        current_route = -1;
+        vx = 0;
+        vy = 0;
+        va = 0;
+        // stay where we are
+        target_x = x;
+        target_y = y;
+        target_a = a;
+        target_eta = 4294967295;
+      }
+    }
+    else {
+      // determine the segment or leg that we are currently on
+      // the N waypoints are connected by N-1 segments
+      for (int i = 0; i < (n - 1); i++) {
+        unsigned long segment_starttime = route_starttime + 1000 * waypoints_t.at(i);
+        unsigned long segment_endtime   = route_starttime + 1000 * waypoints_t.at(i + 1);
+        if (now >= segment_starttime && now < segment_endtime) {
+          current_segment = i + 1;
+          target_x = waypoints_x.at(i + 1);
+          target_y = waypoints_y.at(i + 1);
+          target_a = waypoints_a.at(i + 1);
+          target_eta = segment_endtime;
+          break;
+        }
+      } // for all segments
+    } // if route_starttime
+  } // if current_route
+
+} // updateTarget
 
 /********************************************************************************/
 
 void updateSpeed() {
+  unsigned long now = millis();
+
+  if (current_route < 0) {
+    // when there is no route, the speed is determined manually by the user
+  }
+  else if (route_pause) {
+    // don't move if the route is paused
+    vx = 0;
+    vy = 0;
+    va = 0;
+  }
+  else {
+    // when there is an active route, the speed is determined by the distance to the target waypoint
+    if (current_segment > 0) {
+      // determine the speed needed to reach the target at the desired time
+      float dt = 0.001 * (target_eta - now); // in seconds
+      if (dt > 0) {
+        vx = (target_x - x) / dt;
+        vy = (target_y - y) / dt;
+        va = (target_a - a) / dt;
+      }
+      else {
+        // infinite or negative speed is not allowed
+        vx = 0;
+        vy = 0;
+        va = 0;
+      }
+    }
+    else {
+      // the current segment could not be determined
+      vx = 0;
+      vy = 0;
+      va = 0;
+    } // if current_segment
+  } // if current_route
+
+} // updateSpeed
+
+/********************************************************************************/
+
+void updateWheels() {
   // convert the speed from world-coordinates into the rotation speed of the motors
   r1 = sin(a               ) * vx / wc - cos(a               ) * vy / wc - va * (pc / wc) / (M_PI * 2);
   r2 = sin(a + M_PI * 2 / 3) * vx / wc - cos(a + M_PI * 2 / 3) * vy / wc - va * (pc / wc) / (M_PI * 2);
@@ -278,12 +269,12 @@ void updateSpeed() {
     float reduction = r / maxsteps;
     Serial.print("reducing speed by factor ");
     Serial.println(reduction);
-    r1 /= reduction;
-    r2 /= reduction;
-    r3 /= reduction;
     vx /= reduction;
     vy /= reduction;
     va /= reduction;
+    r1 /= reduction;
+    r2 /= reduction;
+    r3 /= reduction;
   }
 
   if (r1 == 0 && r2 == 0 && r3 == 0) {
@@ -304,99 +295,58 @@ void updateSpeed() {
   wheel1.spin(r1);
   wheel2.spin(r2);
   wheel3.spin(r3);
-}  // updateSpeed
+}  // updateWheels
 
 /********************************************************************************/
 
-void updatePosition() {
+void printDebug() {
   unsigned long now = millis();
 
-  // integrate the speed over time to keep track of the position and angle
-  x += vx * (now - previous) / 1000;
-  y += vy * (now - previous) / 1000;
-  a += va * (now - previous) / 1000;
-  previous = now;
-
-}  // updatePosition
-
-/********************************************************************************/
-
-void printPosition() {
-  if (!config.serial)
-    return;
-
-  // do not print more than once every 500ms
-  unsigned long now = millis();
+  // do not print more often than once every 500ms
   if ((now - feedback) > 500) {
+
+    Serial.print("current = ");
+    Serial.print(current_route);
+    Serial.print(", ");
+    Serial.print(current_segment);
+
+    Serial.print(", time = ");
+    Serial.print(now);
+    Serial.print(", ");
+    Serial.print(target_eta);
+
+    Serial.print(", position = ");
     Serial.print(x);
     Serial.print(", ");
     Serial.print(y);
     Serial.print(", ");
     Serial.print(a * 180 / M_PI); // in degrees
+
+    Serial.print(", target = ");
+    Serial.print(target_x);
     Serial.print(", ");
+    Serial.print(target_y);
+    Serial.print(", ");
+    Serial.print(target_a * 180 / M_PI); // in degrees
+
+    Serial.print(", speed = ");
     Serial.print(vx);
     Serial.print(", ");
     Serial.print(vy);
     Serial.print(", ");
     Serial.print(va * 180 / M_PI); // in degrees per second
-    Serial.print(", ");
+
+    Serial.print(", wheel speed = ");
     Serial.print(r1);
     Serial.print(", ");
     Serial.print(r2);
     Serial.print(", ");
     Serial.print(r3);
-    Serial.print("\n");
+
+    Serial.println();
     feedback = now;
   }
-}  // printPosition
-
-/********************************************************************************/
-
-void updateRoute() {
-  // this only applies when the route along the waypoints is being executed
-  if (mode != ROUTE)
-    return;
-
-  // the N waypoints are connected by N-1 segments
-  // determine on which segment we currently are
-  unsigned long now = millis();
-  int segment = -1;
-  int n = waypoints_t.size();
-  for (int i = 0; i < (n - 1); i++) {
-    unsigned long segment_starttime = offset + 1000 * waypoints_t.at(i);
-    unsigned long segment_endtime   = offset + 1000 * waypoints_t.at(i + 1);
-    unsigned long route_endtime     = offset + 1000 * waypoints_t.at(n - 1);
-    if (now >= segment_starttime && now < segment_endtime) {
-      segment = i;
-      break;
-    }
-    else if (now >= route_endtime && config.repeat) {
-      // repeat the route along the waypoints
-      Serial.println("repeat route");
-      segment = 0;
-      offset = now;
-      break;
-    } // if
-  } // for
-
-  if (segment >= 0) {
-    // determine the distance along this segment, and the amount of time it should take
-    float dx = waypoints_x.at(segment + 1) - waypoints_x.at(segment);
-    float dy = waypoints_y.at(segment + 1) - waypoints_y.at(segment);
-    float da = waypoints_a.at(segment + 1) - waypoints_a.at(segment);
-    float dt = waypoints_t.at(segment + 1) - waypoints_t.at(segment);
-    // compute the speed
-    vx = dx / dt;
-    vy = dy / dt;
-    va = da / dt;
-  }
-  else {
-    vx = 0;
-    vy = 0;
-    va = 0;
-  }
-} // updateRoute
-
+}
 /********************************************************************************/
 
 void setup() {
@@ -432,7 +382,7 @@ void setup() {
   wifiManager.autoConnect(host);
   Serial.println("Connected to WiFi");
 
-  // Used for OSC
+  // incoming port for OSC messages
   Udp.begin(inPort);
 
   // this serves all URIs that can be resolved to a file on the SPIFFS filesystem
@@ -487,7 +437,7 @@ void setup() {
     N_CONFIG_TO_JSON(repeat, "repeat");
     N_CONFIG_TO_JSON(absolute, "absolute");
     N_CONFIG_TO_JSON(warp, "warp");
-    N_CONFIG_TO_JSON(serial, "serial");
+    N_CONFIG_TO_JSON(debug, "debug");
     root["version"] = version;
     root["uptime"] = long(millis() / 1000);
     root["macaddress"] = getMacAddress();
@@ -517,17 +467,19 @@ void setup() {
   wheel2.begin(13, 15, 2, 4);
   wheel3.begin(16, 17, 5, 18);
 
-  // start in user mode
-  mode = USER;
+  Serial.println("Setup done");
 } // setup
 
 /********************************************************************************/
 
 void loop() {
-  updatePosition();       // integrate the velocity to get an estimate of the position and heading
-  printPosition();        // print the current position and speed
-  updateRoute();          // update the speed of the wheels according to route along the waypoints
-  updateSpeed();          // translate the world speed into motor speeds
+  updatePosition();       // update the current location
+  updateTarget();         // update the target location
+  updateSpeed();          // update the world speed
+  updateWheels();         // update the speed of the wheels
+
+  if (config.debug)
+    printDebug();
 
   parseOSC();             // parse the incoming OSC messages
   server.handleClient();  // handle webserver requests, note that this may disrupt other processes

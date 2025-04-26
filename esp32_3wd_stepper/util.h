@@ -7,5 +7,6 @@
 
 void printMacAddress(void);
 String getMacAddress(void);
+float maxOfThree(float, float, float);
 
 #endif // _UTIL_H_

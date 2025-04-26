@@ -21,13 +21,13 @@
     </div>
 
     <div class="field">
-        <label for="serial">serial:</label><br>
-        <input type="text" id="serial" name="serial" value="?" required>
+      <label for="warp">warp:</label><br>
+      <input type="text" id="warp" name="warp" value="?" required>
     </div>
 
     <div class="field">
-      <label for="warp">warp:</label><br>
-      <input type="text" id="warp" name="warp" value="?" required>
+      <label for="debug">debug:</label><br>
+      <input type="text" id="debug" name="debug" value="?" required>
     </div>
 
     <div class="field">
@@ -42,8 +42,8 @@
     console.log(data);
     document.getElementById("repeat").value = data["repeat"];
     document.getElementById("absolute").value = data["absolute"];
-    document.getElementById("serial").value = data["serial"];
     document.getElementById("warp").value = data["warp"];
+    document.getElementById("debug").value = data["debug"];
   }
   updateContent();
 </script>

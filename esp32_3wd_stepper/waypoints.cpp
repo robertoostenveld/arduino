@@ -36,7 +36,7 @@ void printWaypoints(int route) {
 
 size_t saveWaypoints(int route, String s) {
   Serial.print("saveWaypoints ");
-  Serial.print(route);
+  Serial.println(route);
 
   if (!SPIFFS.begin(true)) {
     Serial.println("An error has occurred while mounting SPIFFS");

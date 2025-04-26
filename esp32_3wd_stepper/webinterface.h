@@ -29,7 +29,7 @@ struct Config {
   int repeat;
   int absolute;
   float warp;
-  int serial;
+  int debug;
 };
 
 extern Config config;

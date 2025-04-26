@@ -1,5 +1,7 @@
 #include "util.h"
 
+/********************************************************************************/
+
 void printMacAddress() {
   uint8_t baseMac[6];
   esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
@@ -11,6 +13,9 @@ void printMacAddress() {
     Serial.println("Failed to read MAC address");
   }
 }
+
+
+/********************************************************************************/
 
 String getMacAddress() {
   uint8_t baseMac[6];
@@ -28,4 +33,19 @@ String getMacAddress() {
     }
   }
   return s;
+}
+
+
+/********************************************************************************/
+
+float maxOfThree(float a, float b, float c) {
+  if (a >= b && a >= c) {
+    return a;
+  }
+  else if (b >= a && b >= c) {
+    return b;
+  }
+  else {
+    return c;
+  }
 }
