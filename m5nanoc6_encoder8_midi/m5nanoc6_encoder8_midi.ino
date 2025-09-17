@@ -1,17 +1,20 @@
 /*
-   This is a sketch for an M5NanoC6 controller connected to an 8Encoder input module.
+   This is a sketch for an M5NanoC6 or M5Dial controller connected to an 8Encoder input module.
    It provides MIDI control change (CC) messages over Bluetooth.
 */
 
-#include <M5NanoC6.h>         // https://github.com/m5stack/M5NanoC6
+#include <M5Unified.h>        // https://github.com/m5stack/M5Unified
 #include <UNIT_8ENCODER.h>    // https://github.com/m5stack/M5Unit-8Encoder
 #include <Control_Surface.h>  // https://github.com/tttapa/Control-Surface
 #include "colormap.h"
 
-#define I2C_PORT 0x41
-#define I2C_SDA 2
+#define I2C_ADDR 0x41
+// #define I2C_SDA G13 // for the M5Dial
+// #define I2C_SCL G15
+#define I2C_SDA 2 // for the M5NanoC6 they are listed in the documentation as G1 and G2, but not defined as such
 #define I2C_SCL 1
-#define I2C_SPEED 40000000
+#define I2C_SPEED 4000000L
+#define MIDI_DELAY 5  // do not send the MIDI messages too fast/frequent
 
 BluetoothMIDI_Interface midi;
 UNIT_8ENCODER encoder8;
@@ -49,10 +52,12 @@ void updateValue(bool sw, uint8_t knob, uint32_t value, bool button) {
 }
 
 void setup() {
-  NanoC6.begin();
+  Serial.begin(115200); // serial feedback requires "CDC On Boot" to be enabled 
+  M5.begin();
   Control_Surface.begin();
 
-  while (!encoder8.begin(&Wire, I2C_PORT, I2C_SDA, I2C_SCL, I2C_SPEED)) {
+  Serial.println("setup start");
+  while (!encoder8.begin(I2C_ADDR, I2C_SDA, I2C_SCL, I2C_SPEED)) {
     Serial.println("encoder8 connect error");
     delay(100);
   }
@@ -64,15 +69,16 @@ void setup() {
   for (uint8_t knob = 0; knob < 8; knob++) {
     value[knob] = 0;
     button[knob] = false;
-    encoder8.setEncoderValue(knob, value[knob]);
+    encoder8.setEncoderValue(!knob, value[knob]);  // the pushbutton seems to be inverted
     updateValue(sw, knob, value[knob], button[knob]);
   }
 
   Serial.println("setup done");
 }
 
+
 void loop() {
-  NanoC6.update();
+  M5.update();
   Control_Surface.loop();
 
   bool newsw = encoder8.getSwitchStatus();
@@ -80,15 +86,15 @@ void loop() {
     updateSwitch(newsw);
     sw = newsw;
   }
-  delay(10);
+  delay(MIDI_DELAY);
 
   for (uint8_t knob = 0; knob < 8; knob++) {
-    bool newbutton = encoder8.getButtonStatus(knob);
+    bool newbutton = !encoder8.getButtonStatus(knob); // the pushbutton seems to be inverted
     if (button[knob] != newbutton) {
       button[knob] = newbutton;
       updateValue(sw, knob, value[knob], button[knob]);
     }
-    delay(10);
+    delay(MIDI_DELAY);
   }
 
   for (uint8_t knob = 0; knob < 8; knob++) {
@@ -104,6 +110,6 @@ void loop() {
       value[knob] = newvalue;
       updateValue(sw, knob, value[knob], button[knob]);
     }
-    delay(10);
+    delay(MIDI_DELAY);
   }
 }

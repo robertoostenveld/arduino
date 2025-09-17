@@ -1,7 +1,7 @@
 #ifndef _COLORMAP_H_
 #define _COLORMAP_H_
 
-// This is the colorcet "r2" or "rainbow2" colormap, which goes from blue via green and orange to to red.
+// This is the colorcet "r2" or "rainbow2" colormap, which goes from blue via green and orange to red.
 // https://cmap-docs.readthedocs.io/en/latest/catalog/miscellaneous/colorcet:cet_r2/
 
 uint8_t r[128] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 20, 29, 36, 41, 46, 49, 52, 55, 57, 59, 60, 61, 62, 63, 63, 63, 63, 63, 63, 63, 65, 67, 70, 75, 80, 86, 91, 97, 102, 107, 112, 117, 122, 127, 132, 137, 141, 146, 151, 155, 160, 164, 169, 173, 178, 182, 186, 191, 195, 199, 204, 208, 212, 217, 221, 225, 229, 234, 238, 241, 244, 247, 249, 250, 251, 252, 253, 253, 253, 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 254, 254, 254, 253, 253, 253, 253};

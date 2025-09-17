@@ -1,5 +1,5 @@
 /*
-   This is a sketch for an M5stack NanoC6 controller connected to an 8Angle input module.
+   This is a sketch for an M5NanoC6 or M5Dial controller connected to an 8Angle input module.
    It provides MIDI control change (CC) messages over Bluetooth.
 
    See https://robertoostenveld.nl/low-cost-8-channel-midi-controller/
@@ -9,6 +9,14 @@
 #include <M5_ANGLE8.h>       // https://github.com/m5stack/M5Unit-8Angle
 #include <Control_Surface.h> // https://github.com/tttapa/Control-Surface
 #include "colormap.h"
+
+#define I2C_ADDR 0x43
+// #define I2C_SDA G13 // for the M5Dial
+// #define I2C_SCL G15
+#define I2C_SDA 2 // for the M5NanoC6 they are listed in the documentation as G1 and G2, but not defined as such
+#define I2C_SCL 1
+#define I2C_SPEED 4000000L
+#define MIDI_DELAY 5  // do not send the MIDI messages too fast/frequent
 
 BluetoothMIDI_Interface midi;
 M5_ANGLE8 angle8;
@@ -45,10 +53,12 @@ void updateValue(bool sw, uint8_t knob, uint8_t value) {
 }
 
 void setup() {
+  Serial.begin(115200); // Serial feedback requires "CDC On Boot" to be enabled 
   M5.begin();
   Control_Surface.begin();
 
-  while (!angle8.begin(ANGLE8_I2C_ADDR)) {
+  Serial.println("setup start");
+  while (!angle8.begin(I2C_ADDR, I2C_SDA, I2C_SCL, I2C_SPEED)) {
     Serial.println("angle8 connect error");
     delay(100);
   }
@@ -75,6 +85,7 @@ void loop() {
     updateSwitch(newsw);
     sw = newsw;
   }
+  delay(MIDI_DELAY);
 
   for (uint8_t knob = 0; knob < ANGLE8_TOTAL_ADC; knob++) {
     uint16_t newvalue = (255 - angle8.getAnalogInput(knob, _8bit)) / 2;
@@ -82,7 +93,7 @@ void loop() {
       updateValue(sw, knob, newvalue);
       value[knob] = newvalue;
     }
+    delay(MIDI_DELAY);
   }
   
-  delay(10);
 }
