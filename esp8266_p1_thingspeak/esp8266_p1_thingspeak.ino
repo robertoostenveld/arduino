@@ -38,13 +38,13 @@
   for the wifi
     #define SSID    "XXXXXXXXXXXXXXXX"
     #define PASS    "XXXXXXXXXXXXXXXX"
-  for thingspeak
-    #define CHANNEL "XXXXXXXXXXXXXXXX"
-    #define APIKEY  "XXXXXXXXXXXXXXXX"
-  and for MQTT
+  for thingspeak mqtt
     #define CLIENTID "XXXXXXXXXXXXXXXX"
     #define USERNAME "XXXXXXXXXXXXXXXX"
     #define PASSWORD "XXXXXXXXXXXXXXXX"
+  for thingspeak http
+    #define CHANNEL "XXXXXXXXXXXXXXXX"
+    #define APIKEY  "XXXXXXXXXXXXXXXX"
 */
 
 const char* version    = __DATE__ " / " __TIME__;
@@ -54,8 +54,8 @@ const int8_t requestPin = D1;
 
 #define BUFSIZE 1024
 
-// one of these options is to be selected
-// #define USE_PLAIN
+// one of these options is to be selected: LOCAL is a local mqtt broker, MQTT is thingspeak mqtt, REST is thingspeak http
+// #define USE_LOCAL
 #define USE_MQTT
 // #define USE_REST
 
@@ -64,16 +64,18 @@ P1Reader reader(&MySerial, requestPin);
 WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 
-const char* server = "api.thingspeak.com";
-const int port = 80;
-
-#if defined USE_MQTT
-const char* mqtt_server = "mqtt3.thingspeak.com";
-const int mqtt_port = 1883;
-#elif defined USE_PLAIN
+#if defined USE_LOCAL
 const char* mqtt_server = "192.168.1.16";
 const int mqtt_port = 1883;
+#elif defined USE_MQTT
+const char* mqtt_server = "mqtt3.thingspeak.com";
+const int mqtt_port = 1883;
+#elif defined USE_REST
+// this uses the server and port defined below
 #endif
+
+const char* server = "api.thingspeak.com";
+const int port = 80;
 
 const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
 const unsigned long durationLed = 1000;       // the status LED remains on for 1 second
@@ -182,7 +184,7 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-#if defined USE_PLAIN
+#if defined USE_LOCAL
   mqtt_client.setServer(mqtt_server, mqtt_port);
 #elif defined USE_MQTT
   mqtt_client.setServer(mqtt_server, mqtt_port);
@@ -231,8 +233,8 @@ void loop () {
       // Parse succesful, print result
       Serial.println("---parse succesful---------------------------------------------");
       localdata.applyEach(Printer());
-#if defined USE_PLAIN
-      sendPlainMQTT();
+#if defined USE_LOCAL
+      sendLOCALMQTT();
 #elif defined USE_MQTT
       sendThingspeakMQTT();
 #elif defined USE_REST
@@ -249,7 +251,7 @@ void loop () {
 
 /*****************************************************************************/
 
-void sendPlainMQTT() {
+void sendLOCALMQTT() {
   while (!mqtt_client.connected()) {
     Serial.print("Reconnecting to MQTT...");
     if (mqtt_client.connect(CLIENTID)) {
@@ -276,7 +278,7 @@ void sendPlainMQTT() {
     mqtt_client.publish ("p1/energy_returned_tariff1",  String(globaldata->energy_returned_tariff1).c_str());
     mqtt_client.publish ("p1/energy_returned_tariff2",  String(globaldata->energy_returned_tariff2).c_str());
   }
-} // sendPlainMQTT
+} // sendLOCALMQTT
 
 /*****************************************************************************/
 
