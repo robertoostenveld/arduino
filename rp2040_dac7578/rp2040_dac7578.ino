@@ -13,6 +13,8 @@
 #include <Adafruit_I2CDevice.h>
 #include <math.h>
 
+#include "blink_led.h"
+
 Adafruit_DACX578 dac0(12);
 Adafruit_DACX578 dac1(12);
 
@@ -29,6 +31,12 @@ void setup() {
 
   Serial.println("------------------------------");
   Serial.println("16 channel sine wave generator");
+
+  ledInit();
+
+  // blink quickly for the first second, this will continue indefinitely when the setup fails
+  ledFast();
+  delay(1000);
 
   // initialize the first DACX578
   while (!dac0.begin((uint8_t)0x47, &Wire)) {
@@ -54,6 +62,9 @@ void setup() {
 
   // set I2C frequency to 3.4 MHz for faster communication
   Wire.setClock(3400000);
+
+  // blink slowly, this will continue for the rest of the time
+  ledSlow();
 }
 
 void loop() {
