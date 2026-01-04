@@ -1,6 +1,8 @@
 /*
    This is a sketch for an M5NanoC6 or M5Dial controller connected to an 8Encoder input module.
    It provides MIDI control change (CC) messages over Bluetooth.
+
+  See https://robertoostenveld.nl/low-cost-8-channel-midi-controller/
 */
 
 #include <M5Unified.h>        // https://github.com/m5stack/M5Unified
@@ -8,28 +10,29 @@
 #include <Control_Surface.h>  // https://github.com/tttapa/Control-Surface
 #include "colormap.h"
 
-#define I2C_ADDR 0x41
 // #define I2C_SDA G13 // for the M5Dial
 // #define I2C_SCL G15
-#define I2C_SDA 2 // for the M5NanoC6 they are listed in the documentation as G1 and G2, but not defined as such
+#define I2C_SDA 2  // for the M5NanoC6, they are listed as G1 and G2
 #define I2C_SCL 1
+#define I2C_ADDR 0x41
 #define I2C_SPEED 4000000L
-#define MIDI_DELAY 5  // do not send the MIDI messages too fast/frequent
+#define MIDI_DELAY 10  // do not send the MIDI messages too fast/frequent
 
 BluetoothMIDI_Interface midi;
 UNIT_8ENCODER encoder8;
 
 bool sw;
-bool button[8];
 int32_t value[8];
+bool button[8];
 
 void updateSwitch(bool sw) {
   uint32_t rgb = 0x0000FF00 * sw;  // green or black
   encoder8.setLEDColor(8, rgb);
 }
 
-void updateValue(bool sw, uint8_t knob, uint32_t value, bool button) {
-  uint32_t rgb = (r[value] << 16) | (g[value] << 8) | (b[value] << 0);
+void updateValue(bool sw, uint8_t knob, int32_t value, bool button) {
+  uint8_t rb = (r[value] / 4), gb = g[value] / 4, bb = b[value] / 4;  // reduce the brightness
+  uint32_t rgb = (rb << 16) | (gb << 8) | (bb << 0);
   encoder8.setLEDColor(knob, rgb);
 
   // the switch allows selecting MIDI channel 1 or 2
@@ -47,21 +50,24 @@ void updateValue(bool sw, uint8_t knob, uint32_t value, bool button) {
   Serial.print(" ");
   Serial.print(value);
   Serial.print(" ");
-  Serial.print(button);
-  Serial.println();
+  Serial.println(button);
+  delay(MIDI_DELAY);
 }
 
 void setup() {
-  Serial.begin(115200); // serial feedback requires "CDC On Boot" to be enabled 
+  auto cfg = M5.config();
+  cfg.serial_baudrate = 115200;
   M5.begin();
-  Control_Surface.begin();
 
   Serial.println("setup start");
-  while (!encoder8.begin(I2C_ADDR, I2C_SDA, I2C_SCL, I2C_SPEED)) {
+  while (!encoder8.begin(&Wire, I2C_ADDR, I2C_SDA, I2C_SCL, I2C_SPEED)) {
     Serial.println("encoder8 connect error");
     delay(100);
   }
   Serial.println("encoder8 connect OK");
+
+  Control_Surface.begin();
+  esp_log_level_set("i2c.master", ESP_LOG_NONE);  // see https://github.com/espressif/arduino-esp32/issues/11787
 
   sw = encoder8.getSwitchStatus();
   updateSwitch(sw);
@@ -69,13 +75,12 @@ void setup() {
   for (uint8_t knob = 0; knob < 8; knob++) {
     value[knob] = 0;
     button[knob] = false;
-    encoder8.setEncoderValue(!knob, value[knob]);  // the pushbutton seems to be inverted
+    encoder8.setEncoderValue(knob, value[knob]);
     updateValue(sw, knob, value[knob], button[knob]);
   }
 
   Serial.println("setup done");
 }
-
 
 void loop() {
   M5.update();
@@ -86,15 +91,13 @@ void loop() {
     updateSwitch(newsw);
     sw = newsw;
   }
-  delay(MIDI_DELAY);
 
   for (uint8_t knob = 0; knob < 8; knob++) {
-    bool newbutton = !encoder8.getButtonStatus(knob); // the pushbutton seems to be inverted
+    bool newbutton = !encoder8.getButtonStatus(knob);  // the pushbutton seems to be inverted
     if (button[knob] != newbutton) {
       button[knob] = newbutton;
       updateValue(sw, knob, value[knob], button[knob]);
     }
-    delay(MIDI_DELAY);
   }
 
   for (uint8_t knob = 0; knob < 8; knob++) {
@@ -110,6 +113,5 @@ void loop() {
       value[knob] = newvalue;
       updateValue(sw, knob, value[knob], button[knob]);
     }
-    delay(MIDI_DELAY);
   }
 }
