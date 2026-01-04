@@ -83,9 +83,9 @@ void loop() {
 
     // update the phase for each of the channels
     for (uint8_t channel = 0; channel < 16; channel++) {
-      phase[channel] += 2 * M_PI * frequency[channel] * ((float)deltaTime / 1000000);
-      if (phase[channel] >= 2 * M_PI) {
-        phase[channel] -= 2 * M_PI;
+      phase[channel] += 2.0 * M_PI * frequency[channel] * ((float)deltaTime / 1000000);
+      if (phase[channel] >= 2.0 * M_PI) {
+        phase[channel] -= 2.0 * M_PI;
       }
 
       // compute and set the new value for each of the channels
