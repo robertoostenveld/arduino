@@ -17,8 +17,18 @@
 
 Adafruit_DACX578 dac0(12);
 Adafruit_DACX578 dac1(12);
+Adafruit_DACX578 dac2(12);
 
-const float frequency[16] = { 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36 };  // Hz
+const uint8_t nchannel = 24;
+
+const uint8_t addr0 = 0x4C;  // open pads
+const uint8_t addr1 = 0x48;  // left pads
+const uint8_t addr2 = 0x4A;  // right pads
+
+float frequency[24] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 };
+float phase[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+const float freqshift = 0;
+
 const uint16_t amplitude = 2048;                                                                 // Half of full scale for 12-bit dac0 (0 to 4095)
 const uint16_t offset = 2048;                                                                    // DC offset to keep sine wave positive
 const uint32_t sampleTime = 1000;                                                                // Approximate time between samples, in microseconds
@@ -36,27 +46,42 @@ void setup() {
   }
 
   Serial.println("-------------------------------");
-  Serial.println("16 channel sine wave generator");
+  Serial.println("rp2040 dac7578 sine wave generator");
   Serial.print("firmware ");
   Serial.print(__TIME__);
   Serial.print(" / ");
   Serial.println(__DATE__);
 
-  // initialize the first DACX578
-  while (!dac0.begin((uint8_t)0x47, &Wire)) {
-    Serial.println("Failed to find dac0");
-    delay(1000);
+  if (nchannel > 0) {
+    // initialize the first DACX578
+    while (!dac0.begin(addr0, &Wire)) {
+      Serial.println("Failed to find dac0");
+      delay(1000);
+    }
+    Serial.println("dac0 initialized");
   }
-  Serial.println("dac0 initialized");
 
-  // initialize the second DACX578
-  while (!dac1.begin((uint8_t)0x4C, &Wire)) {
-    Serial.println("Failed to find dac1");
-    delay(1000);
+  if (nchannel > 8) {
+    // initialize the second DACX578
+    while (!dac1.begin(addr1, &Wire)) {
+      Serial.println("Failed to find dac1");
+      delay(1000);
+    }
+    Serial.println("dac1 initialized");
   }
-  Serial.println("dac1 initialized");
 
-  for (uint8_t channel = 0; channel < 16; channel++) {
+  if (nchannel > 16) {
+    // initialize the third DACX578
+    while (!dac2.begin(addr2, &Wire)) {
+      Serial.println("Failed to find dac2");
+      delay(1000);
+    }
+    Serial.println("dac2 initialized");
+  }
+
+  for (uint8_t channel = 0; channel < nchannel; channel++) {
+    // shift the frequency
+    frequency[channel] += freqshift;
     Serial.print("channel ");
     Serial.print(channel + 1);
     Serial.print(" = ");
@@ -72,7 +97,6 @@ void setup() {
 }
 
 void loop() {
-  static float phase[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   static uint32_t lastSample = micros();
   static uint32_t lastFeedback = micros();
 
@@ -81,22 +105,26 @@ void loop() {
 
   if (deltaTime >= sampleTime) {
 
-    // update the phase for each of the channels
-    for (uint8_t channel = 0; channel < 16; channel++) {
+    for (uint8_t channel = 0; channel < nchannel; channel++) {
+      // increment the phase according to the channels-specific frequency
       phase[channel] += 2.0 * M_PI * frequency[channel] * ((float)deltaTime / 1000000);
       if (phase[channel] >= 2.0 * M_PI) {
         phase[channel] -= 2.0 * M_PI;
       }
 
-      // compute and set the new value for each of the channels
+      // compute the new value
       float sineValue = sin(phase[channel]) * amplitude + offset;
-      if (channel < 8) {
+
+      // set the output to the new value
+      if (channel < 8)
         // channels 0-7 on the first DAC
         dac0.writeAndUpdateChannelValue(channel, (uint16_t)sineValue);
-      } else {
+      else if (channel < 16)
         // channels 8-15 correspond to channels 0-7 on the second DAC
         dac1.writeAndUpdateChannelValue(channel - 8, (uint16_t)sineValue);
-      }
+      else if (channel < 24)
+        // channels 16-23 correspond to channels 0-7 on the third DAC
+        dac2.writeAndUpdateChannelValue(channel - 16, (uint16_t)sineValue);
     }
     lastSample = currentTime;
 
