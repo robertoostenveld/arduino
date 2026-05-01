@@ -1,6 +1,6 @@
 #include "blink_led.h"
 
-Ticker blinker(ledFlip, 1000, 0, MILLIS);
+Ticker blink(ledFlip, 1000, 0, MILLIS);
 
 enum {
   LED_ON,
@@ -12,13 +12,13 @@ enum {
 
 void ledInit() {
   pinMode(LED_BUILTIN, OUTPUT);
-  blinker.pause();
+  blink.pause();
 }
 
 void ledOn() {
   if (ledState != LED_ON) {
     ledState = LED_ON;
-    blinker.pause();
+    blink.pause();
     digitalWrite(LED_BUILTIN, LOW);
   }
 }
@@ -26,7 +26,7 @@ void ledOn() {
 void ledOff() {
   if (ledState != LED_OFF) {
     ledState = LED_OFF;
-    blinker.pause();
+    blink.pause();
     digitalWrite(LED_BUILTIN, HIGH);
   }
 }
@@ -34,24 +34,24 @@ void ledOff() {
 void ledSlow() {
   if (ledState != LED_SLOW) {
     ledState = LED_SLOW;
-    blinker.interval(1000);
-    blinker.resume();
+    blink.interval(1000);
+    blink.resume();
   }
 }
 
 void ledMedium() {
   if (ledState != LED_MEDIUM) {
     ledState = LED_MEDIUM;
-    blinker.interval(250);
-    blinker.resume();
+    blink.interval(250);
+    blink.resume();
   }
 }
 
 void ledFast() {
   if (ledState != LED_FAST) {
     ledState = LED_FAST;
-    blinker.interval(100);
-    blinker.resume();
+    blink.interval(100);
+    blink.resume();
   }
 }
 

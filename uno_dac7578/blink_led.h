@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <Ticker.h>  // see https://github.com/sstaub/Ticker
 
-extern Ticker blinker;
+extern Ticker blink;
 
 void ledInit(void);
 void ledOn(void);
