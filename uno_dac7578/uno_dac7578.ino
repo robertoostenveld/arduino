@@ -10,11 +10,19 @@
  *   https://learn.adafruit.com/adafruit-dac7578-8-x-channel-12-bit-i2c-dac
  */
 
+#define USE_LOOKUP
+#define M_2PI 6.28318530717958647692528676655900576
+
 #include <Adafruit_DACX578.h>
 #include <Adafruit_I2CDevice.h>
-#include <math.h>
 
 #include "blink_led.h"
+
+#ifdef USE_LOOKUP
+#include "lookup.h"
+#else
+#include <math.h>
+#endif
 
 Adafruit_DACX578 dac0(12);
 Adafruit_DACX578 dac1(12);
@@ -28,19 +36,20 @@ const uint8_t addr0 = 0x4C;  // open pads
 const uint8_t addr1 = 0x48;  // left pads
 const uint8_t addr2 = 0x4A;  // right pads
 
+// these define the sine waves
+const float freqoffset = 5;            // Frequency for the first channel
+const float freqstepsize = 0.2;        // Frequency spacing between channels
+const float offset = 2048;             // Offset for the 12-bit DAC output (0 to 4095)
+const float amplitude = 2047;          // Half of the full scale for 12-bit DAC output (0 to 4095)
+const uint32_t sampleTime = 5000;      // Approximate time between samples, in microseconds
+const uint32_t feedbackTime = -1;      // Time between serial feedback, in microseconds (-1 for no feedback)
+
 // these will be updated according to the number of DACs found
-int nchannels = 24;
-int dacBoard[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2 };
-int dacChannel[24] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7 };
+uint8_t nchannels = 24;
+uint8_t dacBoard[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2 };
+uint8_t dacChannel[24] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7 };
 float frequency[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 float phase[24] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-float freqoffset = 5;
-float freqstepsize = 0.2;
-
-const float offset = 2048;          // Offset for the 12-bit DAC output (0 to 4095)
-const float amplitude = 2047;       // Half of the full scale for 12-bit DAC (0 to 4095)
-const uint32_t sampleTime = 10000;  // Approximate time between samples, in microseconds
-const uint32_t feedbackTime = -1;   // Time between serial feedback, in microseconds (-1 for no feedback)
 
 void blinkdelay(uint32_t duration) {
   // wait for some time, but keep the LED blinking
@@ -52,6 +61,9 @@ void blinkdelay(uint32_t duration) {
 };
 
 void setup() {
+  // allow some time for reprogramming
+  delay(2000);
+
   // blink rapidly, this will continue indefinitely when the setup fails
   ledInit();
   ledFast();
@@ -77,12 +89,12 @@ void setup() {
     dac0Found = dac0.begin(addr0, &Wire);
   }
   if (!dac0Found) {
-    Serial.print("Failed to find dac0 at address ");
-    Serial.println(addr0, HEX);
+    Serial.print("Failed to find dac0");
   } else {
-    Serial.print("Initialized dac0 at address ");
-    Serial.println(addr0, HEX);
+    Serial.print("Initialized dac0");
   }
+  Serial.print(" at address ");
+  Serial.println(addr0, HEX);
 
   // initialize the second DACC7578
   dac1Found = dac1.begin(addr1, &Wire);
@@ -92,12 +104,12 @@ void setup() {
     dac1Found = dac1.begin(addr1, &Wire);
   }
   if (!dac1Found) {
-    Serial.print("Failed to find dac1 at address ");
-    Serial.println(addr1, HEX);
+    Serial.print("Failed to find dac1");
   } else {
-    Serial.print("Initialized dac1 at address ");
-    Serial.println(addr1, HEX);
+    Serial.print("Initialized dac1");
   }
+  Serial.print(" at address ");
+  Serial.println(addr1, HEX);
 
   // initialize the third DACC7578
   dac2Found = dac2.begin(addr2, &Wire);
@@ -107,29 +119,31 @@ void setup() {
     dac2Found = dac2.begin(addr2, &Wire);
   }
   if (!dac2Found) {
-    Serial.print("Failed to find dac2 at address ");
-    Serial.println(addr2, HEX);
+    Serial.print("Failed to find dac2");
   } else {
-    Serial.print("Initialized dac2 at address ");
-    Serial.println(addr2, HEX);
+    Serial.print("Initialized dac2");
   }
+  Serial.print(" at address ");
+  Serial.println(addr2, HEX);
 
   // update the channel-to-board mapping
   for (uint8_t channel = 0; channel < 24; channel++) {
-    // shift each channel to the next board if the current board is not found
-    if (!dac0Found && dacBoard[channel] == 0) {
+    // if board 0 is not found, all its channels shift to the next board
+    if (!dac0Found && dacBoard[channel] >= 0) {
       dacBoard[channel]++;
     }
-    if (!dac1Found && dacBoard[channel] == 1) {
+    // if board 1 is not found, all its channels shift to the next board
+    if (!dac1Found && dacBoard[channel] >= 1) {
       dacBoard[channel]++;
     }
-    if (!dac2Found && dacBoard[channel] == 2) {
+    // if board 1 is not found, all its channels shift to the next board
+    if (!dac2Found && dacBoard[channel] >= 2) {
       dacBoard[channel]++;
     }
   }
 
   // update the number of channels according to the number of DAC boards that were found
-  nchannels = 8 * dac0Found + 8 * dac1Found + 8 * dac2Found;
+  nchannels = 8 * (dac0Found + dac1Found + dac2Found);
 
   // set the frequency for each channel
   for (uint8_t channel = 0; channel < nchannels; channel++) {
@@ -143,13 +157,27 @@ void setup() {
     Serial.println(" Hz");
   }
 
-  // The Arduino Leonardo (based on the ATmega32u4) defaults to an I2C clock speed of 100 kHz and supports a maximum clock speed of 400 kHz
-  Wire.setClock(400000);
+#ifdef USE_LOOKUP
+  // apply the offset and amplitude to the sine wave lookup table
+  for (uint16_t index = 0; index < LOOKUP_LEN; index++) {
+    float value = lookup_value[index];
+    // the lookup table is constructed with an offset of 2048 and an amplitude of 2047, for a total range of 0 to 4095
+    value -= 2048;
+    value /= 2047;
+    // apply the user-specified amplitude and offset
+    value *= amplitude;
+    value += offset;
+    lookup_value[index] = value;
+  }
+#endif
 
   // blink slowly for the rest of the time
   if (nchannels > 0) {
     ledSlow();
   }
+
+  // The Arduino Uno and Leonardo default to an I2C clock speed of 100 kHz but support a maximum clock speed of 400 kHz
+  Wire.setClock(400000);
 
 }  // setup
 
@@ -164,24 +192,31 @@ void loop() {
   uint32_t deltaTime = currentTime - lastSample;
 
   if (deltaTime >= sampleTime) {
+    // compute the time increments in radians
+    float deltaTimeRad = deltaTime * (M_2PI / 1000000);
 
     for (uint8_t channel = 0; channel < nchannels; channel++) {
       // increment the phase according to the channels-specific frequency
-      phase[channel] += 2.0 * M_PI * frequency[channel] * ((float)deltaTime / 1000000);
-      if (phase[channel] >= 2.0 * M_PI) {
-        phase[channel] -= 2.0 * M_PI;
-      }
+      phase[channel] += frequency[channel] * deltaTimeRad;
 
+#ifdef USE_LOOKUP
+      // lookup the new value, the lookup table has already been offset and scaled with the amplitude
+      uint16_t value = lookup_nearest(phase[channel]);
+#else
       // compute the new value
-      float sineValue = offset + amplitude * cos(phase[channel]);
+      uint16_t value = (float)(offset + amplitude * sin(phase[channel]));
+#endif
+
+      if (channel == -1)
+        Serial.println(value);
 
       // write the value to the corresponding channel of the corresponding dacBoard
       if (dacBoard[channel] == 0) {
-        dac0.writeAndUpdateChannelValue(dacChannel[channel], (uint16_t)sineValue);
+        dac0.writeAndUpdateChannelValue(dacChannel[channel], value);
       } else if (dacBoard[channel] == 1) {
-        dac1.writeAndUpdateChannelValue(dacChannel[channel], (uint16_t)sineValue);
+        dac1.writeAndUpdateChannelValue(dacChannel[channel], value);
       } else if (dacBoard[channel] == 2) {
-        dac2.writeAndUpdateChannelValue(dacChannel[channel], (uint16_t)sineValue);
+        dac2.writeAndUpdateChannelValue(dacChannel[channel], value);
       }
     }
     lastSample = currentTime;
@@ -192,5 +227,4 @@ void loop() {
     }
 
   }  // if deltaTime
-
 }  // loop
