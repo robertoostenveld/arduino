@@ -22,7 +22,7 @@ Using the firmware version from 3 May 2026, a 256 value lookup table and the `lo
 
 ## Arduino Leonardo
 
-The Arduino Leonardo comes with a micro-USB interface for the connection to a computer and to power the board. The Arduino Leonardo uses a ATmega32u4 microcontroller, defaults to an I2C clock speed of 100 kHz and supports a maximum clock speed of 400 kHz.
+The Arduino Leonardo comes with a micro-USB interface for the connection to a computer that can also supply power, or the 2.1 mm barrel plug connector can be used to power the board. Note that there are also headerless Leonardo boards available, which do not include a barrel jack. The Arduino Leonardo uses a ATmega32u4 microcontroller, defaults to an I2C clock speed of 100 kHz and supports a maximum clock speed of 400 kHz.
 
 Using the firmware version from 3 May 2026, a 512 value lookup table and the `lookup_nearest` implementation, I was able to achieve a stable update frequency of 200 Hz for 24 channels.
 

@@ -23,8 +23,9 @@
  * 
  */
 
+// the lookup tables are constructed with an offset of 2048 and an amplitude of 2047, for a total range of 0 to 4095
 #if LOOKUP_LEN == 4
-uint16_t lookup_value[LOOKUP_LEN] = { 2048, 4095, 2048, 1 };
+uint16_t lookup_value[LOOKUP_LEN] = { 2048, 4095, 2048, 1 }; // this corresponds to four samples of a sine wave at 0, 90, 180, 270 degrees with values of 0, +1, 0, -1
 #elif LOOKUP_LEN == 8
 uint16_t lookup_value[LOOKUP_LEN] = { 2048, 3495, 4095, 3495, 2048, 601, 1, 601 };
 #elif LOOKUP_LEN == 16

@@ -37,8 +37,8 @@ const uint8_t addr1 = 0x48;  // left pads
 const uint8_t addr2 = 0x4A;  // right pads
 
 // these define the sine waves
-const float freqoffset = 5;            // Frequency for the first channel
-const float freqstepsize = 0.2;        // Frequency spacing between channels
+const float freqoffset = 10;           // Frequency for the first channel
+const float freqstepsize = 1.0/3;      // Frequency spacing between channels
 const float offset = 2048;             // Offset for the 12-bit DAC output (0 to 4095)
 const float amplitude = 2047;          // Half of the full scale for 12-bit DAC output (0 to 4095)
 const uint32_t sampleTime = 5000;      // Approximate time between samples, in microseconds
