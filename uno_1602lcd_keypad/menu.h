@@ -16,7 +16,6 @@ extern LiquidCrystal lcd;
 // --------------------------------------------------
 
 enum Mode {
-  MODE_SINGLE,
   MODE_SEQUENTIAL,
   MODE_SIMULTANEOUS
 };
@@ -26,6 +25,7 @@ struct Settings {
   int offsetIndex;
   int stepsizeIndex;
   int durationIndex;
+  int channelIndex;
 };
 
 extern Settings settings;
@@ -37,31 +37,25 @@ extern Settings settings;
 enum MenuType {
   MENU_SUBMENU,
   MENU_ACTION,
-  MENU_VALUE,
+  MENU_VALUE_INT,
+  MENU_VALUE_FLOAT,
   MENU_OPTION
 };
 
 struct MenuItem {
   const char* label;
-
   int parent;
   int firstChild;
   int nextSibling;
-
   MenuType type;
-
-  Mode* modeValue;
   Mode option;
-
-  const float* values;
-  int valueCount;
-  int* valueIndex;
-
-  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type);
-  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
-           Mode* modeValue, Mode option);
-  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
-           const float* values, int valueCount, int* valueIndex);
+  const int* intValues;
+  int intCount;
+  int* intValueIndex;
+  const float* floatValues;
+  int floatCount;
+  int* floatValueIndex;
+  const char** floatLabels;
 };
 
 // --------------------------------------------------
@@ -79,16 +73,12 @@ enum MenuIndex {
   OFFSET,
   STEPSIZE,
   DURATION,
+  CHANNELS,
   SAVE_SETTINGS,
   LOAD_SETTINGS,
 
-  SINGLE_OPTION,
   SEQUENTIAL_OPTION,
   SIMULTANEOUS_OPTION,
-
-  INFO_SETTINGS,
-  VERSION,
-  COPYRIGHT,
 
   MENU_COUNT
 };
@@ -107,6 +97,7 @@ extern int scrollOffset;
 // --------------------------------------------------
 
 void initializeMenu();
+void initializeSettings();
 void displayMenu();
 void enterMenu(int item);
 void goBack();
