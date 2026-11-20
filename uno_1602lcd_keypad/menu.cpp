@@ -1,25 +1,75 @@
 #include <Arduino.h>
+#include <EEPROM.h>
 #include "menu.h"
 
 // --------------------------------------------------
 // Application variables
 // --------------------------------------------------
 
-int brightness = 5;
-int volume = 10;
-int operatingMode = 0;
-int counter = 0;
+Settings settings = {
+  MODE_SINGLE,
+  0,
+  0,
+  0
+};
+
+// --------------------------------------------------
+// Pre-defined values
+// --------------------------------------------------
+
+static const float offsetValues[] = { 0.0, 0.1, 0.5, 1.0, 2.0, 5.0 };
+static const float stepsizeValues[] = { 0.01, 0.05, 0.1, 0.5, 1.0 };
+static const float durationValues[] = { 1.0, 2.0, 5.0, 10.0, 30.0 };
+
+static const int offsetCount = sizeof(offsetValues) / sizeof(offsetValues[0]);
+static const int stepsizeCount = sizeof(stepsizeValues) / sizeof(stepsizeValues[0]);
+static const int durationCount = sizeof(durationValues) / sizeof(durationValues[0]);
+
+static const char* modeNames[] = { "Sgl", "Seq", "Sim" };
+
+// --------------------------------------------------
+// EEPROM storage
+// --------------------------------------------------
+
+#define EEPROM_ADDRESS 0
+#define EEPROM_MAGIC 0xA57C
+
+struct StoredSettings {
+  unsigned int magic;
+  Mode mode;
+  int offsetIndex;
+  int stepsizeIndex;
+  int durationIndex;
+};
 
 // --------------------------------------------------
 // Menu state
 // --------------------------------------------------
 
 int currentMenu = MAIN_MENU;
-int selectedItem = SETTINGS;
+int selectedItem = START;
 
 bool editing = false;
 
 int scrollOffset = 0;
+
+// --------------------------------------------------
+// Menu item constructors
+// --------------------------------------------------
+
+MenuItem::MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type)
+  : label(label), parent(parent), firstChild(firstChild), nextSibling(nextSibling), type(type),
+    modeValue(nullptr), option(MODE_SINGLE), values(nullptr), valueCount(0), valueIndex(nullptr) {}
+
+MenuItem::MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
+                   Mode* modeValue, Mode option)
+  : label(label), parent(parent), firstChild(firstChild), nextSibling(nextSibling), type(type),
+    modeValue(modeValue), option(option), values(nullptr), valueCount(0), valueIndex(nullptr) {}
+
+MenuItem::MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
+                   const float* values, int valueCount, int* valueIndex)
+  : label(label), parent(parent), firstChild(firstChild), nextSibling(nextSibling), type(type),
+    modeValue(nullptr), option(MODE_SINGLE), values(values), valueCount(valueCount), valueIndex(valueIndex) {}
 
 // --------------------------------------------------
 // Menu definition
@@ -28,40 +78,54 @@ int scrollOffset = 0;
 MenuItem menu[MENU_COUNT] = {
 
   // label, parent, firstChild, nextSibling, type,
-  // value, minValue, maxValue
+  // value information (depending on type)
 
-  { "Main menu", -1, SETTINGS, -1,
-    MENU_SUBMENU, nullptr, 0, 0 },
+  { "Main menu", -1, START, -1,
+    MENU_SUBMENU },
 
-  { "Settings", MAIN_MENU, BRIGHTNESS, MODE_MENU,
-    MENU_SUBMENU, nullptr, 0, 0 },
+  { "Start", MAIN_MENU, -1, SETTINGS,
+    MENU_ACTION },
 
-  { "Mode", MAIN_MENU, MODE_MANUAL, INFORMATION,
-    MENU_SUBMENU, nullptr, 0, 0 },
+  { "Settings", MAIN_MENU, MODE_MENU, INFORMATION,
+    MENU_SUBMENU },
 
-  { "Information", MAIN_MENU, VERSION, -1,
-    MENU_SUBMENU, nullptr, 0, 0 },
+  { "Information", MAIN_MENU, INFO_SETTINGS, -1,
+    MENU_SUBMENU },
 
-  { "Brightness", SETTINGS, -1, VOLUME,
-    MENU_VALUE, &brightness, 0, 10 },
+  { "Mode", SETTINGS, SINGLE_OPTION, OFFSET,
+    MENU_SUBMENU },
 
-  { "Volume", SETTINGS, -1, -1,
-    MENU_VALUE, &volume, 0, 20 },
+  { "Offset", SETTINGS, -1, STEPSIZE,
+    MENU_VALUE, offsetValues, offsetCount, &settings.offsetIndex },
 
-  { "Manual", MODE_MENU, -1, MODE_AUTOMATIC,
-    MENU_OPTION, &operatingMode, 0, 0 },
+  { "Stepsize", SETTINGS, -1, DURATION,
+    MENU_VALUE, stepsizeValues, stepsizeCount, &settings.stepsizeIndex },
 
-  { "Automatic", MODE_MENU, -1, MODE_CALIBRATION,
-    MENU_OPTION, &operatingMode, 0, 1 },
+  { "Duration", SETTINGS, -1, SAVE_SETTINGS,
+    MENU_VALUE, durationValues, durationCount, &settings.durationIndex },
 
-  { "Calibration", MODE_MENU, -1, -1,
-    MENU_OPTION, &operatingMode, 0, 2 },
+  { "Save settings", SETTINGS, -1, LOAD_SETTINGS, MENU_ACTION },
 
-  { "Version", INFORMATION, -1, COUNTER_MENU,
-    MENU_ACTION, nullptr, 0, 0 },
+  { "Load settings", SETTINGS, -1, -1,
+    MENU_ACTION },
 
-  { "Counter", INFORMATION, -1, -1,
-    MENU_ACTION, nullptr, 0, 0 }
+  { "Single", MODE_MENU, -1, SEQUENTIAL_OPTION,
+    MENU_OPTION, &settings.mode, MODE_SINGLE },
+
+  { "Sequential", MODE_MENU, -1, SIMULTANEOUS_OPTION,
+    MENU_OPTION, &settings.mode, MODE_SEQUENTIAL },
+
+  { "Simultaneous", MODE_MENU, -1, -1,
+    MENU_OPTION, &settings.mode, MODE_SIMULTANEOUS },
+
+  { "Settings", INFORMATION, -1, VERSION,
+    MENU_ACTION },
+
+  { "Version", INFORMATION, -1, COPYRIGHT,
+    MENU_ACTION },
+
+  { "Copyright", INFORMATION, -1, -1,
+    MENU_ACTION }
 };
 
 // --------------------------------------------------
@@ -73,7 +137,7 @@ void initializeMenu() {
   lcd.clear();
 
   lcd.setCursor(0, 0);
-  lcd.print("Nested menu");
+  lcd.print("Mode control");
 
   lcd.setCursor(0, 1);
   lcd.print("Initializing...");
@@ -82,7 +146,7 @@ void initializeMenu() {
 
   enterMenu(MAIN_MENU);
 
-  selectedItem = SETTINGS;
+  selectedItem = START;
 
   displayMenu();
 }
@@ -157,6 +221,34 @@ void updateScroll() {
 }
 
 // --------------------------------------------------
+
+static void printValue(float value, int column, int row) {
+
+  char buffer[8];
+
+  dtostrf(value, 5, 2, buffer);
+
+  lcd.setCursor(column, row);
+  lcd.print(buffer);
+}
+
+// --------------------------------------------------
+
+static void showValue(int item, int row) {
+
+  MenuItem* current = &menu[item];
+
+  if (current->type == MENU_VALUE) {
+    printValue(current->values[*current->valueIndex], 11, row);
+  }
+
+  if (current->type == MENU_OPTION && *current->modeValue == current->option) {
+    lcd.setCursor(15, row);
+    lcd.print('*');
+  }
+}
+
+// --------------------------------------------------
 // Display
 // --------------------------------------------------
 
@@ -176,11 +268,7 @@ void displayMenu() {
 
     lcd.setCursor(0, 1);
     lcd.print("< ");
-
-    if (menu[selectedItem].value != nullptr) {
-      lcd.print(*menu[selectedItem].value);
-    }
-
+    lcd.print(menu[selectedItem].values[*menu[selectedItem].valueIndex], 2);
     lcd.print(" >");
 
     return;
@@ -200,6 +288,7 @@ void displayMenu() {
   if (child1 != -1) {
     lcd.print(child1 == selectedItem ? ">" : " ");
     lcd.print(menu[child1].label);
+    showValue(child1, 0);
   }
 
   // Second row
@@ -209,6 +298,7 @@ void displayMenu() {
   if (child2 != -1) {
     lcd.print(child2 == selectedItem ? ">" : " ");
     lcd.print(menu[child2].label);
+    showValue(child2, 1);
   }
 }
 
@@ -243,11 +333,49 @@ void goBack() {
     currentMenu = parent;
 
     selectedItem = currentMenu == MAIN_MENU
-                     ? SETTINGS
+                     ? START
                      : menu[currentMenu].firstChild;
 
     scrollOffset = 0;
   }
+}
+
+// --------------------------------------------------
+// Settings storage
+// --------------------------------------------------
+
+void saveSettings() {
+
+  StoredSettings stored = {
+    EEPROM_MAGIC,
+    settings.mode,
+    settings.offsetIndex,
+    settings.stepsizeIndex,
+    settings.durationIndex
+  };
+
+  EEPROM.put(EEPROM_ADDRESS, stored);
+}
+
+// --------------------------------------------------
+
+bool loadSettings() {
+
+  StoredSettings stored;
+
+  EEPROM.get(EEPROM_ADDRESS, stored);
+
+  if (stored.magic != EEPROM_MAGIC)
+    return false;
+
+  if (stored.mode <= MODE_SIMULTANEOUS)
+    settings.mode = stored.mode;
+
+  settings.offsetIndex = constrain(stored.offsetIndex, 0, offsetCount - 1);
+  settings.stepsizeIndex = constrain(stored.stepsizeIndex, 0, stepsizeCount - 1);
+  settings.durationIndex = constrain(stored.durationIndex, 0, durationCount - 1);
+
+  return true;
 }
 
 // --------------------------------------------------
@@ -258,6 +386,60 @@ void executeAction(int item) {
 
   switch (item) {
 
+    case START:
+
+      lcd.clear();
+      lcd.print("Started");
+
+      lcd.setCursor(0, 1);
+      lcd.print(modeNames[settings.mode]);
+
+      delay(1000);
+
+      break;
+
+    case SAVE_SETTINGS:
+
+      saveSettings();
+
+      lcd.clear();
+      lcd.print("Settings saved");
+
+      delay(1000);
+
+      break;
+
+    case LOAD_SETTINGS:
+      {
+
+        bool loaded = loadSettings();
+
+        lcd.clear();
+        lcd.print(loaded ? "Settings loaded" : "No saved data");
+
+        delay(1000);
+
+        break;
+      }
+
+    case INFO_SETTINGS:
+
+      lcd.clear();
+      lcd.print("O:");
+      lcd.print(offsetValues[settings.offsetIndex], 2);
+      lcd.print(" S:");
+      lcd.print(stepsizeValues[settings.stepsizeIndex], 2);
+
+      lcd.setCursor(0, 1);
+      lcd.print("D:");
+      lcd.print(durationValues[settings.durationIndex], 2);
+      lcd.print(" ");
+      lcd.print(modeNames[settings.mode]);
+
+      delay(1000);
+
+      break;
+
     case VERSION:
 
       lcd.clear();
@@ -267,13 +449,13 @@ void executeAction(int item) {
 
       break;
 
-    case COUNTER_MENU:
-
-      counter++;
+    case COPYRIGHT:
 
       lcd.clear();
-      lcd.print("Counter:");
-      lcd.print(counter);
+      lcd.print("Copyright (c) 2026");
+
+      lcd.setCursor(0, 1);
+      lcd.print("All rights reserved");
 
       delay(1000);
 
@@ -300,7 +482,7 @@ void handleButton(Button button) {
 
     enterMenu(MAIN_MENU);
 
-    selectedItem = SETTINGS;
+    selectedItem = START;
     scrollOffset = 0;
 
     displayMenu();
@@ -318,14 +500,14 @@ void handleButton(Button button) {
 
     if (button == BTN_UP) {
 
-      if (*item->value < item->maxValue)
-        (*item->value)++;
+      if (*item->valueIndex < item->valueCount - 1)
+        (*item->valueIndex)++;
     }
 
     if (button == BTN_DOWN) {
 
-      if (*item->value > item->minValue)
-        (*item->value)--;
+      if (*item->valueIndex > 0)
+        (*item->valueIndex)--;
     }
 
     if (button == BTN_LEFT || button == BTN_RIGHT) {
@@ -384,7 +566,7 @@ void handleButton(Button button) {
 
       case MENU_OPTION:
 
-        operatingMode = item->minValue;
+        *item->modeValue = item->option;
 
         lcd.clear();
         lcd.print("Mode selected:");

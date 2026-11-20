@@ -15,10 +15,20 @@ extern LiquidCrystal lcd;
 // Application variables
 // --------------------------------------------------
 
-extern int brightness;
-extern int volume;
-extern int operatingMode;
-extern int counter;
+enum Mode {
+  MODE_SINGLE,
+  MODE_SEQUENTIAL,
+  MODE_SIMULTANEOUS
+};
+
+struct Settings {
+  Mode mode;
+  int offsetIndex;
+  int stepsizeIndex;
+  int durationIndex;
+};
+
+extern Settings settings;
 
 // --------------------------------------------------
 // Menu structure
@@ -40,9 +50,18 @@ struct MenuItem {
 
   MenuType type;
 
-  int* value;
-  int minValue;
-  int maxValue;
+  Mode* modeValue;
+  Mode option;
+
+  const float* values;
+  int valueCount;
+  int* valueIndex;
+
+  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type);
+  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
+           Mode* modeValue, Mode option);
+  MenuItem(const char* label, int parent, int firstChild, int nextSibling, MenuType type,
+           const float* values, int valueCount, int* valueIndex);
 };
 
 // --------------------------------------------------
@@ -52,19 +71,24 @@ struct MenuItem {
 enum MenuIndex {
   MAIN_MENU = 0,
 
+  START,
   SETTINGS,
-  MODE_MENU,
   INFORMATION,
 
-  BRIGHTNESS,
-  VOLUME,
+  MODE_MENU,
+  OFFSET,
+  STEPSIZE,
+  DURATION,
+  SAVE_SETTINGS,
+  LOAD_SETTINGS,
 
-  MODE_MANUAL,
-  MODE_AUTOMATIC,
-  MODE_CALIBRATION,
+  SINGLE_OPTION,
+  SEQUENTIAL_OPTION,
+  SIMULTANEOUS_OPTION,
 
+  INFO_SETTINGS,
   VERSION,
-  COUNTER_MENU,
+  COPYRIGHT,
 
   MENU_COUNT
 };
@@ -93,5 +117,7 @@ int getSelectedPosition();
 void selectPosition(int position);
 void updateScroll();
 void executeAction(int item);
+void saveSettings();
+bool loadSettings();
 
 #endif
