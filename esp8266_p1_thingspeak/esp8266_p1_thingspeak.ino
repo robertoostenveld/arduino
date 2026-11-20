@@ -29,9 +29,9 @@
 */
 
 #include <ESP8266WiFi.h>
-#include <SoftwareSerial.h>   // https://github.com/plerup/espsoftwareserial/
-#include <PubSubClient.h>     // https://github.com/knolleary/pubsubclient
-#include <dsmr.h>             // https://github.com/matthijskooijman/arduino-dsmr
+#include <SoftwareSerial.h>  // https://github.com/plerup/espsoftwareserial/
+#include <PubSubClient.h>    // https://github.com/knolleary/pubsubclient
+#include <dsmr.h>            // https://github.com/matthijskooijman/arduino-dsmr
 #include "secret.h"
 
 /* these are defined in secret.h 
@@ -47,7 +47,7 @@
     #define APIKEY  "XXXXXXXXXXXXXXXX"
 */
 
-const char* version    = __DATE__ " / " __TIME__;
+const char* version = __DATE__ " / " __TIME__;
 const int8_t rxPin = D2;
 const int8_t txPin = -1;
 const int8_t requestPin = D1;
@@ -77,72 +77,71 @@ const int mqtt_port = 1883;
 const char* server = "api.thingspeak.com";
 const int port = 80;
 
-const unsigned long intervalTime = 20 * 1000; // post data every 20 seconds
-const unsigned long durationLed = 1000;       // the status LED remains on for 1 second
+const unsigned long intervalTime = 20 * 1000;  // post data every 20 seconds
+const unsigned long durationLed = 1000;        // the status LED remains on for 1 second
 unsigned long resetCounter = 0, lastLed = 0, lastTime = 0;
 
-using MyData = ParsedData <
-               /* String */ identification,
-               /* String */ p1_version,
-               /* String */ timestamp,
-               /* String */ equipment_id,
-               /* FixedValue */ energy_delivered_tariff1,
-               /* FixedValue */ energy_delivered_tariff2,
-               /* FixedValue */ energy_returned_tariff1,
-               /* FixedValue */ energy_returned_tariff2,
-               /* String */ electricity_tariff,
-               /* FixedValue */ power_delivered,
-               /* FixedValue */ power_returned,
-               /* FixedValue */ electricity_threshold,
-               /* uint8_t */ electricity_switch_position,
-               /* uint32_t */ electricity_failures,
-               /* uint32_t */ electricity_long_failures,
-               /* String */ electricity_failure_log,
-               /* uint32_t */ electricity_sags_l1,
-               /* uint32_t */ electricity_sags_l2,
-               /* uint32_t */ electricity_sags_l3,
-               /* uint32_t */ electricity_swells_l1,
-               /* uint32_t */ electricity_swells_l2,
-               /* uint32_t */ electricity_swells_l3,
-               /* String */ message_short,
-               /* String */ message_long,
-               /* FixedValue */ voltage_l1,
-               /* FixedValue */ voltage_l2,
-               /* FixedValue */ voltage_l3,
-               /* FixedValue */ current_l1,
-               /* FixedValue */ current_l2,
-               /* FixedValue */ current_l3,
-               /* FixedValue */ power_delivered_l1,
-               /* FixedValue */ power_delivered_l2,
-               /* FixedValue */ power_delivered_l3,
-               /* FixedValue */ power_returned_l1,
-               /* FixedValue */ power_returned_l2,
-               /* FixedValue */ power_returned_l3,
-               /* uint16_t */ gas_device_type,
-               /* String */ gas_equipment_id,
-               /* uint8_t */ gas_valve_position,
-               /* TimestampedFixedValue */ gas_delivered,
-               /* uint16_t /*/ thermal_device_type,
-               /* String */ thermal_equipment_id,
-               /* uint8_t */ thermal_valve_position,
-               /* TimestampedFixedValue */ thermal_delivered,
-               /* uint16_t */ water_device_type,
-               /* String */ water_equipment_id,
-               /* uint8_t */ water_valve_position,
-               /* TimestampedFixedValue */ water_delivered,
-               /* uint16_t */ slave_device_type,
-               /* String */ slave_equipment_id,
-               /* uint8_t */ slave_valve_position,
-               /* TimestampedFixedValue */ slave_delivered
-               >;
+using MyData = ParsedData<
+  /* String */ identification,
+  /* String */ p1_version,
+  /* String */ timestamp,
+  /* String */ equipment_id,
+  /* FixedValue */ energy_delivered_tariff1,
+  /* FixedValue */ energy_delivered_tariff2,
+  /* FixedValue */ energy_returned_tariff1,
+  /* FixedValue */ energy_returned_tariff2,
+  /* String */ electricity_tariff,
+  /* FixedValue */ power_delivered,
+  /* FixedValue */ power_returned,
+  /* FixedValue */ electricity_threshold,
+  /* uint8_t */ electricity_switch_position,
+  /* uint32_t */ electricity_failures,
+  /* uint32_t */ electricity_long_failures,
+  /* String */ electricity_failure_log,
+  /* uint32_t */ electricity_sags_l1,
+  /* uint32_t */ electricity_sags_l2,
+  /* uint32_t */ electricity_sags_l3,
+  /* uint32_t */ electricity_swells_l1,
+  /* uint32_t */ electricity_swells_l2,
+  /* uint32_t */ electricity_swells_l3,
+  /* String */ message_short,
+  /* String */ message_long,
+  /* FixedValue */ voltage_l1,
+  /* FixedValue */ voltage_l2,
+  /* FixedValue */ voltage_l3,
+  /* FixedValue */ current_l1,
+  /* FixedValue */ current_l2,
+  /* FixedValue */ current_l3,
+  /* FixedValue */ power_delivered_l1,
+  /* FixedValue */ power_delivered_l2,
+  /* FixedValue */ power_delivered_l3,
+  /* FixedValue */ power_returned_l1,
+  /* FixedValue */ power_returned_l2,
+  /* FixedValue */ power_returned_l3,
+  /* uint16_t */ gas_device_type,
+  /* String */ gas_equipment_id,
+  /* uint8_t */ gas_valve_position,
+  /* TimestampedFixedValue */ gas_delivered,
+  /* uint16_t /*/ thermal_device_type,
+  /* String */ thermal_equipment_id,
+  /* uint8_t */ thermal_valve_position,
+  /* TimestampedFixedValue */ thermal_delivered,
+  /* uint16_t */ water_device_type,
+  /* String */ water_equipment_id,
+  /* uint8_t */ water_valve_position,
+  /* TimestampedFixedValue */ water_delivered,
+  /* uint16_t */ slave_device_type,
+  /* String */ slave_equipment_id,
+  /* uint8_t */ slave_valve_position,
+  /* TimestampedFixedValue */ slave_delivered >;
 
-MyData *globaldata;
+MyData* globaldata;
 
 /*****************************************************************************/
 
 struct Printer {
   template<typename Item>
-  void apply(Item &i) {
+  void apply(Item& i) {
     if (i.present()) {
       Serial.print(Item::name);
       Serial.print(F(": "));
@@ -197,7 +196,7 @@ void setup() {
 
 /*****************************************************************************/
 
-void loop () {
+void loop() {
   // this object should be recreated on every call, otherwise the parsing fails
   MyData localdata;
   // share a pointer to the object to the sendThingspeak functions
@@ -240,14 +239,13 @@ void loop () {
 #elif defined USE_REST
       sendThingspeakREST();
 #endif
-    }
-    else {
+    } else {
       // Parser error, print error
       Serial.println("---parse error-------------------------------------------------");
       Serial.println(err);
-    } // parse result ok
-  } // full telegram available
-} // loop
+    }  // parse result ok
+  }    // full telegram available
+}  // loop
 
 /*****************************************************************************/
 
@@ -256,11 +254,10 @@ void sendLOCALMQTT() {
     Serial.print("Reconnecting to MQTT...");
     if (mqtt_client.connect(CLIENTID)) {
       Serial.println(" done!");
-    }
-    else {
+    } else {
       Serial.println(" failed.");
       resetCounter++;
-      if (resetCounter >= 5 )
+      if (resetCounter >= 5)
         ESP.restart();
       delay(5000);
     }
@@ -270,15 +267,15 @@ void sendLOCALMQTT() {
     digitalWrite(LED_BUILTIN, LOW);  // it is inverted
     lastLed = millis();
 
-    mqtt_client.publish ("p1/power_delivered",          String(globaldata->power_delivered).c_str());
-    mqtt_client.publish ("p1/power_returned",           String(globaldata->power_returned).c_str());
-    mqtt_client.publish ("p1/gas_delivered",            String(globaldata->gas_delivered).c_str());
-    mqtt_client.publish ("p1/energy_delivered_tariff1", String(globaldata->energy_delivered_tariff1).c_str());
-    mqtt_client.publish ("p1/energy_delivered_tariff2", String(globaldata->energy_delivered_tariff2).c_str());
-    mqtt_client.publish ("p1/energy_returned_tariff1",  String(globaldata->energy_returned_tariff1).c_str());
-    mqtt_client.publish ("p1/energy_returned_tariff2",  String(globaldata->energy_returned_tariff2).c_str());
+    mqtt_client.publish("p1/power_delivered", String(globaldata->power_delivered).c_str());
+    mqtt_client.publish("p1/power_returned", String(globaldata->power_returned).c_str());
+    mqtt_client.publish("p1/gas_delivered", String(globaldata->gas_delivered).c_str());
+    mqtt_client.publish("p1/energy_delivered_tariff1", String(globaldata->energy_delivered_tariff1).c_str());
+    mqtt_client.publish("p1/energy_delivered_tariff2", String(globaldata->energy_delivered_tariff2).c_str());
+    mqtt_client.publish("p1/energy_returned_tariff1", String(globaldata->energy_returned_tariff1).c_str());
+    mqtt_client.publish("p1/energy_returned_tariff2", String(globaldata->energy_returned_tariff2).c_str());
   }
-} // sendLOCALMQTT
+}  // sendLOCALMQTT
 
 /*****************************************************************************/
 
@@ -287,11 +284,10 @@ void sendThingspeakMQTT() {
     Serial.print("Reconnecting to MQTT...");
     if (mqtt_client.connect(CLIENTID, USERNAME, PASSWORD)) {
       Serial.println(" done!");
-    }
-    else {
+    } else {
       Serial.println(" failed.");
       resetCounter++;
-      if (resetCounter >= 5 )
+      if (resetCounter >= 5)
         ESP.restart();
       delay(5000);
     }
@@ -322,7 +318,7 @@ void sendThingspeakMQTT() {
     if (mqtt_client.publish("channels/" CHANNEL "/publish", body.c_str()))
       resetCounter = 0;
   }
-} // sendThingspeakMQTT
+}  // sendThingspeakMQTT
 
 /*****************************************************************************/
 
@@ -369,14 +365,13 @@ void sendThingspeakREST() {
 
     wifi_client.stop();
     resetCounter = 0;
-  }
-  else {
+  } else {
     Serial.println("REST connection Failed.");
     Serial.println();
 
     resetCounter++;
-    if (resetCounter >= 5 ) {
+    if (resetCounter >= 5) {
       ESP.restart();
     }
   }
-} // sendThingspeakREST
+}  // sendThingspeakREST
