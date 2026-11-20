@@ -1,5 +1,5 @@
 /*
- * Read teh usage from a SDM120-Modbus energy meter using a NodeMCU-32S microcontroller
+ * Read the usage from a SDM120-Modbus energy meter using a NodeMCU-32S microcontroller
  * with an RS485 module with automatic flow direction control.
  *
  * This code is inspired by
