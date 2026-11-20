@@ -40,7 +40,9 @@ struct {
 
 // use an array of function pointers to jump to the desired mode
 void (*mode[]) (uint16_t, uint16_t, uint8_t, uint8_t *) {
-  mode0, mode1, mode2, mode3, mode4, mode5, mode6, mode7, mode8, mode9, mode10, mode11, mode12, mode13, mode14, mode15, mode16
+  mode0, mode1, mode2, mode3, mode4, mode5, mode6, mode7, mode8, mode9, 
+  mode10, mode11, mode12, mode13, mode14, mode15, mode16, mode17, mode18, mode19, 
+  mode20, mode21, mode22, mode23, mode24, mode25, mode26, mode27, mode28, mode29
 };
 
 // keep the timing of the function calls
