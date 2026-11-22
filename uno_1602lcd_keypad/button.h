@@ -1,6 +1,9 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
+#include <Arduino.h>
+#include <Bounce2.h>
+
 // --------------------------------------------------
 // Button definitions
 // --------------------------------------------------
@@ -18,6 +21,8 @@ enum Button {
 // Function declarations
 // --------------------------------------------------
 
+void initializeButtons();
+void updateButtons();
 Button readButton();
 
 #endif

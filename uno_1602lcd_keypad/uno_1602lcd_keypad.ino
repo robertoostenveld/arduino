@@ -27,6 +27,7 @@ void setup() {
   pinMode(pin_BL, OUTPUT);
   digitalWrite(pin_BL, HIGH);
 
+  initializeButtons();
   initializeMenu();
 }
 
@@ -36,17 +37,11 @@ void setup() {
 
 void loop() {
 
+  updateButtons();
+
   Button button = readButton();
 
   if (button != BTN_NONE) {
-
     handleButton(button);
-
-    // Wait for button release
-    while (readButton() != BTN_NONE) {
-      delay(10);
-    }
-
-    delay(150);  // Debounce
   }
 }
