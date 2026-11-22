@@ -22,13 +22,37 @@ enum Mode {
 
 struct Settings {
   Mode mode;
+  // these are not the actual values, but the indices into the available options
   int offsetIndex;
   int stepsizeIndex;
-  int durationIndex;
   int channelIndex;
+  int durationIndex;
+  bool loop;
 };
 
 extern Settings settings;
+
+// --------------------------------------------------
+// EEPROM storage
+// --------------------------------------------------
+
+#define EEPROM_ADDRESS 0
+#define EEPROM_MAGIC 0xA57D
+#define EEPROM_SIGNATURE_SIZE 16
+
+struct SavedSettings {
+  unsigned int magic;
+  char signature[EEPROM_SIGNATURE_SIZE];
+  Mode mode;
+  // these are not the actual values, but the indices into the available options
+  int offsetIndex;
+  int stepsizeIndex;
+  int channelIndex;
+  int durationIndex;
+  bool loop;
+};
+
+extern SavedSettings savedSettings;
 
 // --------------------------------------------------
 // Menu structure
@@ -39,6 +63,7 @@ enum MenuType {
   MENU_ACTION,
   MENU_VALUE_INT,
   MENU_VALUE_FLOAT,
+  MENU_VALUE_BOOL,
   MENU_OPTION
 };
 
@@ -56,6 +81,7 @@ struct MenuItem {
   int floatCount;
   int* floatValueIndex;
   const char** floatLabels;
+  bool* boolValue;
 };
 
 // --------------------------------------------------
@@ -69,11 +95,12 @@ enum MenuIndex {
   SETTINGS,
   INFORMATION,
 
-  MODE_MENU,
+  MODE,
   OFFSET,
   STEPSIZE,
-  DURATION,
   CHANNELS,
+  DURATION,
+  LOOP,
   SAVE_SETTINGS,
   LOAD_SETTINGS,
 

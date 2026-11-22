@@ -10,10 +10,11 @@
 
 static const Settings defaultSettings = {
   MODE_SEQUENTIAL,
-  10, // offsetIndex
-  6,  // stepsizeIndex
-  7,  // durationIndex
-  23  // channelIndex
+  10,     // offsetIndex
+  7,      // stepsizeIndex
+  23,     // channelIndex
+  7,      // durationIndex
+  false   // loop
 };
 
 Settings settings = defaultSettings;
@@ -23,35 +24,17 @@ Settings settings = defaultSettings;
 // --------------------------------------------------
 
 static const float offsetValues[] = { 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0 };
-static const float stepsizeValues[] = { 1./9, 1./8, 1./7, 1./6, 1./5, 1./4, 1./3, 1./2, 1./1 };
-static const char* stepsizeLabels[] = { "1/9", "1/8", "1/7", "1/6", "1/5", "1/4", "1/3", "1/2", "1/1" };
-static const float durationValues[] = { 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 240.0, 300.0, 9999.0 };
+static const float stepsizeValues[] = { 0.0, 1./9, 1./8, 1./7, 1./6, 1./5, 1./4, 1./3, 1./2, 1./1 };
+static const char* stepsizeLabels[] = { "0", "1/9", "1/8", "1/7", "1/6", "1/5", "1/4", "1/3", "1/2", "1/1" };
 static const int channelValues[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 };
+static const float durationValues[] = { 1.0, 2.0, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 240.0, 300.0, 9999.0 };
 
 static const int offsetCount = sizeof(offsetValues) / sizeof(offsetValues[0]);
 static const int stepsizeCount = sizeof(stepsizeValues) / sizeof(stepsizeValues[0]);
-static const int durationCount = sizeof(durationValues) / sizeof(durationValues[0]);
 static const int channelCount = sizeof(channelValues) / sizeof(channelValues[0]);
+static const int durationCount = sizeof(durationValues) / sizeof(durationValues[0]);
 
 static const char* modeNames[] = { "Seq", "Sim" };
-
-// --------------------------------------------------
-// EEPROM storage
-// --------------------------------------------------
-
-#define EEPROM_ADDRESS 0
-#define EEPROM_MAGIC 0xA57D
-#define EEPROM_SIGNATURE_SIZE 16
-
-struct StoredSettings {
-  unsigned int magic;
-  char signature[EEPROM_SIGNATURE_SIZE];
-  Mode mode;
-  int offsetIndex;
-  int stepsizeIndex;
-  int durationIndex;
-  int channelIndex;
-};
 
 // --------------------------------------------------
 // Menu state
@@ -72,20 +55,21 @@ static bool showingInfo = false;
 
 // clang-format off
 MenuItem menu[MENU_COUNT] = {
-  // idx            label            parent        firstChild          nextSibling         type                 option              int*,n,pInt           float*,n,pFloat,labels
-  /* MAIN_MENU      */ { "Main menu",     -1,           START,              -1,                 MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* START          */ { "Start",         MAIN_MENU,    -1,                 SETTINGS,           MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* SETTINGS       */ { "Settings",      MAIN_MENU,    MODE_MENU,          INFORMATION,        MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* INFORMATION    */ { "Information",   MAIN_MENU,    -1,                 -1,                 MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* MODE_MENU      */ { "Mode",          SETTINGS,     SEQUENTIAL_OPTION,  OFFSET,             MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* OFFSET         */ { "Offset",        SETTINGS,     -1,                 STEPSIZE,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          offsetValues,offsetCount,&settings.offsetIndex,NULL },
-  /* STEPSIZE       */ { "Stepsize",      SETTINGS,     -1,                 DURATION,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          stepsizeValues,stepsizeCount,&settings.stepsizeIndex,stepsizeLabels },
-  /* DURATION       */ { "Duration",      SETTINGS,     -1,                 CHANNELS,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          durationValues,durationCount,&settings.durationIndex,NULL },
-  /* CHANNELS       */ { "Channels",      SETTINGS,     -1,                 SAVE_SETTINGS,      MENU_VALUE_INT,      MODE_SEQUENTIAL,    channelValues,channelCount,&settings.channelIndex, NULL,0,NULL,NULL },
-  /* SAVE_SETTINGS  */ { "Save settings", SETTINGS,     -1,                 LOAD_SETTINGS,      MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* LOAD_SETTINGS  */ { "Load settings", SETTINGS,     -1,                 -1,                 MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* SEQ_OPT        */ { "Sequential",    MODE_MENU,    -1,                 SIMULTANEOUS_OPTION,MENU_OPTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL },
-  /* SIM_OPT        */ { "Simultaneous",  MODE_MENU,    -1,                 -1,                 MENU_OPTION,         MODE_SIMULTANEOUS,  NULL,0,NULL,          NULL,0,NULL,NULL },
+  // idx            label            parent        firstChild          nextSibling         type                 option              int*,n,pInt           float*,n,pFloat,labels        bool*
+  /* MAIN_MENU      */ { "Main menu",     -1,           START,              -1,                 MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* START          */ { "Start",         MAIN_MENU,    -1,                 SETTINGS,           MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* SETTINGS       */ { "Settings",      MAIN_MENU,    MODE,               INFORMATION,        MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* INFORMATION    */ { "Information",   MAIN_MENU,    -1,                 -1,                 MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* MODE           */ { "Mode",          SETTINGS,     SEQUENTIAL_OPTION,  OFFSET,             MENU_SUBMENU,        MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* OFFSET         */ { "Offset",        SETTINGS,     -1,                 STEPSIZE,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          offsetValues,offsetCount,&settings.offsetIndex,NULL, NULL },
+  /* STEPSIZE       */ { "Stepsize",      SETTINGS,     -1,                 DURATION,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          stepsizeValues,stepsizeCount,&settings.stepsizeIndex,stepsizeLabels, NULL },
+  /* DURATION       */ { "Duration",      SETTINGS,     -1,                 CHANNELS,           MENU_VALUE_FLOAT,    MODE_SEQUENTIAL,    NULL,0,NULL,          durationValues,durationCount,&settings.durationIndex,NULL, NULL },
+  /* CHANNELS       */ { "Channels",      SETTINGS,     -1,                 LOOP,               MENU_VALUE_INT,      MODE_SEQUENTIAL,    channelValues,channelCount,&settings.channelIndex, NULL,0,NULL,NULL, NULL },
+  /* LOOP           */ { "Loop",          SETTINGS,     -1,                 SAVE_SETTINGS,      MENU_VALUE_BOOL,     MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        &settings.loop },
+  /* SAVE_SETTINGS  */ { "Save settings", SETTINGS,     -1,                 LOAD_SETTINGS,      MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* LOAD_SETTINGS  */ { "Load settings", SETTINGS,     -1,                 -1,                 MENU_ACTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* SEQ_OPT        */ { "Sequential",    MODE,    -1,                 SIMULTANEOUS_OPTION,MENU_OPTION,         MODE_SEQUENTIAL,    NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
+  /* SIM_OPT        */ { "Simultaneous",  MODE,    -1,                 -1,                 MENU_OPTION,         MODE_SIMULTANEOUS,  NULL,0,NULL,          NULL,0,NULL,NULL,        NULL },
 };
 // clang-format on
 
@@ -225,6 +209,11 @@ static void printEditValue(int item) {
     printFloatValue(item, *current->floatValueIndex);
   }
 
+  else if (current->type == MENU_VALUE_BOOL &&
+           current->boolValue != NULL) {
+    lcd.print(*current->boolValue ? "yes" : "no");
+  }
+
   else {
     lcd.print("?");
   }
@@ -236,7 +225,7 @@ static void showValue(int item, int row) {
 
   MenuItem* current = &menu[item];
 
-  if (item == MODE_MENU) {
+  if (item == MODE) {
     lcd.setCursor(11, row);
     lcd.print(modeNames[settings.mode]);
   }
@@ -260,6 +249,11 @@ static void showValue(int item, int row) {
     else {
       printValue(current->floatValues[*current->floatValueIndex], 11, row);
     }
+  }
+
+  if (current->type == MENU_VALUE_BOOL && current->boolValue != NULL) {
+    lcd.setCursor(11, row);
+    lcd.print(*current->boolValue ? "yes" : "no");
   }
 
   if (current->type == MENU_OPTION && settings.mode == current->option) {
@@ -386,16 +380,17 @@ void goBack() {
 
 void saveSettings() {
 
-  StoredSettings stored;
+  SavedSettings stored;
 
   stored.magic = EEPROM_MAGIC;
   strncpy(stored.signature, VERSION_LINE2, EEPROM_SIGNATURE_SIZE - 1);
   stored.signature[EEPROM_SIGNATURE_SIZE - 1] = '\0';
   stored.mode = settings.mode;
-  stored.offsetIndex = settings.offsetIndex;
+  stored.offsetIndex   = settings.offsetIndex;
   stored.stepsizeIndex = settings.stepsizeIndex;
+  stored.channelIndex  = settings.channelIndex;
   stored.durationIndex = settings.durationIndex;
-  stored.channelIndex = settings.channelIndex;
+  stored.loop          = settings.loop;
 
   EEPROM.put(EEPROM_ADDRESS, stored);
 }
@@ -404,7 +399,7 @@ void saveSettings() {
 
 bool loadSettings() {
 
-  StoredSettings stored;
+  SavedSettings stored;
 
   EEPROM.get(EEPROM_ADDRESS, stored);
 
@@ -414,10 +409,11 @@ bool loadSettings() {
   if (stored.mode >= MODE_SEQUENTIAL && stored.mode <= MODE_SIMULTANEOUS)
     settings.mode = stored.mode;
 
-  settings.offsetIndex = constrain(stored.offsetIndex, 0, offsetCount - 1);
+  settings.offsetIndex   = constrain(stored.offsetIndex,   0, offsetCount - 1);
   settings.stepsizeIndex = constrain(stored.stepsizeIndex, 0, stepsizeCount - 1);
+  settings.channelIndex  = constrain(stored.channelIndex,  0, channelCount - 1);
   settings.durationIndex = constrain(stored.durationIndex, 0, durationCount - 1);
-  settings.channelIndex = constrain(stored.channelIndex, 0, channelCount - 1);
+  settings.loop          = (stored.loop != 0);
 
   return true;
 }
@@ -426,7 +422,7 @@ bool loadSettings() {
 
 void initializeSettings() {
 
-  StoredSettings stored;
+  SavedSettings stored;
 
   EEPROM.get(EEPROM_ADDRESS, stored);
 
@@ -550,6 +546,11 @@ void handleButton(Button button) {
       }
     }
 
+    if (current->type == MENU_VALUE_BOOL && current->boolValue != NULL &&
+        (button == BTN_UP || button == BTN_DOWN)) {
+      *current->boolValue = !*current->boolValue;
+    }
+
     if (button == BTN_LEFT || button == BTN_RIGHT) {
 
       editing = false;
@@ -624,6 +625,12 @@ void handleButton(Button button) {
         break;
 
       case MENU_VALUE_FLOAT:
+
+        editing = true;
+
+        break;
+
+      case MENU_VALUE_BOOL:
 
         editing = true;
 

@@ -10,8 +10,9 @@ Main menu
 │   │   └── Simultaneous
 │   ├── Offset
 │   ├── Stepsize
-│   ├── Duration
 │   ├── Channels
+│   ├── Duration
+│   ├── Loop
 │   ├── Save settings
 │   └── Load settings
 └── Information
@@ -21,7 +22,8 @@ Main menu
 - Mode is an enum: Sequential or Simultaneous. The active mode is shown as Seq or Sim next to Mode in the Settings menu and marked with `*` in the Mode menu.
 - Offset, Stepsize and Duration are selected from a pre-defined list of floating point values. UP / DOWN cycles through the available values while editing. Stepsize is displayed as 1/N.
 - Channels selects an integer from 1 to 24.
-- Save settings stores the current mode and value indices in EEPROM. After a firmware update, default settings are written to EEPROM automatically.
+- Loop is a boolean shown as yes/no; UP / DOWN toggles it while editing.
+- Save settings stores the current mode, loop flag and value indices in EEPROM. After a firmware update, default settings are written to EEPROM automatically.
 - Load settings gets the saved settings from EEPROM; if nothing has been saved yet, the current settings are left unchanged.
 - Start shows that the sequence has started.
 - Information shows the version and the compilation date and time. LEFT returns to the main menu.
